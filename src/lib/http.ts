@@ -1,5 +1,11 @@
 import { ZodError } from "zod";
+import { RevisionConflict } from "./editor";
 export function failure(error: unknown) {
+  if (error instanceof RevisionConflict)
+    return Response.json(
+      { error: error.message, code: "REVISION_CONFLICT" },
+      { status: 409 },
+    );
   if (error instanceof ZodError)
     return Response.json(
       {

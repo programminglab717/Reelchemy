@@ -1,3 +1,4 @@
+import { RevisionConflict } from "@/lib/editor";
 import { secureRoute } from "@/lib/access";
 import { getProject, reviseProject } from "@/lib/db";
 import { generatePlan, reviseScene } from "@/lib/provider";
@@ -38,9 +39,7 @@ async function POSTHandler(
             : undefined,
         );
     if (getProject(p.id)?.revisions.length !== revisionCount)
-      throw new Error(
-        "Project changed during planning. Retry using the latest version.",
-      );
+      throw new RevisionConflict();
     p.messages.push({
       role: "assistant",
       content: `${provider === "mock" ? "Demo director" : "AI director"} prepared ${timeline.scenes.length} scenes. Review the storyboard, edit any scene, then approve your export.`,

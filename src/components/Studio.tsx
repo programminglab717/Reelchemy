@@ -1,4 +1,5 @@
 "use client";
+import { useProjectEditor } from "./useProjectEditor";
 import { AssetPanel } from "./AssetPanel";
 import { LayerEditor } from "./LayerEditor";
 import { ExportHistory, QualityEvidence } from "./ExportHistory";
@@ -50,8 +51,9 @@ async function api<T>(url: string, method = "GET", data?: unknown): Promise<T> {
 }
 export function Studio() {
   const router = useRouter();
+  const editor = useProjectEditor();
+  const { project, dirty, save, change: editorChange } = editor;
   const [projects, setProjects] = useState<Project[]>([]),
-    [project, setProject] = useState<Project | null>(null),
     [prompt, setPrompt] = useState(""),
     [duration, setDuration] = useState(15),
     [format, setFormat] = useState<Timeline["format"]>("landscape");
@@ -59,10 +61,13 @@ export function Studio() {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [job, setJob] = useState<RenderJob | null>(null),
-    [selected, setSelected] = useState(0),
-    [dirty, setDirty] = useState(false),
+    [selection, setSelected] = useState(0),
     [revision, setRevision] = useState(""),
     [revisionScope, setRevisionScope] = useState("scene");
+  const selected = Math.min(
+    selection,
+    Math.max(0, (project?.timeline?.scenes.length || 1) - 1),
+  );
   const [scenePreview, setScenePreview] = useState(false);
   const player = useRef<PlayerRef>(null);
   useEffect(() => {
@@ -93,51 +98,50 @@ export function Studio() {
       setBusy(false);
     }
   }
-  function remember(p: Project) {
-    setProject(p);
-    setProjects((old) => [p, ...old.filter((x) => x.id !== p.id)]);
+  function remember(p: Project | null) {
+    editor.open(p);
+    if (p) setProjects((old) => [p, ...old.filter((x) => x.id !== p.id)]);
   }
-  async function create() {
+  async function create(blank = false) {
     await run(async () => {
       let p = await api<Project>("/api/projects", "POST", {
-        prompt,
+        prompt: blank ? "Untitled creation" : prompt,
+        blank,
         duration,
         format,
       });
       remember(p);
-      p = await api<Project>(`/api/projects/${p.id}/plan`, "POST", {});
+      if (!blank)
+        p = await api<Project>(`/api/projects/${p.id}/plan`, "POST", {});
       remember(p);
       setSelected(0);
       setJob(null);
-      setDirty(false);
     });
   }
-  async function save() {
-    if (!project?.timeline) return;
-    const p = await api<Project>(
-      `/api/projects/${project.id}`,
-      "PATCH",
-      project.timeline,
-    );
-    remember(p);
-    setDirty(false);
+  async function navigate(p: Project | null) {
+    await run(async () => {
+      await save();
+      remember(p ? await api<Project>(`/api/projects/${p.id}`) : null);
+      setSelected(0);
+      setJob(null);
+    });
+  }
+  function changeTimeline(t: Timeline) {
+    editor.change(t);
+    setSelected(Math.min(selected, t.scenes.length - 1));
+    setJob(null);
   }
   function changeScene(update: Partial<Timeline["scenes"][number]>) {
     if (!project?.timeline) return;
-    setProject({
-      ...project,
-      timeline: {
-        ...project.timeline,
-        scenes: project.timeline.scenes.map((s, i) =>
-          i === selected ? { ...s, ...update } : s,
-        ),
-      },
+    changeTimeline({
+      ...project.timeline,
+      scenes: project.timeline.scenes.map((s, i) =>
+        i === selected ? { ...s, ...update } : s,
+      ),
     });
-    setDirty(true);
-    setJob(null);
   }
   const timeline = project?.timeline,
-    scene = timeline?.scenes[selected];
+    scene = timeline?.scenes[Math.min(selected, timeline.scenes.length - 1)];
   const previewStart =
     timeline && scenePreview
       ? timeline.scenes
@@ -150,10 +154,38 @@ export function Studio() {
         : totalFrames(timeline)) - 1
     : 29;
   const active = job && ["queued", "rendering"].includes(job.status);
+  useEffect(() => {
+    const keyboard = (e: KeyboardEvent) => {
+      if (busy || !project?.timeline || !(e.ctrlKey || e.metaKey)) return;
+      const target = e.target as HTMLElement;
+      if (target.closest("input,textarea,select,[contenteditable=true]"))
+        return;
+      if (e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        editorChange(e.shiftKey ? "redo" : "undo");
+        setJob(null);
+      }
+      if (e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        void save().catch(() => {});
+      }
+    };
+    window.addEventListener("keydown", keyboard);
+    return () => window.removeEventListener("keydown", keyboard);
+  }, [busy, project, editorChange, save]);
+
   return (
     <div className="shell">
       <aside className="sidebar">
-        <Link className="wordmark" href="/" aria-label="Reelchemy home">
+        <Link
+          className="wordmark"
+          href="/"
+          aria-label="Reelchemy home"
+          onClick={(e) => {
+            e.preventDefault();
+            if (!busy) void navigate(null);
+          }}
+        >
           <span className="brand-icon">
             r<span>✳</span>
           </span>
@@ -161,12 +193,8 @@ export function Studio() {
         </Link>
         <button
           className="new-project"
-          onClick={() => {
-            setProject(null);
-            setJob(null);
-            setError("");
-            setDirty(false);
-          }}
+          onClick={() => void navigate(null)}
+          disabled={busy || editor.saving}
         >
           ＋ <span>New creation</span>
           <kbd>↵</kbd>
@@ -174,10 +202,8 @@ export function Studio() {
         <div className="nav-label">YOUR WORKSPACE</div>
         <button
           className={`nav-item ${!project ? "current" : ""}`}
-          onClick={() => {
-            setProject(null);
-            setJob(null);
-          }}
+          onClick={() => void navigate(null)}
+          disabled={busy || editor.saving}
         >
           ▦ <span>Studio</span>
           <span className="count">{projects.length}</span>
@@ -189,13 +215,8 @@ export function Studio() {
               <button
                 key={p.id}
                 className={`project-item ${project?.id === p.id ? "chosen" : ""}`}
-                onClick={() => {
-                  remember(p);
-                  setSelected(0);
-                  setJob(null);
-                  setDirty(false);
-                  setError("");
-                }}
+                onClick={() => void navigate(p)}
+                disabled={busy || editor.saving}
               >
                 <span>▱</span>
                 <span>{p.name}</span>
@@ -215,6 +236,13 @@ export function Studio() {
           <button
             className="subtle"
             onClick={async () => {
+              if (dirty) {
+                try {
+                  await save();
+                } catch {
+                  return;
+                }
+              }
               await authClient.signOut();
               router.replace("/sign-in");
               router.refresh();
@@ -315,6 +343,13 @@ export function Studio() {
                 </button>
               </div>
             </form>
+            <button
+              className="subtle blank-start"
+              disabled={!ready || busy}
+              onClick={() => void create(true)}
+            >
+              Start from a blank canvas
+            </button>
             <div className="composer-note">
               <span>✧</span> Demo director · Procedural animation · You approve
               before export
@@ -349,7 +384,6 @@ export function Studio() {
                 remember(p);
                 setSelected(0);
                 setJob(null);
-                setDirty(false);
               }}
             />
             <p className="home-foot">
@@ -370,16 +404,97 @@ export function Studio() {
               </div>
               <button
                 className="subtle"
-                onClick={() => {
-                  setProject(null);
-                  setJob(null);
-                }}
+                onClick={() => void navigate(null)}
+                disabled={busy || editor.saving}
               >
                 ← Studio
               </button>
             </div>
             {timeline && (
-              <>
+              <fieldset className="editor-content" disabled={busy}>
+                <div className="editor-actions">
+                  <button
+                    className="subtle"
+                    disabled={!editor.canUndo || busy}
+                    onClick={() => {
+                      editor.change("undo");
+                      setJob(null);
+                    }}
+                  >
+                    Undo
+                  </button>
+                  <button
+                    className="subtle"
+                    disabled={!editor.canRedo || busy}
+                    onClick={() => {
+                      editor.change("redo");
+                      setJob(null);
+                    }}
+                  >
+                    Redo
+                  </button>
+                  <span role="status">
+                    {editor.saving
+                      ? "Saving…"
+                      : dirty
+                        ? "Unsaved changes"
+                        : "All changes saved"}
+                  </span>
+                  <button
+                    className="subtle"
+                    disabled={!dirty || busy || editor.saving}
+                    onClick={() => void run(save)}
+                  >
+                    Save now
+                  </button>
+                </div>
+                {editor.saveError && (
+                  <div className="save-warning" role="alert">
+                    <p>{editor.saveError}</p>
+                    <button className="subtle" onClick={() => void run(save)}>
+                      Retry saving
+                    </button>
+                    <button
+                      className="subtle"
+                      onClick={() => {
+                        const url = URL.createObjectURL(
+                          new Blob([JSON.stringify(project, null, 2)], {
+                            type: "application/json",
+                          }),
+                        );
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `reelchemy-draft-${project.id}.json`;
+                        a.click();
+                        setTimeout(() => URL.revokeObjectURL(url), 1000);
+                      }}
+                    >
+                      Download unsaved draft
+                    </button>
+                    <button
+                      className="subtle"
+                      onClick={() =>
+                        void run(async () => {
+                          const latest = await api<Project>(
+                            `/api/projects/${project.id}`,
+                          );
+                          // Require an explicit user action before discarding a conflicting draft.
+                          if (
+                            window.confirm(
+                              "Replace your local edits with the latest saved version? Download your draft first if you want to keep it.",
+                            )
+                          ) {
+                            remember(latest);
+                            setSelected(0);
+                            setJob(null);
+                          }
+                        })
+                      }
+                    >
+                      Open latest saved version
+                    </button>
+                  </div>
+                )}
                 <div className="work-grid">
                   <section className="preview-panel">
                     <div className="panel-heading">
@@ -457,6 +572,7 @@ export function Studio() {
                       onSubmit={(e) => {
                         e.preventDefault();
                         void run(async () => {
+                          await save();
                           const p = await api<Project>(
                             `/api/projects/${project.id}/plan`,
                             "POST",
@@ -470,7 +586,6 @@ export function Studio() {
                           remember(p);
                           setRevision("");
                           setSelected(0);
-                          setDirty(false);
                           setJob(null);
                         });
                       }}
@@ -605,12 +720,8 @@ export function Studio() {
                             scenes[selected],
                             scenes[selected - 1],
                           ];
-                          setProject({
-                            ...project,
-                            timeline: { ...timeline, scenes },
-                          });
+                          changeTimeline({ ...timeline, scenes });
                           setSelected(selected - 1);
-                          setDirty(true);
                           setJob(null);
                         }}
                       >
@@ -626,12 +737,8 @@ export function Studio() {
                             scenes[selected],
                             scenes[selected + 1],
                           ];
-                          setProject({
-                            ...project,
-                            timeline: { ...timeline, scenes },
-                          });
+                          changeTimeline({ ...timeline, scenes });
                           setSelected(selected + 1);
-                          setDirty(true);
                           setJob(null);
                         }}
                       >
@@ -661,7 +768,11 @@ export function Studio() {
                           await api<Project>(
                             `/api/projects/${project.id}/restore`,
                             "POST",
-                            { revisionId },
+                            {
+                              revisionId,
+                              baseRevisionId:
+                                project.revisions.at(-1)?.id ?? null,
+                            },
                           ),
                         );
                         setSelected(0);
@@ -708,7 +819,7 @@ export function Studio() {
                 </section>
                 <AssetPanel
                   project={project}
-                  onProject={remember}
+                  onProject={editor.mergeAssets}
                   onAdd={(assetId) => {
                     if (!scene) return;
                     changeScene({
@@ -735,21 +846,12 @@ export function Studio() {
                   key={scene?.id}
                   timeline={timeline}
                   selected={Math.min(selected, timeline.scenes.length - 1)}
-                  onChange={(t) => {
-                    setProject({ ...project, timeline: t });
-                    setSelected(Math.min(selected, t.scenes.length - 1));
-                    setDirty(true);
-                    setJob(null);
-                  }}
+                  onChange={changeTimeline}
                 />
                 <MediaEditor
                   timeline={timeline}
                   assets={project.assets || []}
-                  onChange={(t) => {
-                    setProject({ ...project, timeline: t });
-                    setDirty(true);
-                    setJob(null);
-                  }}
+                  onChange={changeTimeline}
                 />
                 <section className="export-panel">
                   <div>
@@ -882,7 +984,7 @@ export function Studio() {
                     )}
                   </section>
                 )}
-              </>
+              </fieldset>
             )}
           </div>
         )}

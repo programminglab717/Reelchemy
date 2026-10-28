@@ -76,3 +76,34 @@ test("workspace ownership is immutable through normal saves and legacy content i
   assert(!db.projectInWorkspace(legacy.id, alice.id));
   assert(db.claimLegacyProjects(alice.id) > 0);
 });
+test("stale project revisions cannot overwrite a later timeline or newly uploaded assets", () => {
+  const p = db.createProject({
+    prompt: "Concurrent creators",
+    duration: 5,
+    format: "landscape",
+  });
+  db.reviseProject(p, mockPlan(p.brief), "Initial");
+  const stale = db.getProject(p.id)!;
+  const uploaded = db.getProject(p.id)!;
+  uploaded.assets = [
+    {
+      id: crypto.randomUUID(),
+      name: "Latest",
+      mime: "image/png",
+      source: "upload",
+      license: "Owner",
+      createdAt: new Date().toISOString(),
+    },
+  ];
+  db.saveProject(uploaded);
+  const timeline = structuredClone(p.timeline!);
+  timeline.scenes[0].title = "New version";
+  db.reviseProject(p, timeline, "Edit");
+  assert.deepEqual(p.assets, uploaded.assets);
+  assert.throws(
+    () => db.reviseProject(stale, stale.timeline!, "Stale tab"),
+    /newer saved version/,
+  );
+  assert.equal(db.getProject(p.id)?.timeline?.scenes[0].title, "New version");
+  assert.equal(db.getProject(p.id)?.revisions.length, 2);
+});

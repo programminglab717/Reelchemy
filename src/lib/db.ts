@@ -3,6 +3,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { Project, RenderJob, Timeline, CreativeBrief } from "./schema";
+import { revisionId, RevisionConflict } from "./editor";
 // Runtime state lives on the mounted filesystem; do not embed it in server traces.
 export const dataDir = path.resolve(
   /* turbopackIgnore: true */ process.env.REELCHEMY_DATA_DIR || ".data",
@@ -68,14 +69,20 @@ export function createProject(brief: CreativeBrief, workspaceId?: string) {
   );
 }
 export function reviseProject(p: Project, timeline: Timeline, source: string) {
-  p.timeline = timeline;
-  p.revisions.push({
-    id: randomUUID(),
-    createdAt: new Date().toISOString(),
-    timeline,
-    source,
-  });
-  return saveProject(p);
+  return db.transaction(() => {
+    const latest = getProject(p.id);
+    if (!latest || revisionId(latest) !== revisionId(p))
+      throw new RevisionConflict();
+    p.timeline = timeline;
+    p.assets = latest.assets;
+    p.revisions.push({
+      id: randomUUID(),
+      createdAt: new Date().toISOString(),
+      timeline,
+      source,
+    });
+    return saveProject(p);
+  })();
 }
 function enqueueJob(project: Project) {
   if (!project.timeline)

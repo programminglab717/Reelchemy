@@ -328,8 +328,8 @@ export function LayerEditor({
       </div>
       {error && <p role="alert">{error}</p>}
       <p>
-        Changes update the preview immediately. Save changes above before
-        leaving this project.
+        Changes update the preview immediately and save automatically. Undo and
+        redo remain available while this project is open.
       </p>
     </section>
   );
