@@ -4,6 +4,8 @@ import { LayerEditor } from "./LayerEditor";
 import { ExportHistory, QualityEvidence } from "./ExportHistory";
 import { MediaEditor } from "./MediaEditor";
 import { ImportProject } from "./ProjectPortability";
+import { authClient } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
@@ -47,6 +49,7 @@ async function api<T>(url: string, method = "GET", data?: unknown): Promise<T> {
   return result;
 }
 export function Studio() {
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]),
     [project, setProject] = useState<Project | null>(null),
     [prompt, setPrompt] = useState(""),
@@ -209,6 +212,16 @@ export function Studio() {
         <div className="sidebar-bottom">
           <div className="mode-dot" />
           Local creative workspace<p>No-key demo available</p>
+          <button
+            className="subtle"
+            onClick={async () => {
+              await authClient.signOut();
+              router.replace("/sign-in");
+              router.refresh();
+            }}
+          >
+            Sign out
+          </button>
           <div className="profile">
             <span className="avatar">Y</span>
             <div>

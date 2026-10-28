@@ -1,4 +1,17 @@
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { getAuth } from "@/lib/auth";
 import { Studio } from "@/components/Studio";
-export default function Page() {
+export default async function Page() {
+  const requestHeaders = await headers();
+  let session;
+  try {
+    session = await (
+      await getAuth()
+    ).api.getSession({ headers: requestHeaders });
+  } catch {
+    redirect("/sign-in");
+  }
+  if (!session?.user.emailVerified) redirect("/sign-in");
   return <Studio />;
 }

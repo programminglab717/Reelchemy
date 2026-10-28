@@ -1,7 +1,8 @@
+import { secureRoute } from "@/lib/access";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { artifactDir, getJob } from "@/lib/db";
-export async function GET(
+async function GETHandler(
   _: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -18,3 +19,5 @@ export async function GET(
     },
   });
 }
+
+export const GET = secureRoute(GETHandler, "job");

@@ -53,3 +53,13 @@
 - Added declared-background contrast and caption-speed warnings, plus audio peak/near-silence warnings. These are technical heuristics, not semantic or perceptual quality approval.
 - Unit validation: 25 passing tests, including actual subprocess termination, persisted queue recovery, audio analysis and cache-corruption regression. Full browser validation is recorded in VALIDATION.md after the final run.
 - Reconnected after a transport outage, confirmed preserved source/state, and committed the recovered feature checkpoint. Final restored-instance validation passed all 25 unit tests and all 8 production browser tests; the production rebuild is free of the dynamic-filesystem trace warnings.
+
+## 0.6.0 — 2026-10-28 (public-account foundation)
+
+- Confirmed public multi-user release scope; revised the production plan to include account lifecycle, tenant isolation, abuse prevention and public-service operations. Live AI verification remains deferred.
+- Added Better Auth email/password accounts, verified-email access, password reset/session revocation, database-backed auth rate limits and sign-in/sign-up/recovery UI.
+- Added private per-account studios and server-side resource guards across every project, asset, job, evidence, archive and download endpoint. Normal saves cannot transfer ownership. Render caches are partitioned by workspace; private media is served without browser caching.
+- Preserved unassigned legacy content behind offline owner assignment and created a pre-migration SQLite backup. Imports create a new project in the signed-in user's workspace.
+- Added a private durable mail outbox and separate SMTP worker; development consumes local mail without external credentials. Production rejects file mail, missing signing secrets and non-HTTPS auth origins. SMTP requires TLS.
+- Added isolated browser-test services with fresh data, auth and mail for repeatable tests without weakening rate limits or touching saved projects. Disabled development request logging so verification/reset token URLs are not printed.
+- Validation results are recorded in VALIDATION.md after the complete account/editor/render suite finishes.

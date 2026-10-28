@@ -1,6 +1,6 @@
 {
   "name": "reelchemy",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0",
@@ -14,15 +14,21 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "auth:migrate": "tsx scripts/auth-migrate.ts",
+    "workspace:claim": "tsx scripts/claim-legacy.ts",
+    "mail:worker": "tsx scripts/mail-worker.ts",
+    "test:isolated": "tsx scripts/test-isolated.ts"
   },
   "dependencies": {
     "@remotion/bundler": "4.0.539",
     "@remotion/player": "4.0.539",
     "@remotion/renderer": "4.0.539",
+    "better-auth": "1.7.14",
     "better-sqlite3": "^12.0.0",
     "fflate": "^0.8.3",
     "next": "^16.0.0",
+    "nodemailer": "10.2.1",
     "playwright-core": "^1.64.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -34,6 +40,7 @@
     "@playwright/test": "^1.56.0",
     "@types/better-sqlite3": "^7.6.0",
     "@types/node": "^24.0.0",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "eslint": "^9.39.5",

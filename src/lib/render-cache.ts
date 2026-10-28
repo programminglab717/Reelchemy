@@ -134,6 +134,7 @@ export async function cacheEntryValid(dir: string, t: Timeline, key: string) {
   }
 }
 export async function renderCachedScenes(options: {
+  namespace?: string;
   timeline: Timeline;
   serveUrl: string;
   assetSources: Record<string, string>;
@@ -153,8 +154,12 @@ export async function renderCachedScenes(options: {
     isCancelled,
     onProgress,
   } = options;
+  const namespace = options.namespace || "local";
+  if (!/^(?:local|legacy|[a-f0-9-]{36})$/.test(namespace))
+    throw new Error("Invalid render cache workspace.");
   const cacheRoot = path.resolve(
     process.env.REELCHEMY_RENDER_CACHE_DIR || "artifacts/.scene-cache",
+    namespace,
   );
   await mkdir(cacheRoot, { recursive: true });
   const source = await (sourceFingerprint ??= fingerprint());

@@ -1,9 +1,10 @@
+import { secureRoute } from "@/lib/access";
 import { z } from "zod";
 import { getProject, saveProject } from "@/lib/db";
 import { storeAudio } from "@/lib/audio";
 import { storeImage } from "@/lib/assets";
 import { failure, localMutation, multipart } from "@/lib/http";
-export async function POST(
+async function POSTHandler(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -38,3 +39,5 @@ export async function POST(
     return failure(e);
   }
 }
+
+export const POST = secureRoute(POSTHandler, "project");

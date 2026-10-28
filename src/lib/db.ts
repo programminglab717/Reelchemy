@@ -18,11 +18,28 @@ db.pragma("busy_timeout = 5000");
 db.exec(
   `CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY,data TEXT NOT NULL);CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY,project_id TEXT NOT NULL,status TEXT NOT NULL,data TEXT NOT NULL,timeline TEXT NOT NULL);`,
 );
-export function listProjects(): Project[] {
+// Additive migration: legacy content is retained but has no public owner until claimed offline.
+db.exec(
+  "CREATE TABLE IF NOT EXISTS workspaces(id TEXT PRIMARY KEY,owner_id TEXT NOT NULL UNIQUE,name TEXT NOT NULL)",
+);
+if (
+  !(db.pragma("table_info(projects)") as { name: string }[]).some(
+    (c) => c.name === "workspace_id",
+  )
+)
+  db.exec("ALTER TABLE projects ADD COLUMN workspace_id TEXT");
+db.exec(
+  "CREATE INDEX IF NOT EXISTS projects_workspace_idx ON projects(workspace_id)",
+);
+export function listProjects(workspaceId?: string): Project[] {
   return (
     db
-      .prepare("SELECT data FROM projects ORDER BY rowid DESC LIMIT 50")
-      .all() as { data: string }[]
+      .prepare(
+        workspaceId
+          ? "SELECT data FROM projects WHERE workspace_id=? ORDER BY rowid DESC LIMIT 50"
+          : "SELECT data FROM projects ORDER BY rowid DESC LIMIT 50",
+      )
+      .all(...(workspaceId ? [workspaceId] : [])) as { data: string }[]
   ).map((r) => JSON.parse(r.data));
 }
 export function getProject(id: string): Project | undefined {
@@ -30,22 +47,25 @@ export function getProject(id: string): Project | undefined {
     { data: string } | undefined;
   return row ? JSON.parse(row.data) : undefined;
 }
-export function saveProject(p: Project) {
+export function saveProject(p: Project, workspaceId?: string) {
   db.prepare(
-    "INSERT INTO projects(id,data) VALUES (?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data",
-  ).run(p.id, JSON.stringify(p));
+    "INSERT INTO projects(id,data,workspace_id) VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data",
+  ).run(p.id, JSON.stringify(p), workspaceId || null);
   return p;
 }
-export function createProject(brief: CreativeBrief) {
-  return saveProject({
-    id: randomUUID(),
-    name: brief.prompt.slice(0, 65),
-    brief,
-    timeline: null,
-    revisions: [],
-    messages: [{ role: "user", content: brief.prompt }],
-    createdAt: new Date().toISOString(),
-  });
+export function createProject(brief: CreativeBrief, workspaceId?: string) {
+  return saveProject(
+    {
+      id: randomUUID(),
+      name: brief.prompt.slice(0, 65),
+      brief,
+      timeline: null,
+      revisions: [],
+      messages: [{ role: "user", content: brief.prompt }],
+      createdAt: new Date().toISOString(),
+    },
+    workspaceId,
+  );
 }
 export function reviseProject(p: Project, timeline: Timeline, source: string) {
   p.timeline = timeline;
@@ -198,4 +218,54 @@ export function listJobs(projectId: string): RenderJob[] {
       )
       .all(projectId) as { data: string }[]
   ).map((r) => JSON.parse(r.data));
+}
+export type Workspace = { id: string; ownerId: string; name: string };
+export function ensureWorkspace(userId: string, name: string): Workspace {
+  return db.transaction(() => {
+    const existing = db
+      .prepare(
+        "SELECT id,owner_id AS ownerId,name FROM workspaces WHERE owner_id=?",
+      )
+      .get(userId) as Workspace | undefined;
+    if (existing) return existing;
+    const workspace = {
+      id: randomUUID(),
+      ownerId: userId,
+      name: `${name.slice(0, 60)}'s studio`,
+    };
+    db.prepare("INSERT INTO workspaces(id,owner_id,name) VALUES (?,?,?)").run(
+      workspace.id,
+      userId,
+      workspace.name,
+    );
+    return workspace;
+  })();
+}
+export function projectInWorkspace(id: string, workspaceId: string) {
+  return !!db
+    .prepare("SELECT id FROM projects WHERE id=? AND workspace_id=?")
+    .get(id, workspaceId);
+}
+export function claimLegacyProjects(workspaceId: string, apply = false) {
+  const count = (
+    db
+      .prepare(
+        "SELECT COUNT(*) AS count FROM projects WHERE workspace_id IS NULL",
+      )
+      .get() as { count: number }
+  ).count;
+  if (apply)
+    db.prepare(
+      "UPDATE projects SET workspace_id=? WHERE workspace_id IS NULL",
+    ).run(workspaceId);
+  return count;
+}
+
+export function workspaceForProject(id: string) {
+  return (
+    (
+      db.prepare("SELECT workspace_id FROM projects WHERE id=?").get(id) as
+        { workspace_id: string | null } | undefined
+    )?.workspace_id || null
+  );
 }

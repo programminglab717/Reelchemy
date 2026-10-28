@@ -9,6 +9,7 @@ import {
   recoverJobs,
   retryJob,
   recordJobStage,
+  workspaceForProject,
 } from "../src/lib/db";
 import { RenderQCError } from "../src/lib/layout-qc";
 import { transientRenderError } from "../src/lib/retry";
@@ -59,6 +60,7 @@ async function main() {
             Date.now() > deadline ||
             getJob(job.id)?.status === "cancelled",
           (stage) => recordJobStage(job.id, stage),
+          workspaceForProject(job.projectId) || "legacy",
         );
         updateJob(job.id, {
           status: "completed",

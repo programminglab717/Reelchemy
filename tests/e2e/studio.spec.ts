@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs/promises";
 import sharp from "sharp";

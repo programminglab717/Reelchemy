@@ -1,8 +1,9 @@
+import { secureRoute } from "@/lib/access";
 import { getProject, reviseProject } from "@/lib/db";
 import { generatePlan, reviseScene } from "@/lib/provider";
 import { failure, body, localMutation } from "@/lib/http";
 import { z } from "zod";
-export async function POST(
+async function POSTHandler(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -55,3 +56,5 @@ export async function POST(
     return failure(e);
   }
 }
+
+export const POST = secureRoute(POSTHandler, "project");

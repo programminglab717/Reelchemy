@@ -1,13 +1,14 @@
+import { secureRoute } from "@/lib/access";
 import { getJob, updateJob } from "@/lib/db";
 import { failure, localMutation } from "@/lib/http";
 type Context = { params: Promise<{ id: string }> };
-export async function GET(_: Request, { params }: Context) {
+async function GETHandler(_: Request, { params }: Context) {
   const job = getJob((await params).id);
   return job
     ? Response.json(job)
     : Response.json({ error: "Job not found" }, { status: 404 });
 }
-export async function DELETE(req: Request, { params }: Context) {
+async function DELETEHandler(req: Request, { params }: Context) {
   try {
     localMutation(req);
     const job = getJob((await params).id);
@@ -32,3 +33,6 @@ export async function DELETE(req: Request, { params }: Context) {
     return failure(e);
   }
 }
+
+export const GET = secureRoute(GETHandler, "job");
+export const DELETE = secureRoute(DELETEHandler, "job");

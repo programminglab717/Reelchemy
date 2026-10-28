@@ -4,7 +4,7 @@ Prepared 28 October 2026 from the repository at `1d3d601`. This is a proposed re
 
 ## Working release target
 
-Build an authenticated internal team studio first. The user has been asked whether the first release instead needs public customer sign-up; that decision is pending. Do not assume billing, public sign-up or real-time collaborative editing are required for the internal release. Public multi-tenant access changes the security and operational scope substantially.
+The user confirmed **a public multi-user product**. Separate customers must be able to register, verify an account, sign in and access only their own studio, projects, media and exports. Tenant isolation, account recovery, abuse controls and public-service operations are release requirements. Shared team workspaces and billing require separate product decisions; public signup does not by itself imply either feature.
 
 Proposed video target: complete publishable videos from 30 seconds through five minutes, 1080p, 30 fps, in 16:9, 9:16 and 1:1. These limits need representative render/memory/disk benchmarks before they become supported guarantees. This release includes procedural animation, user-supplied images/video/audio, captions, and recorded narration. Arbitrary photorealistic character acting and feature-film generation are not acceptance criteria. Creative examples below demonstrate breadth rather than imposing required genres or templates.
 
@@ -54,9 +54,9 @@ Expand unit and integration coverage around undo/history/concurrency, media/time
 
 Use a staging environment with demo providers to validate deployment, permissions, backups, restore, failure injection and end-to-end workflows before introducing a paid API key. Preserve passed/failed/skipped/unrun outcomes separately. Do not equate sampled frames or codec validation with semantic/full-motion approval.
 
-## Provisional effort and sequence
+## Provisional effort and sequence — revised for public multi-user release
 
-Planning assumption: one experienced engineer working full time, the internal-team scope above, stable execution infrastructure and prompt product feedback. These are engineering-effort ranges, not elapsed times promised by this chat; no background delivery schedule has been established. Refine after the editor design, deployment choice and first realistic render benchmarks.
+Planning assumption: one experienced engineer working full time, the public multi-user scope above, stable execution infrastructure and prompt product feedback. These are engineering-effort ranges, not elapsed times promised by this chat; no background delivery schedule has been established. Refine after the editor design, deployment choice and first realistic render benchmarks.
 
 | Phase                                                  | Effort range               | Reviewable result                                                                                                |
 | ------------------------------------------------------ | -------------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -67,10 +67,10 @@ Planning assumption: one experienced engineer working full time, the internal-te
 | Hardening and creator acceptance                       | 1–2 weeks                  | Real editing sessions, long-video tests, performance/failure/accessibility fixes, reproducible release candidate |
 | Final live AI verification                             | 1–3 working days initially | Real provider evidence and fixes; unexpected provider/quality issues can extend this gate                        |
 
-Allow approximately **6–10 focused engineering weeks** for a credible internal release under these assumptions, including integration and feedback. Some tasks overlap; this is not a calendar commitment. Public customer sign-up/multi-tenancy introduces a separate workstream (account lifecycle, tenant isolation, abuse protection, broader operational testing and billing only if required); re-estimate that release rather than silently folding it into the internal estimate.
+For the confirmed public multi-user target, provisionally allow **10–16 focused engineering weeks**, including integration, security and creator feedback. This supersedes the earlier 6–10 week internal-release estimate. Tasks overlap and the range needs refinement after the editor benchmark and deployment design; it is not a calendar commitment. A security-sensitive public release needs explicit acceptance evidence, not just a larger feature list. Billing is included only if monetization is chosen.
 
 ## First implementation priorities
 
 Start with editor state and project reliability: define an editing-command/undo model, autosave/concurrency contract, and a manual blank-project flow. Then build the visual canvas/timeline around those contracts; avoid growing the current numeric forms into the final editor. Add video media support and benchmark the five-minute/1080p target before increasing limits. Production auth/storage/deployment work can proceed with local adapters and demo providers while keys remain absent.
 
-Maintain small, reviewed local commits with meaningful tests and update VALIDATION.md as each capability is exercised. No remote push or public deployment is implied by this plan. Decisions still needed before deployment are release audience, hosting/storage target, intended usage volume and operational budget; these do not block the initial editor work.
+Maintain small, reviewed local commits with meaningful tests and update VALIDATION.md as each capability is exercised. No remote push or public deployment is implied by this plan. The release audience is now confirmed. Decisions still needed before deployment are hosting/storage target, intended usage volume, operational budget and monetization; these do not block the initial editor work.

@@ -18,7 +18,7 @@ npm run worker
 npm run dev -- --port 3001
 ```
 
-The development UI uses port 3001 because the onboarding machine already uses port 3000. This project is a local, single-user prototype; do not expose it as a public multi-user service without adding authentication and storage authorization. No API credentials are required for the default workflow.
+The development UI uses port 3001 because the onboarding machine already uses port 3000. This is a local development instance of a public-product work in progress. Authentication/resource isolation are implemented; do not deploy publicly until the production release gates in PRODUCTION_PLAN.md are met. No API credentials are required for the default workflow.
 
 Optional server configuration: copy `.env.example` to `.env.local` without committing it. Next.js reads `.env.local`. For CLI rendering, export `CHROMIUM_PATH` and `RENDER_CONCURRENCY` in the worker's shell if overriding the defaults. Chromium defaults to `/usr/bin/chromium`, with two concurrent render frames (clamped to 1–4). Restart the worker after changing composition code: its bundle is cached for its lifetime.
 
@@ -78,7 +78,7 @@ Animations depend only on frame index and fixed inputs. Rendering uses local Ari
 - Optional uploaded audio supports frame-based start, trim, gain and fades (up to four tracks), AAC encoding, codec/duration checks and peak measurement. Captions are burned into preview/MP4 and downloadable as SRT/VTT. Projects without audio stay silent. Voice generation, advanced character rigs, generated media and external stock integrations remain to build. A simple layered character, arrows, gradients and whole-scene camera keyframes are available as deterministic primitives.
 - Queue execution supports persisted stages/activity, cancellation, one automatic retry for transient browser/media timeouts, and bounded restart recovery. Identical scene video clips are reused through a content-addressed cache; still/clip evidence is recaptured per export. Distributed workers, OS-level resource isolation and cost accounting remain future work.
 - Formats 16:9, 9:16, and 1:1 have schema/preview support; verified encoded outputs are listed in VALIDATION.md.
-- No authentication, collaboration, expiring sharing, cloud storage, deletion UI, or deployment setup yet. Project data lives on this machine.
+- Account authentication and per-account authorization are implemented. Shared-workspace collaboration, expiring sharing, managed cloud storage, deletion UI and deployment setup remain to build. Project data still lives on this machine.
 
 See [CHANGELOG.md](CHANGELOG.md) for checkpoints. Verified checkpoints are committed locally as requested; no remote pushes have been made.
 
@@ -99,3 +99,17 @@ Scene video clips are cached under `artifacts/.scene-cache`. Cache keys include 
 This is a single-worker local cache, not a shared render farm. Do not run multiple cache-writing CLI renderers against it at the same time. Cache files are derived and can be removed while all renderers are stopped; never remove `.data` or user exports to clear a cache. There is no automatic disk eviction yet. `REELCHEMY_RENDER_CACHE_DIR` overrides the cache location; `REELCHEMY_DATA_DIR` / `REELCHEMY_ARTIFACT_DIR` are available for isolated test data. Keep these paths consistent between API and worker.
 
 Select **Selected scene only** in Live preview to loop a scene without rebasing its audio or caption timing. Camera keys affect the scene world; caption overlays stay fixed. Review camera motion and graphics manually—static layout diagnostics do not establish motion continuity or artistic quality.
+
+## Public-account foundation (0.6)
+
+The release target is now a public multi-user product. The current checkpoint adds identity and private resource boundaries; the editor, managed production storage, deployment/operations, wider abuse controls and public launch gates in PRODUCTION_PLAN.md are still being built.
+
+All studio APIs now require a verified account. Create one at `/sign-in`, verify its email, then sign in. A new account gets its own empty studio. Project lists, edits, revisions, media, render jobs, evidence, MP4 downloads and editable archives are scoped to that studio. Render workers are trusted internal processes; they must not be exposed as customer-controlled services. The current migration still uses local SQLite/files, pending the production database/object-storage workstream.
+
+For local development, auth creates a random private signing key in `.data/auth-secret`; verification/reset mail is queued as private `.data/mail/*.json` files. These files contain credentials/links: never commit, log or expose them through an API. Automated tests consume only their own synthetic mail. Use configured SMTP for normal manual email delivery. Production refuses the file-mail fallback and requires `BETTER_AUTH_SECRET` (32+ random characters), an HTTPS `BETTER_AUTH_URL`, `EMAIL_DELIVERY=smtp`, `SMTP_HOST` and `EMAIL_FROM`. Configure SMTP credentials in the deployment secret manager; do not supply them in chat. Signing secrets must be raw server-side deployment secrets, not network-proxy credential placeholders.
+
+Run `npm run auth:migrate` before serving a production deployment, with the same environment settings as the web service. Keep `npm run mail:worker` running alongside the web and render workers for SMTP delivery. The private outbox persists messages, caps delivery attempts, backs off failures and moves stale/exhausted messages to its `failed` folder. Delivery is at least once; inspect failed-mail counts through operational tooling rather than printing message bodies or token URLs. A real mail service and HTTPS staging deployment have not been live-validated in this checkpoint.
+
+Existing prototype projects remain on disk but are not assigned to an arbitrary new customer. After registering/verifying the intended owner, run `npm run workspace:claim -- --email=owner@example.com` to inspect the legacy project count. Add `--apply` to assign only still-unowned projects. Never expose that operation as a public route. `.data/backups/studio-before-tenant-migration.sqlite` preserves the pre-migration project database; uploaded files remain in `.data/assets`.
+
+Use `npm run test:isolated` for the complete browser suite. It starts its own development server on port 3002, render worker, private mailbox, temporary database/artifacts/cache and separate `.next-e2e` output. It never clears the real workspace. `npm run test:isolated -- accounts.spec.ts` runs only the account/access/reset checks. This is development-mode integration coverage, not a claim of a configured public production deployment. `E2E_PORT` overrides the isolated port. The prior direct `test:e2e` command now requires an authenticated, development-mail-capable test server and matching data path for its fixtures.

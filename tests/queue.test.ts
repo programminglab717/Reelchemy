@@ -57,3 +57,22 @@ test("queue admission limit is enforced across actual persisted jobs", () => {
   assert.throws(() => db.createJob(p), /queue is full/);
   for (const j of jobs) db.updateJob(j.id, { status: "cancelled" });
 });
+test("workspace ownership is immutable through normal saves and legacy content is unassigned", () => {
+  const alice = db.ensureWorkspace("test-alice", "Alice"),
+    bob = db.ensureWorkspace("test-bob", "Bob");
+  const p = db.createProject(
+    { prompt: "Private project", duration: 5, format: "landscape" },
+    alice.id,
+  );
+  assert(db.projectInWorkspace(p.id, alice.id));
+  assert(!db.projectInWorkspace(p.id, bob.id));
+  assert(db.listProjects(alice.id).some((x) => x.id === p.id));
+  assert(!db.listProjects(bob.id).some((x) => x.id === p.id));
+  p.name = "Updated";
+  db.saveProject(p, bob.id);
+  assert(db.projectInWorkspace(p.id, alice.id));
+  assert(!db.projectInWorkspace(p.id, bob.id));
+  const legacy = db.createProject(p.brief);
+  assert(!db.projectInWorkspace(legacy.id, alice.id));
+  assert(db.claimLegacyProjects(alice.id) > 0);
+});

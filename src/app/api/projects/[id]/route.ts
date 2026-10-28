@@ -1,15 +1,16 @@
+import { secureRoute } from "@/lib/access";
 import { validateProjectAssets } from "@/lib/assets";
 import { getProject, reviseProject } from "@/lib/db";
 import { timelineSchema } from "@/lib/schema";
 import { failure, body, localMutation } from "@/lib/http";
 type Context = { params: Promise<{ id: string }> };
-export async function GET(_: Request, { params }: Context) {
+async function GETHandler(_: Request, { params }: Context) {
   const p = getProject((await params).id);
   return p
     ? Response.json(p)
     : Response.json({ error: "Project not found" }, { status: 404 });
 }
-export async function PATCH(req: Request, { params }: Context) {
+async function PATCHHandler(req: Request, { params }: Context) {
   try {
     localMutation(req);
     const p = getProject((await params).id);
@@ -22,3 +23,6 @@ export async function PATCH(req: Request, { params }: Context) {
     return failure(e);
   }
 }
+
+export const GET = secureRoute(GETHandler, "project");
+export const PATCH = secureRoute(PATCHHandler, "project");

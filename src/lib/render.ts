@@ -22,6 +22,7 @@ export async function renderFilm(
   onProgress: (p: number) => void = () => {},
   isCancelled: () => boolean = () => false,
   onStage: (stage: string) => void = () => {},
+  cacheNamespace: string = "local",
 ) {
   onStage("Checking assets");
   const assetSources = await resolveAssetSources(input);
@@ -71,6 +72,7 @@ export async function renderFilm(
     onStage("Rendering frames");
     sceneCache = await renderCachedScenes({
       timeline,
+      namespace: cacheNamespace,
       serveUrl,
       assetSources,
       browserExecutable,

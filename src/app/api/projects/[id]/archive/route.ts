@@ -1,7 +1,8 @@
+import { secureRoute } from "@/lib/access";
 import { getProject } from "@/lib/db";
 import { exportArchive } from "@/lib/archive";
 import { failure } from "@/lib/http";
-export async function GET(
+async function GETHandler(
   _: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
@@ -20,3 +21,5 @@ export async function GET(
     return failure(e);
   }
 }
+
+export const GET = secureRoute(GETHandler, "project");
