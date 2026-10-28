@@ -65,3 +65,15 @@ The workspace reconnected after an execution-transport outage. Source files, loc
 - The production studio and single render worker were restarted/checked after recovery. The browser suite's in-flight processes survived a transient transport reconnection and completed; no test was counted as passed merely from a PID or open port.
 
 Live AI verification remains deliberately deferred at the user's request. Provider contract tests use mocked APIs only. Generated voices/media, automatic semantic/artistic motion evaluation, distributed workers, public/multi-user deployment and a fresh-task restore remain outside these verified results. Technical contrast/caption-speed/audio-level warnings are heuristics, not perceptual approval.
+
+## Public-account foundation — 28 October 2026 (0.6.0)
+
+The release audience is confirmed as a public multi-user product. Commit `fa2969d` adds the first account/resource-isolation boundary; it does not complete the production release plan.
+
+- **28 unit/layout/media/mail/archive/queue/process/cache tests passed**, none skipped. Added checks cover immutable workspace ownership, private durable mail delivery/retry and refusal of file delivery in production.
+- **10 isolated development browser tests passed**, none skipped, in 7.5 minutes. New account checks exercised verified registration, unverified sign-in denial, real sign-in/sign-out UI, password reset, previous-session revocation, cross-origin write rejection, and cross-account project/job/asset/evidence/download read/write rejection. All eight existing editor/render workflows passed using verified accounts, including actual MP4/AAC output, captions, uploaded images, clip reuse and portable project import/export.
+- The browser services used a fresh temporary studio/auth database, private file mailbox, artifact/cache directories and separate Next output; real saved projects were not reset to make tests pass. Authentication rate limits and CSRF checks remained enabled. An early test fixture lacked Origin/cookie sharing; it was corrected rather than weakening server protections. An accessible password-field label was fixed after a browser failure.
+- Production build, type checking, lint, formatting and dependency audit passed. Audit reported zero vulnerabilities. Authentication schema migration was run successfully and is idempotent. A pre-tenant-migration project database backup was created before the real studio schema change; existing unassigned projects remain preserved and inaccessible to arbitrary new accounts.
+- Restored local development smoke checks returned 401 for anonymous project access and 200 for the sign-in page. The real-data render worker was restarted with workspace-scoped cache handling.
+
+Not yet verified: real SMTP delivery, HTTPS/cookie behavior on a deployed staging domain, PostgreSQL/object storage, public load/abuse resilience, privacy/deletion lifecycle, team membership or live AI. Production intentionally refuses missing auth secrets, non-HTTPS auth URLs and development file mail. Do not treat a passing production build or development-mode account tests as a completed public deployment.

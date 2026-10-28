@@ -63,3 +63,4 @@
 - Added a private durable mail outbox and separate SMTP worker; development consumes local mail without external credentials. Production rejects file mail, missing signing secrets and non-HTTPS auth origins. SMTP requires TLS.
 - Added isolated browser-test services with fresh data, auth and mail for repeatable tests without weakening rate limits or touching saved projects. Disabled development request logging so verification/reset token URLs are not printed.
 - Validation results are recorded in VALIDATION.md after the complete account/editor/render suite finishes.
+- Completed validation: 28 unit tests and all 10 isolated development browser tests passed, including the authenticated video creation/export workflows. Production build, lint, type checking, formatting and audit passed; real SMTP/HTTPS staging and public production operations remain unverified.
