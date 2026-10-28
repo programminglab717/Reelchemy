@@ -61,6 +61,16 @@ export function QualityEvidence({ job }: { job: RenderJob }) {
   return (
     <details className="quality-evidence">
       <summary>Quality report & scene evidence</summary>
+      {Array.isArray(job.report?.sceneCache) && (
+        <p>
+          {
+            (job.report!.sceneCache as { reused: boolean }[]).filter(
+              (s) => s.reused,
+            ).length
+          }{" "}
+          unchanged scene clips reused.
+        </p>
+      )}
       <a
         className="subtle"
         href={`/api/jobs/${job.id}/evidence/report.json`}

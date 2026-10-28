@@ -1,4 +1,5 @@
-import { execFileSync, spawnSync } from "node:child_process";
+import { runCommand } from "./process";
+import { execFileSync } from "node:child_process";
 import {
   mkdtemp,
   mkdir,
@@ -103,7 +104,11 @@ export async function storeAudio(
     await rm(dir, { recursive: true, force: true });
   }
 }
-export async function muxAudio(t: Timeline, videoPath: string) {
+export async function muxAudio(
+  t: Timeline,
+  videoPath: string,
+  cancelled: () => boolean = () => false,
+) {
   const tracks = t.audioTracks || [];
   if (!tracks.length)
     return { tracks: 0, codec: null, peakDb: null, duration: null };
@@ -131,7 +136,7 @@ export async function muxAudio(t: Timeline, videoPath: string) {
     `${tracks.map((_, i) => `[a${i}]`).join("")}amix=inputs=${tracks.length}:normalize=0,alimiter=limit=0.95:latency=1,apad,atrim=duration=${totalFrames(t) / 30}[mix]`,
   );
   const output = path.join(path.dirname(videoPath), "muxed.mp4");
-  execFileSync(
+  await runCommand(
     "ffmpeg",
     [
       "-v",
@@ -160,7 +165,7 @@ export async function muxAudio(t: Timeline, videoPath: string) {
       "+faststart",
       output,
     ],
-    { timeout: 60000 },
+    { timeoutMs: 60000, cancelled },
   );
   await rename(output, videoPath);
   const probe = probeMedia(videoPath),
@@ -172,7 +177,7 @@ export async function muxAudio(t: Timeline, videoPath: string) {
     Math.abs(Number(audio.duration) - totalFrames(t) / 30) > 0.04
   )
     throw new Error("Audio duration/codec verification failed.");
-  const stats = spawnSync(
+  const stats = await runCommand(
     "ffmpeg",
     [
       "-hide_banner",
@@ -185,9 +190,8 @@ export async function muxAudio(t: Timeline, videoPath: string) {
       "null",
       "-",
     ],
-    { encoding: "utf8", timeout: 30000, stdio: ["ignore", "pipe", "pipe"] },
+    { timeoutMs: 30000, cancelled },
   );
-  if (stats.status !== 0) throw new Error("Audio analysis failed.");
   const match = stats.stderr?.match(/max_volume:\s*(-?[0-9.]+) dB/);
   const peakDb = match ? Number(match[1]) : null;
   return {

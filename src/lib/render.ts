@@ -1,16 +1,17 @@
+import { renderCachedScenes } from "./render-cache";
+import { runCommand } from "./process";
 import { muxAudio } from "./audio";
 import { subtitles } from "./captions";
 import { bundle } from "@remotion/bundler";
 import {
   selectComposition,
-  renderMedia,
   renderStill,
   makeCancelSignal,
 } from "@remotion/renderer";
 import { mkdir, writeFile, stat } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { type Timeline, totalFrames, formats } from "./schema";
+import { type Timeline, type QCIssue, totalFrames, formats } from "./schema";
 import { checkLayout, RenderQCError } from "./layout-qc";
 import { resolveAssetSources } from "./assets";
 import { repairBounds } from "./qc";
@@ -20,7 +21,9 @@ export async function renderFilm(
   outputDir: string,
   onProgress: (p: number) => void = () => {},
   isCancelled: () => boolean = () => false,
+  onStage: (stage: string) => void = () => {},
 ) {
+  onStage("Checking assets");
   const assetSources = await resolveAssetSources(input);
   const repaired = repairBounds(input, 1, Object.keys(assetSources));
   let timeline = repaired.timeline;
@@ -32,6 +35,7 @@ export async function renderFilm(
         .join(" ")}`,
     );
   await mkdir(outputDir, { recursive: true });
+  onStage("Checking layout");
   const layout = await checkLayout(timeline, outputDir, isCancelled);
   timeline = layout.timeline;
   if (layout.after.length) {
@@ -41,8 +45,13 @@ export async function renderFilm(
     );
     throw new RenderQCError(layout.after);
   }
+  if (isCancelled()) throw new Error("Render cancelled.");
+  onStage("Preparing composition");
   const serveUrl = await (bundled ??= bundle({
     entryPoint: path.resolve("src/video/index.tsx"),
+  }).catch((error) => {
+    bundled = undefined;
+    throw error;
   }));
   const browserExecutable = process.env.CHROMIUM_PATH || "/usr/bin/chromium";
   const options = {
@@ -53,31 +62,29 @@ export async function renderFilm(
   };
   const composition = await selectComposition(options);
   const outputLocation = path.join(outputDir, "video.mp4");
+  let sceneCache: { sceneId: string; reused: boolean; key: string }[] = [];
   const cancel = makeCancelSignal();
   const timer = setInterval(() => {
     if (isCancelled()) cancel.cancel();
   }, 300);
   try {
-    await renderMedia({
-      ...options,
-      composition,
-      codec: "h264",
-      muted: true,
-      pixelFormat: "yuv420p",
+    onStage("Rendering frames");
+    sceneCache = await renderCachedScenes({
+      timeline,
+      serveUrl,
+      assetSources,
+      browserExecutable,
       outputLocation,
-      concurrency: Math.max(
-        1,
-        Math.min(4, Number(process.env.RENDER_CONCURRENCY) || 2),
-      ),
       cancelSignal: cancel.cancelSignal,
-      timeoutInMilliseconds: 60000,
-      onProgress: ({ progress }) => onProgress(progress * 0.88),
+      isCancelled,
+      onProgress,
     });
   } finally {
     clearInterval(timer);
   }
   if (isCancelled()) throw new Error("Render cancelled.");
-  const audioReport = await muxAudio(timeline, outputLocation);
+  onStage("Mixing audio");
+  const audioReport = await muxAudio(timeline, outputLocation, isCancelled);
   await writeFile(
     path.join(outputDir, "captions.srt"),
     subtitles(timeline, "srt"),
@@ -86,6 +93,7 @@ export async function renderFilm(
     path.join(outputDir, "captions.vtt"),
     subtitles(timeline, "vtt"),
   );
+  onStage("Verifying export");
   const probe = JSON.parse(
     execFileSync(
       "ffprobe",
@@ -119,11 +127,12 @@ export async function renderFilm(
       "Encoded video failed codec/dimensions/fps/duration verification.",
     );
   // Decode all encoded frames: catches damaged files, not artistic motion defects.
-  execFileSync(
+  await runCommand(
     "ffmpeg",
     ["-v", "error", "-xerror", "-i", outputLocation, "-f", "null", "-"],
-    { timeout: 120000 },
+    { timeoutMs: 120000, cancelled: isCancelled },
   );
+  onStage("Preparing scene previews");
   let start = 0;
   const samples = [];
   for (const [i, scene] of timeline.scenes.entries()) {
@@ -133,13 +142,17 @@ export async function renderFilm(
       ["middle", Math.floor(scene.durationFrames / 2)],
       ["end", Math.max(0, scene.durationFrames - 11)],
       ...[
-        ...new Set(
-          scene.layers.flatMap((l) => (l.keyframes || []).map((k) => k.frame)),
-        ),
+        ...new Set([
+          ...scene.layers.flatMap((l) =>
+            (l.keyframes || []).map((k) => k.frame),
+          ),
+          ...(scene.camera || []).map((k) => k.frame),
+        ]),
       ]
         .slice(0, 8)
         .map((f) => [`event-${f}`, f] as const),
     ] as const) {
+      if (isCancelled()) throw new Error("Render cancelled.");
       const name = `scene-${i + 1}-${label}.png`;
       await renderStill({
         ...options,
@@ -150,7 +163,7 @@ export async function renderFilm(
       samples.push({ sceneId: scene.id, frame: start + offset, file: name });
     }
     // Actual moving segment for manual temporal review; screenshots alone are not motion QC.
-    execFileSync(
+    await runCommand(
       "ffmpeg",
       [
         "-v",
@@ -169,9 +182,10 @@ export async function renderFilm(
         "fast",
         path.join(outputDir, `scene-${i + 1}-motion.mp4`),
       ],
-      { timeout: 30000 },
+      { timeoutMs: 30000, cancelled: isCancelled },
     );
     start += scene.durationFrames;
+    onProgress(0.88 + (0.1 * (i + 1)) / timeline.scenes.length);
   }
   await renderStill({
     ...options,
@@ -179,6 +193,22 @@ export async function renderFilm(
     frame: Math.min(25, totalFrames(timeline) - 1),
     output: path.join(outputDir, "thumbnail.png"),
   });
+  const audioIssues: QCIssue[] =
+    audioReport.tracks &&
+    audioReport.peakDb !== null &&
+    (audioReport.peakDb >= 0 || audioReport.peakDb < -80)
+      ? [
+          {
+            sceneId: "audio",
+            code: "audio-level",
+            severity: "warning",
+            message:
+              audioReport.peakDb >= 0
+                ? "Audio peak reached full scale; inspect for clipping."
+                : "Mixed audio is near silent; check the selected source and trim.",
+          },
+        ]
+      : [];
   const report = {
     export: {
       path: outputLocation,
@@ -189,9 +219,10 @@ export async function renderFilm(
       duration,
       bytes: (await stat(outputLocation)).size,
     },
+    sceneCache,
     qc: {
       before: repaired.before,
-      after: [...repaired.after, ...layout.after],
+      after: [...repaired.after, ...layout.after, ...audioIssues],
       layout,
       repairAttempts:
         repaired.attempts +
@@ -207,6 +238,7 @@ export async function renderFilm(
     path.join(outputDir, "report.json"),
     JSON.stringify(report, null, 2),
   );
+  onStage("Completed");
   onProgress(1);
   return report;
 }

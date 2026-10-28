@@ -179,3 +179,35 @@ test("custom keyframes interpolate deterministically and invalid ordering is rej
   l.keyframes[1].frame = 0;
   assert.equal(timelineSchema.safeParse(t).success, false);
 });
+test("camera keyframes share deterministic interpolation and reject invalid frame ordering", async () => {
+  const { keyframeMotion } = await import("../src/lib/schema");
+  const t = mockPlan(brief);
+  t.scenes[0].camera = [
+    { frame: 0, x: 0, y: 0, scale: 1, opacity: 1 },
+    { frame: 20, x: 0.1, y: -0.1, scale: 1.2, opacity: 1 },
+  ];
+  assert.equal(keyframeMotion(t.scenes[0].camera, 10).scale, 1.1);
+  assert(timelineSchema.safeParse(t).success);
+  t.scenes[0].camera[1].frame = 0;
+  assert.equal(timelineSchema.safeParse(t).success, false);
+});
+test("contrast and caption readability warnings remain distinct from blocking defects", async () => {
+  const { contrastRatio } = await import("../src/lib/qc");
+  assert.equal(contrastRatio("#FFFFFF", "#000000"), 21);
+  const t = mockPlan(brief);
+  t.scenes[0].layers[1].color = t.scenes[0].background;
+  t.captions = [
+    {
+      id: "fast",
+      text: "This cue is much too fast to read.",
+      startFrame: 0,
+      endFrame: 1,
+    },
+  ];
+  const issues = inspectTimeline(t);
+  assert(issues.some((i) => i.code === "contrast" && i.severity === "warning"));
+  assert(
+    issues.some((i) => i.sceneId === "captions" && i.code === "readability"),
+  );
+  assert(!issues.some((i) => i.severity === "error"));
+});

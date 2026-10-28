@@ -60,6 +60,7 @@ export function Studio() {
     [dirty, setDirty] = useState(false),
     [revision, setRevision] = useState(""),
     [revisionScope, setRevisionScope] = useState("scene");
+  const [scenePreview, setScenePreview] = useState(false);
   const player = useRef<PlayerRef>(null);
   useEffect(() => {
     api<Project[]>("/api/projects")
@@ -134,6 +135,17 @@ export function Studio() {
   }
   const timeline = project?.timeline,
     scene = timeline?.scenes[selected];
+  const previewStart =
+    timeline && scenePreview
+      ? timeline.scenes
+          .slice(0, selected)
+          .reduce((n, s) => n + s.durationFrames, 0)
+      : 0;
+  const previewEnd = timeline
+    ? (scenePreview
+        ? previewStart + (scene?.durationFrames || 30)
+        : totalFrames(timeline)) - 1
+    : 29;
   const active = job && ["queued", "rendering"].includes(job.status);
   return (
     <div className="shell">
@@ -359,10 +371,20 @@ export function Studio() {
                   <section className="preview-panel">
                     <div className="panel-heading">
                       <h2>Live preview</h2>
+                      <label>
+                        <input
+                          aria-label="Preview selected scene only"
+                          type="checkbox"
+                          checked={scenePreview}
+                          onChange={(e) => setScenePreview(e.target.checked)}
+                        />{" "}
+                        Selected scene only
+                      </label>
                       <span>FRAME-ACCURATE · 30 FPS</span>
                     </div>
                     <div className="player-wrap">
                       <Player
+                        key={`${scenePreview ? scene?.id : "film"}-${previewStart}`}
                         ref={player}
                         component={Film}
                         inputProps={{
@@ -374,7 +396,12 @@ export function Studio() {
                             ]),
                           ),
                         }}
-                        initialFrame={15}
+                        initialFrame={
+                          previewStart + Math.min(15, previewEnd - previewStart)
+                        }
+                        inFrame={previewStart}
+                        outFrame={previewEnd}
+                        loop={scenePreview}
                         durationInFrames={totalFrames(timeline)}
                         fps={30}
                         compositionWidth={formats[timeline.format].width}
@@ -756,7 +783,7 @@ export function Studio() {
                               ? "Export cancelled"
                               : job.status === "queued"
                                 ? "Waiting for the render worker…"
-                                : `Rendering your story · ${Math.round(job.progress * 100)}%`}
+                                : `${job.stage || "Rendering your story"} · ${Math.round(job.progress * 100)}%`}
                       </strong>
                       {active && (
                         <button
@@ -777,6 +804,17 @@ export function Studio() {
                       )}
                     </div>
                     <progress max={1} value={job.progress} />
+                    <details>
+                      <summary>
+                        Export activity
+                        {job.retryCount ? ` · ${job.retryCount} retry` : ""}
+                      </summary>
+                      {job.events?.map((event, index) => (
+                        <p key={index}>
+                          {event.at.slice(11, 19)} UTC · {event.message}
+                        </p>
+                      ))}
+                    </details>
                     {job.error && <p role="alert">{job.error}</p>}
                     {job.status === "queued" && (
                       <p>

@@ -7,8 +7,11 @@ import {
   getJob,
   updateJob,
   recoverJobs,
+  retryJob,
+  recordJobStage,
 } from "../src/lib/db";
 import { RenderQCError } from "../src/lib/layout-qc";
+import { transientRenderError } from "../src/lib/retry";
 import { renderFilm } from "../src/lib/render";
 const lock = path.join(dataDir, "worker.lock");
 async function main() {
@@ -37,14 +40,25 @@ async function main() {
       }
       const { job, timeline } = claimed;
       console.log(JSON.stringify({ event: "render.start", jobId: job.id }));
+      const deadline =
+        Date.now() +
+        Math.max(
+          60000,
+          Math.min(900000, Number(process.env.RENDER_JOB_TIMEOUT_MS) || 600000),
+        );
       try {
+        recordJobStage(job.id, "Starting export");
         const report = await renderFilm(
           timeline,
           path.join(artifactDir, job.id),
           (p) => {
             updateJob(job.id, { progress: p });
           },
-          () => stopping || getJob(job.id)?.status === "cancelled",
+          () =>
+            stopping ||
+            Date.now() > deadline ||
+            getJob(job.id)?.status === "cancelled",
+          (stage) => recordJobStage(job.id, stage),
         );
         updateJob(job.id, {
           status: "completed",
@@ -62,7 +76,35 @@ async function main() {
         );
       } catch (error) {
         const message =
-          error instanceof Error ? error.message : "Render failed";
+          Date.now() > deadline
+            ? "Export exceeded its total time limit."
+            : error instanceof Error
+              ? error.message
+              : "Render failed";
+        if (
+          stopping &&
+          retryJob(
+            job.id,
+            "Worker stopped; export will restart from its saved timeline.",
+          )
+        )
+          break;
+        if (
+          !stopping &&
+          Date.now() <= deadline &&
+          transientRenderError(error) &&
+          retryJob(job.id, message)
+        ) {
+          console.log(
+            JSON.stringify({
+              event: "render.retry",
+              jobId: job.id,
+              error: message,
+            }),
+          );
+          continue;
+        }
+        recordJobStage(job.id, "Failed", message);
         updateJob(job.id, {
           status: "failed",
           error: message,

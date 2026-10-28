@@ -3,7 +3,10 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import type { Asset, Timeline, Project } from "./schema";
-export const assetDir = path.resolve(".data/assets");
+export const assetDir = path.resolve(
+  process.env.REELCHEMY_DATA_DIR || ".data",
+  "assets",
+);
 export function validAssetId(id: string) {
   return /^[a-f0-9-]{36}$/.test(id);
 }

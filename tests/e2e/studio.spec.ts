@@ -5,6 +5,7 @@ import sharp from "sharp";
 test("idea → varied storyboard → saved edit → approval → actual MP4 download", async ({
   page,
 }) => {
+  test.setTimeout(360000);
   const idea = `A mountain sunrise ${Date.now()}`;
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Big ideas." })).toBeVisible();
@@ -62,6 +63,20 @@ test("idea → varied storyboard → saved edit → approval → actual MP4 down
   await expect(page.getByLabel("On-screen text")).toHaveValue(
     "Every story starts somewhere.",
   );
+  await page.getByLabel("On-screen text").fill("A revised opening.");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.getByRole("button", { name: "Approve & export MP4" }).click();
+  await expect(page.getByText("Your film is ready.")).toBeVisible({
+    timeout: 200000,
+  });
+  const projects = await (await page.request.get("/api/projects")).json();
+  const p = projects.find((p: { name: string }) => p.name === idea);
+  const jobs = await (
+    await page.request.get(`/api/projects/${p.id}/render`)
+  ).json();
+  expect(
+    jobs[0].report.sceneCache.map((c: { reused: boolean }) => c.reused),
+  ).toEqual([false, true, true]);
 });
 test("mobile composer is usable and does not overflow", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -314,4 +329,47 @@ test("editable project download and import preserve revisions in a separate proj
   expect(imported.id).not.toBe(p.id);
   expect(imported.revisions).toHaveLength(1);
   expect((await request.get(`/api/projects/${p.id}`)).ok()).toBeTruthy();
+});
+test("scene-only preview and generic character/arrow/camera primitives render together", async ({
+  page,
+  request,
+}) => {
+  const name = `Motion studio ${Date.now()}`;
+  const p = await (
+    await request.post("/api/projects", {
+      data: { prompt: name, duration: 5, format: "landscape" },
+    })
+  ).json();
+  await request.post(`/api/projects/${p.id}/plan`, { data: {} });
+  await page.goto("/");
+  await page.getByRole("button", { name: new RegExp(name) }).click();
+  await page.getByLabel("Preview selected scene only").check();
+  await page.locator(".scene-card").nth(1).click();
+  await expect(page.getByLabel("Preview selected scene only")).toBeChecked();
+  await page
+    .getByRole("button", { name: "Add character", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Add arrow", exact: true }).click();
+  await page.getByText("Scene camera keyframes", { exact: true }).click();
+  await page.getByLabel("Camera keyframe JSON").fill(
+    JSON.stringify([
+      { frame: 0, x: 0, y: 0, scale: 1, opacity: 1 },
+      { frame: 20, x: -0.01, y: 0, scale: 1.03, opacity: 1 },
+    ]),
+  );
+  await page.getByRole("button", { name: "Apply camera motion" }).click();
+  await page.getByRole("button", { name: "Save changes" }).click();
+  const saved = await (await request.get(`/api/projects/${p.id}`)).json();
+  expect(
+    saved.timeline.scenes[1].layers.some(
+      (l: { kind: string }) => l.kind === "character",
+    ),
+  ).toBeTruthy();
+  expect(saved.timeline.scenes[1].camera).toHaveLength(2);
+  await page.getByRole("button", { name: "Approve & export MP4" }).click();
+  await expect(page.getByText("Your film is ready.")).toBeVisible({
+    timeout: 200000,
+  });
+  await page.getByText("Export activity").click();
+  await expect(page.getByText(/Preparing scene previews/)).toBeVisible();
 });

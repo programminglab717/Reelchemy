@@ -15,7 +15,17 @@ export const keyframeSchema = z.object({
 });
 export const layerSchema = z.object({
   id: z.string().min(1).max(80),
-  kind: z.enum(["text", "circle", "rectangle", "mountain", "nodes", "image"]),
+  kind: z.enum([
+    "text",
+    "circle",
+    "rectangle",
+    "mountain",
+    "nodes",
+    "image",
+    "character",
+    "arrow",
+    "gradient",
+  ]),
   x: z.number().min(0).max(1),
   y: z.number().min(0).max(1),
   width: z.number().min(0.01).max(1),
@@ -37,6 +47,7 @@ export const sceneSchema = z.object({
   strategy: z.enum(["typography", "diagram", "landscape"]),
   layers: z.array(layerSchema).min(1).max(20),
   transition: z.enum(["fade", "cut"]).default("fade"),
+  camera: z.array(keyframeSchema).max(30).optional(),
 });
 export const audioTrackSchema = z.object({
   id: z.string().min(1).max(80),
@@ -112,6 +123,18 @@ export const timelineSchema = z
     if (new Set(t.scenes.map((s) => s.id)).size !== t.scenes.length)
       ctx.addIssue({ code: "custom", message: "Scene IDs must be unique." });
     for (const scene of t.scenes)
+      if (
+        (scene.camera || []).some(
+          (k, i, keys) =>
+            k.frame >= scene.durationFrames ||
+            (i > 0 && k.frame <= keys[i - 1].frame),
+        )
+      )
+        ctx.addIssue({
+          code: "custom",
+          message: "Camera keyframes must increase and fit their scene.",
+        });
+    for (const scene of t.scenes)
       for (const layer of scene.layers)
         if (layer.kind === "image" && !layer.assetId)
           ctx.addIssue({
@@ -169,7 +192,8 @@ export type QCIssue = {
     | "readability"
     | "missing-asset"
     | "text-overflow"
-    | "contrast";
+    | "contrast"
+    | "audio-level";
   message: string;
   severity: "error" | "warning";
 };
@@ -212,6 +236,9 @@ export type RenderJob = {
   issues: QCIssue[];
   report: Record<string, unknown> | null;
   attempts: number;
+  retryCount?: number;
+  stage?: string;
+  events?: { at: string; stage: string; message: string }[];
 };
 export const totalFrames = (t: Timeline) =>
   t.scenes.reduce((n, s) => n + s.durationFrames, 0);
@@ -242,6 +269,13 @@ export function layerMotion(layer: Layer, frame: number) {
   const fallback = animationState(frame, layer.animation),
     keys = layer.keyframes || [];
   if (!keys.length) return { ...fallback, x: 0, y: 0 };
+  return keyframeMotion(keys, frame);
+}
+export function keyframeMotion(
+  keys: NonNullable<Layer["keyframes"]>,
+  frame: number,
+) {
+  if (!keys.length) return { x: 0, y: 0, scale: 1, opacity: 1, translateY: 0 };
   const right = keys.findIndex((k) => k.frame >= frame);
   const a = right < 0 ? keys[keys.length - 1] : keys[Math.max(0, right - 1)],
     b = right < 0 ? a : keys[right];

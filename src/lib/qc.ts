@@ -1,11 +1,46 @@
-import { type Timeline, type QCIssue } from "./schema";
+import { formats, type Timeline, type QCIssue } from "./schema";
+export function contrastRatio(a: string, b: string) {
+  const luminance = (hex: string) => {
+    const channels = [1, 3, 5]
+      .map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+  };
+  const x = luminance(a),
+    y = luminance(b);
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
 export function inspectTimeline(
   t: Timeline,
   assetIds: string[] = [],
 ): QCIssue[] {
   const issues: QCIssue[] = [];
+  for (const caption of t.captions || [])
+    if (
+      caption.text.length / ((caption.endFrame - caption.startFrame) / 30) >
+      25
+    )
+      issues.push({
+        sceneId: "captions",
+        layerId: caption.id,
+        code: "readability",
+        severity: "warning",
+        message: `Caption ${caption.id} may be too brief to read.`,
+      });
   for (const s of t.scenes) {
     for (const l of s.layers) {
+      if (
+        l.kind === "text" &&
+        contrastRatio(l.color, s.background) <
+          ((l.fontSize * formats[t.format].width) / 1280 >= 24 ? 3 : 4.5)
+      )
+        issues.push({
+          sceneId: s.id,
+          layerId: l.id,
+          code: "contrast",
+          severity: "warning",
+          message: `Text ${l.id} has low contrast against the declared scene background; inspect the rendered frame.`,
+        });
       if (
         (l.keyframes || []).some((k) => {
           const x = l.x + k.x - (l.width * (k.scale - 1)) / 2,

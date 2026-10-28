@@ -14,7 +14,20 @@ export async function DELETE(req: Request, { params }: Context) {
     if (!job) return Response.json({ error: "Job not found" }, { status: 404 });
     if (job.status !== "queued" && job.status !== "rendering")
       throw new Error("Only active renders can be cancelled.");
-    return Response.json(updateJob(job.id, { status: "cancelled" }));
+    return Response.json(
+      updateJob(job.id, {
+        status: "cancelled",
+        stage: "Cancelled",
+        events: [
+          ...(job.events || []),
+          {
+            at: new Date().toISOString(),
+            stage: "Cancelled",
+            message: "Export cancelled by user.",
+          },
+        ].slice(-100),
+      }),
+    );
   } catch (e) {
     return failure(e);
   }

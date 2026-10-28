@@ -3,8 +3,13 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { Project, RenderJob, Timeline, CreativeBrief } from "./schema";
-export const dataDir = path.join(process.cwd(), ".data");
-export const artifactDir = path.join(process.cwd(), "artifacts");
+// Runtime state lives on the mounted filesystem; do not embed it in server traces.
+export const dataDir = path.resolve(
+  /* turbopackIgnore: true */ process.env.REELCHEMY_DATA_DIR || ".data",
+);
+export const artifactDir = path.resolve(
+  /* turbopackIgnore: true */ process.env.REELCHEMY_ARTIFACT_DIR || "artifacts",
+);
 mkdirSync(dataDir, { recursive: true });
 mkdirSync(artifactDir, { recursive: true });
 const db = new Database(path.join(dataDir, "studio.sqlite"));
@@ -52,7 +57,9 @@ export function reviseProject(p: Project, timeline: Timeline, source: string) {
   });
   return saveProject(p);
 }
-export function createJob(project: Project) {
+function enqueueJob(project: Project) {
+  if (!project.timeline)
+    throw new Error("A storyboard is required before export.");
   const active = db
     .prepare("SELECT id FROM jobs WHERE status IN ('queued','rendering')")
     .all();
@@ -68,6 +75,15 @@ export function createJob(project: Project) {
     issues: [],
     report: null,
     attempts: 0,
+    retryCount: 0,
+    stage: "Queued",
+    events: [
+      {
+        at: new Date().toISOString(),
+        stage: "Queued",
+        message: "Export added to queue.",
+      },
+    ],
   };
   db.prepare("INSERT INTO jobs VALUES (?,?,?,?,?)").run(
     job.id,
@@ -88,7 +104,11 @@ export function updateJob(id: string, patch: Partial<RenderJob>) {
     const job = getJob(id);
     if (!job) return;
     const updated = { ...job, ...patch };
-    if (job.status === "cancelled" && patch.status !== "cancelled") return job;
+    if (
+      ["cancelled", "completed", "failed"].includes(job.status) &&
+      patch.status !== job.status
+    )
+      return job;
     db.prepare("UPDATE jobs SET status=?,data=? WHERE id=?").run(
       updated.status,
       JSON.stringify(updated),
@@ -116,11 +136,59 @@ export function claimJob(): { job: RenderJob; timeline: Timeline } | null {
 export function recoverJobs() {
   for (const row of db
     .prepare("SELECT id FROM jobs WHERE status='rendering'")
-    .all() as { id: string }[])
-    updateJob(row.id, {
-      status: "failed",
-      error: "Worker was interrupted. Queue a new export.",
+    .all() as { id: string }[]) {
+    if (
+      !retryJob(row.id, "Worker interrupted; resuming from the saved timeline.")
+    )
+      updateJob(row.id, {
+        status: "failed",
+        error: "Worker interrupted after the retry limit was reached.",
+      });
+  }
+}
+export function createJob(project: Project) {
+  return db.transaction(() => enqueueJob(project))();
+}
+export function recordJobStage(
+  id: string,
+  stage: string,
+  message: string = stage,
+) {
+  return db.transaction(() => {
+    const job = getJob(id);
+    if (!job || job.status === "cancelled") return;
+    return updateJob(id, {
+      status: job.status,
+      stage,
+      events: [
+        ...(job.events || []),
+        { at: new Date().toISOString(), stage, message: message.slice(0, 500) },
+      ].slice(-100),
     });
+  })();
+}
+export function retryJob(id: string, reason: string) {
+  return db.transaction(() => {
+    const job = getJob(id);
+    if (!job || job.status !== "rendering" || (job.retryCount || 0) >= 1)
+      return false;
+    updateJob(id, {
+      status: "queued",
+      progress: 0,
+      error: null,
+      retryCount: (job.retryCount || 0) + 1,
+      stage: "Queued for retry",
+      events: [
+        ...(job.events || []),
+        {
+          at: new Date().toISOString(),
+          stage: "Retry",
+          message: reason.slice(0, 500),
+        },
+      ].slice(-100),
+    });
+    return true;
+  })();
 }
 export function listJobs(projectId: string): RenderJob[] {
   return (

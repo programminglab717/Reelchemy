@@ -1,4 +1,5 @@
 "use client";
+import { CameraEditor } from "./CameraEditor";
 import { useState } from "react";
 import {
   layerSchema,
@@ -169,6 +170,11 @@ export function LayerEditor({
           Delete scene
         </button>
       </div>
+      <CameraEditor
+        key={JSON.stringify(scene.camera)}
+        scene={scene}
+        onChange={(s) => updateScene(s)}
+      />
       {scene.layers.map((layer) => (
         <details key={layer.id} className="layer-row">
           <summary>
@@ -280,6 +286,46 @@ export function LayerEditor({
       >
         Add text layer
       </button>
+      <div className="layer-fields">
+        {(
+          [
+            "circle",
+            "rectangle",
+            "mountain",
+            "nodes",
+            "character",
+            "arrow",
+            "gradient",
+          ] as const
+        ).map((kind) => (
+          <button
+            key={kind}
+            className="subtle"
+            disabled={scene.layers.length >= 20}
+            onClick={() =>
+              updateScene({
+                layers: [
+                  ...scene.layers,
+                  layerSchema.parse({
+                    id: crypto.randomUUID(),
+                    kind,
+                    x: 0.25,
+                    y: 0.5,
+                    width: 0.5,
+                    height: 0.35,
+                    color: scene.accent,
+                    fontSize: 48,
+                    text: "",
+                    animation: "rise",
+                  }),
+                ],
+              })
+            }
+          >
+            Add {kind}
+          </button>
+        ))}
+      </div>
       {error && <p role="alert">{error}</p>}
       <p>
         Changes update the preview immediately. Save changes above before

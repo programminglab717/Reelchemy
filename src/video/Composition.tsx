@@ -2,7 +2,13 @@ import { SoundAndCaptions } from "./SoundAndCaptions";
 import React from "react";
 import { textStyle } from "../lib/text-style";
 import { AbsoluteFill, Sequence, useCurrentFrame } from "remotion";
-import { layerMotion, formats, type Timeline, type Scene } from "../lib/schema";
+import {
+  layerMotion,
+  keyframeMotion,
+  formats,
+  type Timeline,
+  type Scene,
+} from "../lib/schema";
 function SceneView({
   scene,
   format,
@@ -14,6 +20,7 @@ function SceneView({
 }) {
   const frame = useCurrentFrame();
   const { width, height } = formats[format];
+  const camera = keyframeMotion(scene.camera || [], frame);
   const opacity =
     scene.transition === "fade"
       ? Math.min(1, frame / 10, (scene.durationFrames - frame) / 10)
@@ -26,7 +33,12 @@ function SceneView({
         fontFamily: "Arial, sans-serif",
       }}
     >
-      <AbsoluteFill style={{ opacity }}>
+      <AbsoluteFill
+        style={{
+          opacity: opacity * camera.opacity,
+          transform: `translate(${camera.x * width}px, ${camera.y * height}px) scale(${camera.scale})`,
+        }}
+      >
         <div
           style={{
             position: "absolute",
@@ -53,7 +65,67 @@ function SceneView({
                 alignItems: "center",
               }}
             >
-              {l.kind === "image" ? (
+              {l.kind === "character" ? (
+                <svg width="100%" height="100%" viewBox="0 0 200 300">
+                  <g transform={`rotate(${Math.sin(frame / 18) * 3},100,160)`}>
+                    <path
+                      d="M80 220L70 285M120 220L130 285"
+                      stroke={l.color}
+                      strokeWidth="18"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M55 140L25 205M145 140L175 205"
+                      stroke={l.color}
+                      strokeWidth="16"
+                      strokeLinecap="round"
+                    />
+                    <rect
+                      x="55"
+                      y="115"
+                      width="90"
+                      height="120"
+                      rx="30"
+                      fill={l.color}
+                    />
+                    <circle cx="100" cy="65" r="45" fill={l.color} />
+                    <circle cx="85" cy="62" r="5" fill="#101D31" />
+                    <circle cx="115" cy="62" r="5" fill="#101D31" />
+                    <path
+                      d="M85 82Q100 95 115 82"
+                      stroke="#101D31"
+                      strokeWidth="4"
+                      fill="none"
+                    />
+                  </g>
+                </svg>
+              ) : l.kind === "arrow" ? (
+                <svg width="100%" height="100%" viewBox="0 0 400 160">
+                  <path
+                    d="M20 80H300"
+                    stroke={l.color}
+                    strokeWidth="16"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M285 25L350 80L285 135"
+                    stroke={l.color}
+                    strokeWidth="16"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              ) : l.kind === "gradient" ? (
+                <div
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    background: `linear-gradient(135deg,${l.color},${scene.accent})`,
+                    borderRadius: 20,
+                  }}
+                />
+              ) : l.kind === "image" ? (
                 <img
                   alt=""
                   src={assetSources[l.assetId || ""]}
