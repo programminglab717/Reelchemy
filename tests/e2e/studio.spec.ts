@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs/promises";
+import sharp from "sharp";
 test("idea → varied storyboard → saved edit → approval → actual MP4 download", async ({
   page,
 }) => {
@@ -108,4 +109,112 @@ test("scene revision preserves other scenes and history can be restored", async 
   ).json();
   expect(restored.timeline).toEqual(base.timeline);
   expect(restored.revisions).toHaveLength(3);
+});
+test("uploaded PNG, keyframe editing and export history survive refresh", async ({
+  page,
+  request,
+}) => {
+  const name = `Asset editor ${Date.now()}`;
+  const p = await (
+    await request.post("/api/projects", {
+      data: { prompt: name, duration: 5, format: "square" },
+    })
+  ).json();
+  await request.post(`/api/projects/${p.id}/plan`, { data: {} });
+  await page.goto("/");
+  await page.getByRole("button", { name: new RegExp(name) }).click();
+  await page.getByLabel("Upload image").setInputFiles({
+    name: "test.png",
+    mimeType: "image/png",
+    buffer: await sharp({
+      create: { width: 64, height: 64, channels: 3, background: "#88AA44" },
+    })
+      .png()
+      .toBuffer(),
+  });
+  await page.getByPlaceholder("I own this image").fill("Original test asset");
+  await page.getByRole("button", { name: "Upload asset", exact: true }).click();
+  await expect(page.getByText("test.png", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Add to selected scene" }).click();
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await page
+    .locator(".layer-row")
+    .filter({ hasText: "text · title" })
+    .locator("summary")
+    .first()
+    .click();
+  await page.getByLabel("fontSize title", { exact: true }).fill("44");
+  await page
+    .locator(".layer-row")
+    .filter({ hasText: "text · title" })
+    .getByText("Custom keyframes", { exact: true })
+    .click();
+  await page
+    .locator(".layer-row")
+    .filter({ hasText: "text · title" })
+    .getByLabel("Keyframe JSON")
+    .fill(
+      JSON.stringify([
+        { frame: 0, x: 0, y: 0, scale: 1, opacity: 1 },
+        { frame: 20, x: 0.02, y: 0, scale: 1, opacity: 1 },
+      ]),
+    );
+  await page
+    .locator(".layer-row")
+    .filter({ hasText: "text · title" })
+    .getByRole("button", { name: "Apply keyframes", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByRole("button", { name: "Saved ✓" })).toBeVisible();
+  const saved = await (await request.get(`/api/projects/${p.id}`)).json();
+  expect(
+    saved.timeline.scenes[0].layers.some(
+      (l: { kind: string }) => l.kind === "image",
+    ),
+  ).toBeTruthy();
+  expect(saved.assets).toHaveLength(1);
+  await page.getByRole("button", { name: "Approve & export MP4" }).click();
+  await expect(page.getByText("Your film is ready.")).toBeVisible({
+    timeout: 200000,
+  });
+  await page.getByText("Quality report & scene evidence").click();
+  await expect(
+    page.getByRole("link", { name: "Open QC report" }),
+  ).toBeVisible();
+  await expect(page.locator(".evidence-grid img")).toHaveCount(11);
+  const jobs = await (await request.get(`/api/projects/${p.id}/render`)).json();
+  const image = await request.get(
+    `/api/jobs/${jobs[0].id}/evidence/scene-1-middle.png`,
+  );
+  const pixel = await sharp(await image.body())
+    .extract({ left: 540, top: 729, width: 1, height: 1 })
+    .removeAlpha()
+    .raw()
+    .toBuffer();
+  expect(Math.abs(pixel[0] - 136)).toBeLessThan(5);
+  expect(Math.abs(pixel[1] - 170)).toBeLessThan(5);
+  await page.reload();
+  await page.getByRole("button", { name: new RegExp(name) }).click();
+  await page
+    .getByRole("button", { name: new RegExp(jobs[0].id.slice(0, 6)) })
+    .click();
+  await expect(page.getByText("Your film is ready.")).toBeVisible();
+});
+test("cancelled exports stay cancelled and evidence cannot traverse directories", async ({
+  request,
+}) => {
+  const p = await (
+    await request.post("/api/projects", {
+      data: { prompt: "Cancel me", duration: 5, format: "landscape" },
+    })
+  ).json();
+  await request.post(`/api/projects/${p.id}/plan`, { data: {} });
+  const job = await (await request.post(`/api/projects/${p.id}/render`)).json();
+  expect((await request.delete(`/api/jobs/${job.id}`)).ok()).toBeTruthy();
+  expect((await (await request.get(`/api/jobs/${job.id}`)).json()).status).toBe(
+    "cancelled",
+  );
+  expect(
+    (await request.get(`/api/jobs/${job.id}/evidence/studio.sqlite`)).status(),
+  ).toBe(404);
 });

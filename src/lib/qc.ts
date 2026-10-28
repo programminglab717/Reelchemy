@@ -6,6 +6,25 @@ export function inspectTimeline(
   const issues: QCIssue[] = [];
   for (const s of t.scenes) {
     for (const l of s.layers) {
+      if (
+        (l.keyframes || []).some((k) => {
+          const x = l.x + k.x - (l.width * (k.scale - 1)) / 2,
+            y = l.y + k.y - (l.height * (k.scale - 1)) / 2;
+          return (
+            x < 0 ||
+            y < 0 ||
+            x + l.width * k.scale > 1 ||
+            y + l.height * k.scale > 1
+          );
+        })
+      )
+        issues.push({
+          sceneId: s.id,
+          layerId: l.id,
+          code: "bounds",
+          severity: "error",
+          message: `Motion keyframes move ${l.id} outside the frame.`,
+        });
       if (l.x + l.width > 1 || l.y + l.height > 1)
         issues.push({
           sceneId: s.id,
@@ -53,13 +72,17 @@ export function inspectTimeline(
   }
   return issues;
 }
-export function repairBounds(t: Timeline, maxAttempts = 1) {
+export function repairBounds(
+  t: Timeline,
+  maxAttempts = 1,
+  assetIds: string[] = [],
+) {
   const timeline = structuredClone(t);
   let attempts = 0;
-  const before = inspectTimeline(timeline);
+  const before = inspectTimeline(timeline, assetIds);
   while (
     attempts < Math.min(2, Math.max(0, maxAttempts)) &&
-    inspectTimeline(timeline).some((i) => i.code === "bounds")
+    inspectTimeline(timeline, assetIds).some((i) => i.code === "bounds")
   ) {
     for (const s of timeline.scenes)
       for (const l of s.layers) {
@@ -68,5 +91,10 @@ export function repairBounds(t: Timeline, maxAttempts = 1) {
       }
     attempts++;
   }
-  return { timeline, attempts, before, after: inspectTimeline(timeline) };
+  return {
+    timeline,
+    attempts,
+    before,
+    after: inspectTimeline(timeline, assetIds),
+  };
 }

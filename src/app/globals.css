@@ -1114,3 +1114,52 @@ main {
   margin: 8px 0;
   max-width: 100%;
 }
+.asset-grid {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 15px;
+}
+.asset-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 190px;
+  border: 1px solid var(--line);
+  padding: 12px;
+  border-radius: 7px;
+}
+.asset-grid small {
+  font-size: 9px;
+  color: #748169;
+}
+.quality-evidence {
+  margin-top: 18px;
+}
+.quality-evidence summary {
+  cursor: pointer;
+  font-size: 13px;
+  margin-bottom: 18px;
+}
+.quality-evidence h3 {
+  font-size: 12px;
+  margin: 18px 0;
+}
+.evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.evidence-grid img {
+  width: 100%;
+  border-radius: 6px;
+}
+.evidence-grid small {
+  font-size: 9px;
+  color: #748169;
+}
+.quality-evidence video {
+  width: 100%;
+  max-height: 300px;
+  margin-top: 15px;
+}

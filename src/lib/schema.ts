@@ -15,7 +15,7 @@ export const keyframeSchema = z.object({
 });
 export const layerSchema = z.object({
   id: z.string().min(1).max(80),
-  kind: z.enum(["text", "circle", "rectangle", "mountain", "nodes"]),
+  kind: z.enum(["text", "circle", "rectangle", "mountain", "nodes", "image"]),
   x: z.number().min(0).max(1),
   y: z.number().min(0).max(1),
   width: z.number().min(0.01).max(1),
@@ -53,6 +53,13 @@ export const timelineSchema = z
     if (new Set(t.scenes.map((s) => s.id)).size !== t.scenes.length)
       ctx.addIssue({ code: "custom", message: "Scene IDs must be unique." });
     for (const scene of t.scenes)
+      for (const layer of scene.layers)
+        if (layer.kind === "image" && !layer.assetId)
+          ctx.addIssue({
+            code: "custom",
+            message: "Image layers require an uploaded asset.",
+          });
+    for (const scene of t.scenes)
       for (const layer of scene.layers) {
         const keys = layer.keyframes || [];
         if (
@@ -85,9 +92,11 @@ export type CreativeBrief = {
 };
 export type Asset = {
   id: string;
-  path: string;
+  name: string;
   source: string;
   license: string;
+  mime: "image/png";
+  createdAt: string;
 };
 export type AudioTrack = {
   id: string;
@@ -118,6 +127,7 @@ export type Project = {
   id: string;
   name: string;
   brief: CreativeBrief;
+  assets?: Asset[];
   timeline: Timeline | null;
   revisions: Revision[];
   messages: { role: "user" | "assistant"; content: string }[];

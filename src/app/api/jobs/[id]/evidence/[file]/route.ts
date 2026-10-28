@@ -10,7 +10,7 @@ export async function GET(
   if (
     !job ||
     !["completed", "failed"].includes(job.status) ||
-    !/^(report\.json|thumbnail\.png|scene-(?:[1-9]|1[0-2])-(?:begin\.png|middle\.png|end\.png|motion\.mp4)|layout-(?:[1-9]|1[0-2])-(?:before|after)\.png)$/.test(
+    !/^(report\.json|thumbnail\.png|scene-(?:[1-9]|1[0-2])-(?:begin\.png|middle\.png|end\.png|event-[0-9]{1,3}\.png|motion\.mp4)|layout-(?:[1-9]|1[0-2])-(?:before|after)\.png)$/.test(
       file,
     )
   )

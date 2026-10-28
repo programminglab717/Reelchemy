@@ -1,4 +1,6 @@
-# Validation — 27 October 2026
+# Validation history
+
+## Baseline — 27 October 2026
 
 Executed in `/workspace/Reelchemy` on Linux with Node 24.19.0, npm 11.9.0, system Chromium, FFmpeg/ffprobe, and Remotion 4.0.539. These results describe this instance; fresh-task restoration and publication have not been tested.
 
@@ -37,6 +39,18 @@ Unit checks cover invalid/oversized timelines, exact scene-boundary arithmetic, 
 - Repeated E2E runs initially selected duplicate project names ambiguously. Unique test names fixed the repeatability problem without deleting saved projects.
 - A vulnerable pinned transitive Zod dependency remained after a Remotion update. A compatible-major override onto Zod 4.6.7+ removed it; unit, render, and production browser checks passed afterward.
 
-## Not validated / not implemented
+## Baseline limitations (superseded by later checkpoints below)
 
 Real paid-model credentials and provider network access; native Claude adapter; generated media; voice/audio/captions; uploads; automatic semantic, contrast, rendered-text, and motion QC; distributed rendering; authentication; public deployment. Square encoding has not been run (square scene schemas pass). Full 60-second encoding has not been run (60-second scene/schema arithmetic passes). Cancellation and worker-crash recovery have implementations but have not been separately exercised by the automated suite. See README for the remaining roadmap.
+
+## Development checkpoint — 28 October 2026 (0.3.0)
+
+- Unit/layout/asset suite: **13 passed**, none skipped. Includes real Chromium clipping detection/repair, immutable unrelated scenes, custom-keyframe validation/interpolation, native Claude request contracts, and verified PNG ingestion/local-only resolution.
+- Development browser suite: **5 passed**, covering actual MP4 download, mobile layout, scene-local revision/non-destructive restore, image upload/layer edit/custom-keyframe export, and cancellation/evidence access rejection.
+- Production build, lint, type checking, formatting, and dependency audit passed; audit reports **0 vulnerabilities**.
+- Native Claude, uploads, rendered-text measurement, local font repair, export history, evidence gallery and motion-clip playback are now implemented. Encoded square output is exercised by the image-export browser test, with codec/resolution/timing validated by the worker.
+- The final production browser run also checks a known uploaded image's pixel color in a rendered scene and reopens the completed export from history after refresh. Results are recorded after completion below.
+
+Still unverified: real provider calls, automated semantic/artistic motion review, audio/voice/captions, public/multi-user deployment, and restoration of new local commits in a fresh cloud task. Static text diagnostics share composition styles but are not frames from the animation; the separate scene PNGs/clips are actual rendered evidence. Keyframe event sampling is capped at eight events per scene and is not exhaustive temporal review. No paid provider is configured in this environment.
+
+Final production browser suite: **5 passed**, none skipped, in 1.4 minutes. It verified the uploaded PNG's expected color in an actual rendered scene, eleven screenshots including custom-keyframe events, and reopening the completed export after a full page refresh. Cancellation remained terminal. No required local check remains failing.

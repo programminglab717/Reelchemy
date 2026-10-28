@@ -10,6 +10,7 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { type Timeline, totalFrames, formats } from "./schema";
 import { checkLayout, RenderQCError } from "./layout-qc";
+import { resolveAssetSources } from "./assets";
 import { repairBounds } from "./qc";
 let bundled: Promise<string> | undefined;
 export async function renderFilm(
@@ -18,7 +19,8 @@ export async function renderFilm(
   onProgress: (p: number) => void = () => {},
   isCancelled: () => boolean = () => false,
 ) {
-  const repaired = repairBounds(input, 1);
+  const assetSources = await resolveAssetSources(input);
+  const repaired = repairBounds(input, 1, Object.keys(assetSources));
   let timeline = repaired.timeline;
   if (repaired.after.some((i) => i.severity === "error"))
     throw new Error(
@@ -44,7 +46,7 @@ export async function renderFilm(
   const options = {
     serveUrl,
     id: "Reelchemy",
-    inputProps: { timeline },
+    inputProps: { timeline, assetSources },
     browserExecutable,
   };
   const composition = await selectComposition(options);
@@ -119,6 +121,13 @@ export async function renderFilm(
       ["begin", Math.min(10, scene.durationFrames - 1)],
       ["middle", Math.floor(scene.durationFrames / 2)],
       ["end", Math.max(0, scene.durationFrames - 11)],
+      ...[
+        ...new Set(
+          scene.layers.flatMap((l) => (l.keyframes || []).map((k) => k.frame)),
+        ),
+      ]
+        .slice(0, 8)
+        .map((f) => [`event-${f}`, f] as const),
     ] as const) {
       const name = `scene-${i + 1}-${label}.png`;
       await renderStill({

@@ -122,3 +122,12 @@ export function recoverJobs() {
       error: "Worker was interrupted. Queue a new export.",
     });
 }
+export function listJobs(projectId: string): RenderJob[] {
+  return (
+    db
+      .prepare(
+        "SELECT data FROM jobs WHERE project_id=? ORDER BY rowid DESC LIMIT 30",
+      )
+      .all(projectId) as { data: string }[]
+  ).map((r) => JSON.parse(r.data));
+}

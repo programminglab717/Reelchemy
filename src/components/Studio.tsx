@@ -1,5 +1,7 @@
 "use client";
+import { AssetPanel } from "./AssetPanel";
 import { LayerEditor } from "./LayerEditor";
+import { ExportHistory, QualityEvidence } from "./ExportHistory";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
@@ -353,7 +355,15 @@ export function Studio() {
                       <Player
                         ref={player}
                         component={Film}
-                        inputProps={{ timeline }}
+                        inputProps={{
+                          timeline,
+                          assetSources: Object.fromEntries(
+                            (project.assets || []).map((a) => [
+                              a.id,
+                              `/api/projects/${project.id}/assets/${a.id}`,
+                            ]),
+                          ),
+                        }}
                         initialFrame={15}
                         durationInFrames={totalFrames(timeline)}
                         fps={30}
@@ -618,6 +628,31 @@ export function Studio() {
                     available.
                   </small>
                 </section>
+                <AssetPanel
+                  project={project}
+                  onProject={remember}
+                  onAdd={(assetId) => {
+                    if (!scene) return;
+                    changeScene({
+                      layers: [
+                        ...scene.layers,
+                        {
+                          id: crypto.randomUUID(),
+                          kind: "image",
+                          assetId,
+                          x: 0.1,
+                          y: 0.5,
+                          width: 0.8,
+                          height: 0.35,
+                          text: "",
+                          color: "#FFFFFF",
+                          fontSize: 48,
+                          animation: "rise",
+                        },
+                      ],
+                    });
+                  }}
+                />
                 <LayerEditor
                   key={scene?.id}
                   timeline={timeline}
@@ -657,6 +692,11 @@ export function Studio() {
                     <span>↗</span>
                   </button>
                 </section>
+                <ExportHistory
+                  projectId={project.id}
+                  current={job}
+                  onSelect={setJob}
+                />
                 {job && (
                   <section className="job-panel" aria-live="polite">
                     <div className="job-heading">
@@ -716,11 +756,12 @@ export function Studio() {
                             </a>
                           </div>
                         </div>
+                        <QualityEvidence job={job} />
                         <p className="qc-note">
-                          Layout checks completed. Scene stills and moving clips
-                          are stored with the export for review. Semantic,
-                          motion, and audio quality have not been automatically
-                          reviewed.
+                          Static geometry and rendered text checks completed.
+                          Scene stills and moving clips are stored with the
+                          export for review. Semantic, motion, and audio quality
+                          have not been automatically reviewed.
                         </p>
                       </>
                     )}
