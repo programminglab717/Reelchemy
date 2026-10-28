@@ -1,9 +1,10 @@
-import { test, expect } from "./fixtures";
+import { test, expect, account } from "./fixtures";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs/promises";
 import sharp from "sharp";
 test("idea → varied storyboard → saved edit → approval → actual MP4 download", async ({
   page,
+  browser,
 }) => {
   test.setTimeout(360000);
   const idea = `A mountain sunrise ${Date.now()}`;
@@ -77,6 +78,26 @@ test("idea → varied storyboard → saved edit → approval → actual MP4 down
   expect(
     jobs[0].report.sceneCache.map((c: { reused: boolean }) => c.reused),
   ).toEqual([false, true, true]);
+  const outsider = await browser.newContext({
+    baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3001",
+    extraHTTPHeaders: {
+      origin: process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3001",
+    },
+  });
+  await account(outsider.request, "Isolated viewer");
+  for (const suffix of [
+    "",
+    "/download",
+    "/thumbnail",
+    "/evidence/report.json",
+    "/evidence/scene-1-middle.png",
+    "/evidence/scene-1-motion.mp4",
+  ]) {
+    const url = `/api/jobs/${jobs[0].id}${suffix}`;
+    expect((await page.request.get(url)).status()).toBe(200);
+    expect((await outsider.request.get(url)).status()).toBe(404);
+  }
+  await outsider.close();
 });
 test("mobile composer is usable and does not overflow", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });

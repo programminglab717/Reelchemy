@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { getMigrations } from "better-auth/db/migration";
 import Database from "better-sqlite3";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { deliverMail, mailConfig } from "./mail";
@@ -42,7 +42,15 @@ function createAuth() {
     /* turbopackIgnore: true */ process.env.REELCHEMY_DATA_DIR || ".data",
   );
   mkdirSync(dir, { recursive: true });
-  const database = new Database(path.join(dir, "auth.sqlite"));
+  const authFile = path.join(dir, "auth.sqlite");
+  const database = new Database(authFile);
+  for (const file of [authFile, authFile + "-wal", authFile + "-shm"]) {
+    try {
+      chmodSync(file, 0o600);
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+    }
+  }
   database.pragma("journal_mode = WAL");
   database.pragma("busy_timeout = 5000");
   return betterAuth({

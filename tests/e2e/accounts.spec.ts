@@ -1,4 +1,5 @@
 import { browserTest as test, expect } from "./fixtures";
+import sharp from "sharp";
 import { account, mailLink } from "./fixtures";
 test.beforeEach(async ({ context }) => {
   await context.setExtraHTTPHeaders({
@@ -28,6 +29,27 @@ test("verified accounts isolate all project, job, asset and download routes", as
     })
   ).json();
   await request.post(`/api/projects/${p.id}/plan`, { data: {} });
+  const upload = await request.post(`/api/projects/${p.id}/assets`, {
+    multipart: {
+      file: {
+        name: "private.png",
+        mimeType: "image/png",
+        buffer: await sharp({
+          create: { width: 16, height: 16, channels: 3, background: "#345678" },
+        })
+          .png()
+          .toBuffer(),
+      },
+      license: "Owned test asset",
+    },
+  });
+  expect(upload.status()).toBe(201);
+  const privateAssetId = (await upload.json()).assets[0].id;
+  expect(
+    (
+      await request.get(`/api/projects/${p.id}/assets/${privateAssetId}`)
+    ).status(),
+  ).toBe(200);
   const job = await (await request.post(`/api/projects/${p.id}/render`)).json();
   await request.delete(`/api/jobs/${job.id}`);
   const bob = await browser.newContext({
@@ -47,7 +69,7 @@ test("verified accounts isolate all project, job, asset and download routes", as
     `/api/projects/${p.id}`,
     `/api/projects/${p.id}/render`,
     `/api/projects/${p.id}/archive`,
-    `/api/projects/${p.id}/assets/00000000-0000-0000-0000-000000000000`,
+    `/api/projects/${p.id}/assets/${privateAssetId}`,
     `/api/jobs/${job.id}`,
     `/api/jobs/${job.id}/download`,
     `/api/jobs/${job.id}/thumbnail`,
@@ -73,6 +95,7 @@ test("verified accounts isolate all project, job, asset and download routes", as
   ).toBe(404);
   expect((await bob.request.delete(`/api/jobs/${job.id}`)).status()).toBe(404);
   await page.goto("/");
+  await expect(page.getByLabel("Video idea")).toBeEnabled({ timeout: 15000 });
   await expect(
     page.getByRole("button", { name: /Private Alice project/ }),
   ).toBeVisible();

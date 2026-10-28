@@ -10,7 +10,7 @@ Proposed video target: complete publishable videos from 30 seconds through five 
 
 A useful product must let a maker complete the ordinary creative workflow through the UI, without editing JSON or invoking shell commands. Manual editing must work without any AI provider.
 
-## Exact current position
+## Baseline when this plan was prepared (0.5.0)
 
 The current 0.5.0 foundation has deterministic Remotion/FFmpeg exports, a restricted scene DSL, demo planning, mocked-contract Claude/compatible adapters, scene revisions and restore, basic layer/scene controls, frame-keyframe and camera JSON editors, image/audio uploads, timed audio/captions, project ZIP round trips, render activity/recovery/cancellation, checksummed scene clip reuse, and technical QC evidence. The last verified suite was 25 unit tests and eight production browser tests, plus build/lint/type/format checks and an audit with zero reported vulnerabilities.
 
@@ -74,3 +74,7 @@ For the confirmed public multi-user target, provisionally allow **10–16 focuse
 Start with editor state and project reliability: define an editing-command/undo model, autosave/concurrency contract, and a manual blank-project flow. Then build the visual canvas/timeline around those contracts; avoid growing the current numeric forms into the final editor. Add video media support and benchmark the five-minute/1080p target before increasing limits. Production auth/storage/deployment work can proceed with local adapters and demo providers while keys remain absent.
 
 Maintain small, reviewed local commits with meaningful tests and update VALIDATION.md as each capability is exercised. No remote push or public deployment is implied by this plan. The release audience is now confirmed. Decisions still needed before deployment are hosting/storage target, intended usage volume, operational budget and monetization; these do not block the initial editor work.
+
+## Completed since the public-scope decision (0.6.0)
+
+The first public-account foundation is implemented: verified-email accounts, password reset/session revocation, private personal studios, resource authorization, workspace-scoped render caches, private media responses, durable mail outbox and an offline legacy-owner assignment script. The current checkpoint still uses development SQLite/files and has not been deployed publicly. These changes reduce the backend work remaining; they do not complete account deletion/privacy, public abuse protection, managed storage or deployment gates. See CHANGELOG.md and VALIDATION.md for the current executed evidence rather than treating the original gap matrix as a claim that every listed item is still absent.

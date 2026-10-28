@@ -77,3 +77,11 @@ The release audience is confirmed as a public multi-user product. Commit `fa2969
 - Restored local development smoke checks returned 401 for anonymous project access and 200 for the sign-in page. The real-data render worker was restarted with workspace-scoped cache handling.
 
 Not yet verified: real SMTP delivery, HTTPS/cookie behavior on a deployed staging domain, PostgreSQL/object storage, public load/abuse resilience, privacy/deletion lifecycle, team membership or live AI. Production intentionally refuses missing auth secrets, non-HTTPS auth URLs and development file mail. Do not treat a passing production build or development-mode account tests as a completed public deployment.
+
+### Strengthened private-file checks and test isolation
+
+A follow-up exercised real private media: the owner fetched a valid uploaded PNG and completed job JSON/MP4/thumbnail/report/scene PNG/motion clip successfully; another verified account received 404 for each. The strengthened account, password-reset and completed-export cases all passed (three targeted tests, 2.8 minutes).
+
+That follow-up exposed two Next development servers repeatedly regenerating shared files. The isolated runner now uses a temporary source/dependency mirror with its own generated files, fresh test signing secret and forced mock AI, without copying `.env.local` or using real AI/SMTP credentials. Dependency copies are removed after service shutdown. UI tests explicitly wait for the composer bootstrap before asserting the private project list.
+
+Final unit count is **29 passed**, including idempotent auth initialization and owner-only authentication database/signing-file permissions. The final production rebuild, lint and type checks passed after that hardening. The earlier full ten-case development suite and these strengthened targeted checks are separate runs; they are not HTTPS/SMTP production-staging verification.
