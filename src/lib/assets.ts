@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
-import type { Asset, Timeline } from "./schema";
+import type { Asset, Timeline, Project } from "./schema";
 export const assetDir = path.resolve(".data/assets");
 export function validAssetId(id: string) {
   return /^[a-f0-9-]{36}$/.test(id);
@@ -51,5 +51,31 @@ export async function resolveAssetSources(t: Timeline) {
         throw new Error(`Missing asset: ${l.assetId}`);
       }
     }
+  for (const track of t.audioTracks || []) {
+    if (!validAssetId(track.assetId)) throw new Error("Invalid audio asset.");
+    sources[track.assetId] =
+      `data:audio/wav;base64,${(await readFile(path.join(assetDir, track.assetId))).toString("base64")}`;
+  }
   return sources;
+}
+
+export function validateProjectAssets(project: Project, t: Timeline) {
+  for (const scene of t.scenes)
+    for (const layer of scene.layers)
+      if (
+        layer.assetId &&
+        !project.assets?.some(
+          (a) => a.id === layer.assetId && a.mime === "image/png",
+        )
+      )
+        throw new Error("Image references must belong to this project.");
+  for (const track of t.audioTracks || []) {
+    const asset = project.assets?.find((a) => a.id === track.assetId);
+    if (asset?.mime !== "audio/wav")
+      throw new Error(
+        "Audio tracks must reference audio uploaded to this project.",
+      );
+    if (track.offsetFrames + track.durationFrames > (asset.durationFrames || 0))
+      throw new Error("Audio trim exceeds the source duration.");
+  }
 }

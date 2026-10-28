@@ -1,3 +1,4 @@
+import { validateProjectAssets } from "@/lib/assets";
 import { createJob, getProject, listJobs } from "@/lib/db";
 import { inspectTimeline } from "@/lib/qc";
 import { failure, localMutation } from "@/lib/http";
@@ -12,6 +13,7 @@ export async function POST(
       return Response.json({ error: "Project not found" }, { status: 404 });
     if (!p.timeline)
       throw new Error("Generate and approve a storyboard first.");
+    validateProjectAssets(p, p.timeline);
     const blocking = inspectTimeline(
       p.timeline,
       (p.assets || []).map((a) => a.id),

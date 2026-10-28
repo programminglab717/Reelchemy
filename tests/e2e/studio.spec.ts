@@ -218,3 +218,100 @@ test("cancelled exports stay cancelled and evidence cannot traverse directories"
     (await request.get(`/api/jobs/${job.id}/evidence/studio.sqlite`)).status(),
   ).toBe(404);
 });
+test("audio upload, timed mix and captions produce AAC and downloadable subtitles", async ({
+  page,
+  request,
+}) => {
+  const name = `Sound studio ${Date.now()}`;
+  const p = await (
+    await request.post("/api/projects", {
+      data: { prompt: name, duration: 5, format: "landscape" },
+    })
+  ).json();
+  await request.post(`/api/projects/${p.id}/plan`, { data: {} });
+  const tone = execFileSync(
+    "ffmpeg",
+    [
+      "-v",
+      "error",
+      "-f",
+      "lavfi",
+      "-i",
+      "sine=frequency=523:duration=4",
+      "-f",
+      "wav",
+      "pipe:1",
+    ],
+    { maxBuffer: 1000000 },
+  );
+  await page.goto("/");
+  await page.getByRole("button", { name: new RegExp(name) }).click();
+  await page
+    .getByLabel("Upload audio", { exact: true })
+    .setInputFiles({ name: "tone.wav", mimeType: "audio/wav", buffer: tone });
+  await page.getByPlaceholder("I own this audio").fill("Generated test tone");
+  await page
+    .getByRole("button", { name: "Upload audio asset", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Add audio: tone.wav" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Add audio: tone.wav" }).click();
+  await page.getByLabel("durationFrames audio", { exact: true }).fill("60");
+  await page.getByLabel("startFrame audio", { exact: true }).fill("30");
+  await page.getByRole("button", { name: "Add caption", exact: true }).click();
+  await page.getByLabel("Caption 1 text").fill("A story with sound.");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await page.getByRole("button", { name: "Approve & export MP4" }).click();
+  await expect(page.getByText("Your film is ready.")).toBeVisible({
+    timeout: 200000,
+  });
+  const jobs = await (await request.get(`/api/projects/${p.id}/render`)).json(),
+    job = jobs[0];
+  expect(job.report.qc.audio.codec).toBe("aac");
+  expect(job.report.qc.audio.tracks).toBe(1);
+  expect(job.report.qc.audio.peakDb).toBeLessThan(0);
+  const srt = await request.get(`/api/jobs/${job.id}/evidence/captions.srt`);
+  expect(await srt.text()).toContain(
+    "00:00:00,000 --> 00:00:02,000\nA story with sound.",
+  );
+  const image = await request.get(
+    `/api/jobs/${job.id}/evidence/scene-1-middle.png`,
+  );
+  const stats = await sharp(await image.body())
+    .extract({ left: 120, top: 590, width: 1040, height: 110 })
+    .stats();
+  expect(stats.channels[0].max).toBeGreaterThan(230);
+  await page.getByRole("link", { name: "SRT captions" }).click();
+});
+test("editable project download and import preserve revisions in a separate project", async ({
+  page,
+  request,
+}) => {
+  const name = `Portable studio ${Date.now()}`;
+  const p = await (
+    await request.post("/api/projects", {
+      data: { prompt: name, duration: 5, format: "landscape" },
+    })
+  ).json();
+  await request.post(`/api/projects/${p.id}/plan`, { data: {} });
+  await page.goto("/");
+  await page.getByRole("button", { name: new RegExp(name) }).click();
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download editable project" }).click();
+  const download = await downloadPromise;
+  const file = await download.path();
+  expect(file).toBeTruthy();
+  await page.getByRole("button", { name: "← Studio" }).click();
+  await page.getByLabel("Import project archive").setInputFiles(file!);
+  await expect(
+    page.getByRole("heading", { name: `${name} (imported)` }),
+  ).toBeVisible();
+  const projects = await (await request.get("/api/projects")).json();
+  const imported = projects.find(
+    (project: { name: string }) => project.name === `${name} (imported)`,
+  );
+  expect(imported.id).not.toBe(p.id);
+  expect(imported.revisions).toHaveLength(1);
+  expect((await request.get(`/api/projects/${p.id}`)).ok()).toBeTruthy();
+});

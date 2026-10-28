@@ -2,6 +2,8 @@
 import { AssetPanel } from "./AssetPanel";
 import { LayerEditor } from "./LayerEditor";
 import { ExportHistory, QualityEvidence } from "./ExportHistory";
+import { MediaEditor } from "./MediaEditor";
+import { ImportProject } from "./ProjectPortability";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
@@ -317,6 +319,14 @@ export function Studio() {
                 </button>
               ))}
             </div>
+            <ImportProject
+              onImport={(p) => {
+                remember(p);
+                setSelected(0);
+                setJob(null);
+                setDirty(false);
+              }}
+            />
             <p className="home-foot">
               No templates to fit into. Just room to create.
             </p>
@@ -379,7 +389,11 @@ export function Studio() {
                     </div>
                     <div className="preview-caption">
                       <span>◉ Procedural composition</span>
-                      <span>Silent preview</span>
+                      <span>
+                        {timeline.audioTracks?.length
+                          ? "Audio preview"
+                          : "Silent preview"}
+                      </span>
                     </div>
                   </section>
                   <section className="director-panel">
@@ -628,6 +642,30 @@ export function Studio() {
                     available.
                   </small>
                 </section>
+                <section className="scene-editor">
+                  <h2>Keep your project</h2>
+                  <button
+                    className="subtle"
+                    disabled={busy}
+                    onClick={() =>
+                      void run(async () => {
+                        if (dirty) await save();
+                        const link = document.createElement("a");
+                        link.href = `/api/projects/${project.id}/archive`;
+                        link.download = `reelchemy-${project.id}.zip`;
+                        document.body.append(link);
+                        link.click();
+                        link.remove();
+                      })
+                    }
+                  >
+                    Download editable project
+                  </button>
+                  <small>
+                    ZIP includes saved scenes, conversation, versions, and
+                    uploaded assets. Import creates a separate copy.
+                  </small>
+                </section>
                 <AssetPanel
                   project={project}
                   onProject={remember}
@@ -660,6 +698,15 @@ export function Studio() {
                   onChange={(t) => {
                     setProject({ ...project, timeline: t });
                     setSelected(Math.min(selected, t.scenes.length - 1));
+                    setDirty(true);
+                    setJob(null);
+                  }}
+                />
+                <MediaEditor
+                  timeline={timeline}
+                  assets={project.assets || []}
+                  onChange={(t) => {
+                    setProject({ ...project, timeline: t });
                     setDirty(true);
                     setJob(null);
                   }}
@@ -754,14 +801,31 @@ export function Studio() {
                             >
                               Download MP4 ↓
                             </a>
+                            {((job.report as { timeline?: Timeline } | null)
+                              ?.timeline?.captions?.length || 0) > 0 && (
+                              <div className="layer-fields">
+                                <a
+                                  href={`/api/jobs/${job.id}/evidence/captions.srt`}
+                                  download="captions.srt"
+                                >
+                                  SRT captions ↓
+                                </a>
+                                <a
+                                  href={`/api/jobs/${job.id}/evidence/captions.vtt`}
+                                  download="captions.vtt"
+                                >
+                                  VTT captions ↓
+                                </a>
+                              </div>
+                            )}
                           </div>
                         </div>
                         <QualityEvidence job={job} />
                         <p className="qc-note">
                           Static geometry and rendered text checks completed.
                           Scene stills and moving clips are stored with the
-                          export for review. Semantic, motion, and audio quality
-                          have not been automatically reviewed.
+                          export for review. Semantic quality and perceptual
+                          audio/video sync require human review.
                         </p>
                       </>
                     )}

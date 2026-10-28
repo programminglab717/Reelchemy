@@ -13,7 +13,7 @@ export async function GET(
   try {
     return new Response(await readFile(path.join(assetDir, assetId)), {
       headers: {
-        "Content-Type": "image/png",
+        "Content-Type": p.assets!.find((a) => a.id === assetId)!.mime,
         "X-Content-Type-Options": "nosniff",
         "Cache-Control": "private, max-age=3600",
       },

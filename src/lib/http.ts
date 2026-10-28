@@ -17,10 +17,45 @@ export function localMutation(req: Request) {
   if (origin && new URL(origin).host !== req.headers.get("host"))
     throw new Error("Cross-origin writes are not allowed.");
 }
-export async function body(req: Request) {
-  if (Number(req.headers.get("content-length") || 0) > 100000)
+export async function readLimitedBody(req: Request, maxBytes: number) {
+  if (Number(req.headers.get("content-length") || 0) > maxBytes)
     throw new Error("Request too large.");
-  const text = await req.text();
-  if (text.length > 100000) throw new Error("Request too large.");
-  return JSON.parse(text);
+  const reader = req.body?.getReader();
+  if (!reader) return new Uint8Array();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.length;
+      if (size > maxBytes) {
+        await reader.cancel();
+        throw new Error("Request too large.");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const result = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return result;
+}
+export async function body(req: Request) {
+  return JSON.parse(
+    new TextDecoder().decode(await readLimitedBody(req, 100000)),
+  );
+}
+export async function multipart(req: Request) {
+  const bytes = await readLimitedBody(req, 11 * 1024 * 1024);
+  return new Request(req.url, {
+    method: "POST",
+    headers: { "content-type": req.headers.get("content-type") || "" },
+    body: bytes,
+  }).formData();
 }

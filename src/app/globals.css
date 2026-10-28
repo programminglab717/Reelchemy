@@ -1163,3 +1163,25 @@ main {
   max-height: 300px;
   margin-top: 15px;
 }
+.asset-grid audio {
+  max-width: 180px;
+}
+.layer-editor h3 {
+  font-size: 13px;
+}
+.project-import {
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  font-size: 11px;
+  color: #748169;
+}
+.project-import input {
+  margin-left: 12px;
+  max-width: 100%;
+}
+.project-import p {
+  margin-top: 10px;
+  color: #9a4930;
+}

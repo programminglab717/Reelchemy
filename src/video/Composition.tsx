@@ -1,3 +1,4 @@
+import { SoundAndCaptions } from "./SoundAndCaptions";
 import React from "react";
 import { textStyle } from "../lib/text-style";
 import { AbsoluteFill, Sequence, useCurrentFrame } from "remotion";
@@ -178,6 +179,7 @@ export function Film({
           </Sequence>
         );
       })}
+      <SoundAndCaptions timeline={timeline} assetSources={assetSources} />
     </AbsoluteFill>
   );
 }

@@ -1,3 +1,5 @@
+import { muxAudio } from "./audio";
+import { subtitles } from "./captions";
 import { bundle } from "@remotion/bundler";
 import {
   selectComposition,
@@ -75,6 +77,15 @@ export async function renderFilm(
     clearInterval(timer);
   }
   if (isCancelled()) throw new Error("Render cancelled.");
+  const audioReport = await muxAudio(timeline, outputLocation);
+  await writeFile(
+    path.join(outputDir, "captions.srt"),
+    subtitles(timeline, "srt"),
+  );
+  await writeFile(
+    path.join(outputDir, "captions.vtt"),
+    subtitles(timeline, "vtt"),
+  );
   const probe = JSON.parse(
     execFileSync(
       "ffprobe",
@@ -188,7 +199,7 @@ export async function renderFilm(
       samples,
       temporalReview:
         "Per-scene moving clips generated for human review. Automated semantic/motion and audio review are not implemented.",
-      audio: "Silent export; audio tracks not implemented.",
+      audio: audioReport,
     },
     timeline,
   };

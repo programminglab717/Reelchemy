@@ -1,3 +1,4 @@
+import { validateProjectAssets } from "@/lib/assets";
 import { getProject, reviseProject } from "@/lib/db";
 import { timelineSchema } from "@/lib/schema";
 import { failure, body, localMutation } from "@/lib/http";
@@ -15,14 +16,7 @@ export async function PATCH(req: Request, { params }: Context) {
     if (!p)
       return Response.json({ error: "Project not found" }, { status: 404 });
     const timeline = timelineSchema.parse(await body(req));
-    if (
-      timeline.scenes.some((s) =>
-        s.layers.some(
-          (l) => l.assetId && !(p.assets || []).some((a) => a.id === l.assetId),
-        ),
-      )
-    )
-      throw new Error("Image references must belong to this project.");
+    validateProjectAssets(p, timeline);
     return Response.json(reviseProject(p, timeline, "Scene editor"));
   } catch (e) {
     return failure(e);

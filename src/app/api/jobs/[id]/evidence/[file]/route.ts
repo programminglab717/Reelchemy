@@ -10,7 +10,7 @@ export async function GET(
   if (
     !job ||
     !["completed", "failed"].includes(job.status) ||
-    !/^(report\.json|thumbnail\.png|scene-(?:[1-9]|1[0-2])-(?:begin\.png|middle\.png|end\.png|event-[0-9]{1,3}\.png|motion\.mp4)|layout-(?:[1-9]|1[0-2])-(?:before|after)\.png)$/.test(
+    !/^(report\.json|captions\.srt|captions\.vtt|thumbnail\.png|scene-(?:[1-9]|1[0-2])-(?:begin\.png|middle\.png|end\.png|event-[0-9]{1,3}\.png|motion\.mp4)|layout-(?:[1-9]|1[0-2])-(?:before|after)\.png)$/.test(
       file,
     )
   )
@@ -19,11 +19,14 @@ export async function GET(
     const data = await readFile(path.join(artifactDir, job.id, file));
     return new Response(data, {
       headers: {
-        "Content-Type": file.endsWith(".json")
-          ? "application/json"
-          : file.endsWith(".mp4")
-            ? "video/mp4"
-            : "image/png",
+        "Content-Type":
+          file.endsWith(".srt") || file.endsWith(".vtt")
+            ? "text/plain; charset=utf-8"
+            : file.endsWith(".json")
+              ? "application/json"
+              : file.endsWith(".mp4")
+                ? "video/mp4"
+                : "image/png",
         "Cache-Control": "no-store",
       },
     });

@@ -75,9 +75,17 @@ Animations depend only on frame index and fixed inputs. Rendering uses local Ari
 - The demo planner always produces three illustrative scene strategies. It does not understand an arbitrary story or create arbitrary characters.
 - Editing supports scene-local or whole-plan prompt revisions, version restore, text/accent, scene reorder/duplicate/delete, duration, transition, format, layer geometry/color/motion, and custom frame keyframes. PNG/JPEG uploads include source/rights metadata and can be placed as image layers. Save edits before leaving a project.
 - QC checks declared geometry/assets, keyframe bounds, and actual Chromium text geometry with shared rendering styles. Clipped text receives up to two local font-size correction passes; unresolved defects block export. Contrast, semantic analysis, and artistic motion review remain unimplemented. QC reports, stills, and clips are accessible from export history. Decoding every encoded frame checks file integrity, not motion quality.
-- Exports are silent. Captions, audio/voice generation, character rigs, generated media, and external stock integrations remain to build.
+- Optional uploaded audio supports frame-based start, trim, gain and fades (up to four tracks), AAC encoding, codec/duration checks and peak measurement. Captions are burned into preview/MP4 and downloadable as SRT/VTT. Projects without audio stay silent. Voice generation, character rigs, generated media and external stock integrations remain to build.
 - Queue execution supports progress, cancellation, and manual retry by starting a new export. Automatic retry, resumable partial renders, worker-level resource isolation, and cost accounting are future work.
 - Formats 16:9, 9:16, and 1:1 have schema/preview support; verified encoded outputs are listed in VALIDATION.md.
 - No authentication, collaboration, expiring sharing, cloud storage, deletion UI, or deployment setup yet. Project data lives on this machine.
 
 See [CHANGELOG.md](CHANGELOG.md) for checkpoints. Verified checkpoints are committed locally as requested; no remote pushes have been made.
+
+## Sound, captions and portable projects
+
+Upload an audio file with its source/usage rights, add it in **Sound & captions**, then edit start/offset/duration in frames (30 fps), gain and fades. Audio files are capped at 10 MB and 120 seconds, decoded locally and normalized to 48 kHz stereo WAV. AAC exports are padded/trimmed to the video duration, with a limiter on the final mix. Preview uses per-track gain; the exported overlapping mix additionally limits peaks. Review narration timing and creative sound choices yourself; the checks verify technical timing and levels, not perceptual quality.
+
+Caption cues must not overlap or exceed the timeline. Each cue is limited to 80 characters, displayed in the bottom safe area, and exported as SRT/VTT alongside the MP4. Cue boundaries are frame-based; subtitle milliseconds round to the nearest millisecond.
+
+**Download editable project** saves scenes, chat, versions and local assets as a ZIP. Import it on the Studio home page to create a separate copy with new asset IDs. ZIP import is capped at 50 MB compressed / 150 MB declared uncompressed, 31 allowlisted entries and 25 MB per entry. Assets are revalidated on import. Completed videos, render jobs, server configuration and credentials are excluded; rerender the imported project. Never assume the ZIP is a database backup or an environment snapshot.

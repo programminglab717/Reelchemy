@@ -38,13 +38,72 @@ export const sceneSchema = z.object({
   layers: z.array(layerSchema).min(1).max(20),
   transition: z.enum(["fade", "cut"]).default("fade"),
 });
+export const audioTrackSchema = z.object({
+  id: z.string().min(1).max(80),
+  assetId: z.string().uuid(),
+  startFrame: z.number().int().min(0).max(1799),
+  offsetFrames: z.number().int().min(0).max(3599).default(0),
+  durationFrames: z.number().int().min(1).max(1800),
+  volume: z.number().min(0).max(1).default(0.8),
+  fadeFrames: z.number().int().min(0).max(150).default(6),
+});
+export const captionSchema = z.object({
+  id: z.string().min(1).max(80),
+  startFrame: z.number().int().min(0),
+  endFrame: z.number().int().max(1800),
+  text: z
+    .string()
+    .trim()
+    .min(1)
+    .max(80)
+    .transform((s) => s.replace(/\s+/g, " ")),
+});
 export const timelineSchema = z
   .object({
     fps: z.literal(30),
     format: z.enum(["landscape", "portrait", "square"]),
     scenes: z.array(sceneSchema).min(1).max(12),
+    audioTracks: z.array(audioTrackSchema).max(4).optional(),
+    captions: z.array(captionSchema).max(100).optional(),
   })
   .superRefine((t, ctx) => {
+    const frames = t.scenes.reduce((n, s) => n + s.durationFrames, 0);
+    const tracks = t.audioTracks || [],
+      captions = [...(t.captions || [])].sort(
+        (a, b) => a.startFrame - b.startFrame,
+      );
+    if (
+      new Set(tracks.map((a) => a.id)).size !== tracks.length ||
+      new Set(captions.map((c) => c.id)).size !== captions.length
+    )
+      ctx.addIssue({
+        code: "custom",
+        message: "Audio track and caption IDs must be unique.",
+      });
+    if (
+      tracks.some(
+        (a) =>
+          a.startFrame + a.durationFrames > frames ||
+          a.fadeFrames * 2 > a.durationFrames,
+      )
+    )
+      ctx.addIssue({
+        code: "custom",
+        message: "Audio tracks and fades must fit the timeline.",
+      });
+    if (
+      captions.some(
+        (c, i) =>
+          c.endFrame <= c.startFrame ||
+          c.endFrame > frames ||
+          (i > 0 && c.startFrame < captions[i - 1].endFrame),
+      )
+    )
+      ctx.addIssue({
+        code: "custom",
+        message:
+          "Captions must have positive duration, fit the timeline, and not overlap.",
+      });
     if (t.scenes.reduce((n, s) => n + s.durationFrames, 0) > 1800)
       ctx.addIssue({
         code: "custom",
@@ -95,15 +154,12 @@ export type Asset = {
   name: string;
   source: string;
   license: string;
-  mime: "image/png";
+  mime: "image/png" | "audio/wav";
+  durationFrames?: number;
   createdAt: string;
 };
-export type AudioTrack = {
-  id: string;
-  assetId: string;
-  startFrame: number;
-  durationFrames: number;
-};
+export type AudioTrack = z.infer<typeof audioTrackSchema>;
+export type Caption = z.infer<typeof captionSchema>;
 export type QCIssue = {
   sceneId: string;
   layerId?: string;
