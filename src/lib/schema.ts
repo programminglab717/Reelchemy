@@ -6,6 +6,13 @@ export const formats = {
   square: { width: 1080, height: 1080 },
 } as const;
 const color = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+export const keyframeSchema = z.object({
+  frame: z.number().int().min(0).max(599),
+  x: z.number().min(-1).max(1),
+  y: z.number().min(-1).max(1),
+  scale: z.number().min(0.1).max(3),
+  opacity: z.number().min(0).max(1),
+});
 export const layerSchema = z.object({
   id: z.string().min(1).max(80),
   kind: z.enum(["text", "circle", "rectangle", "mountain", "nodes"]),
@@ -18,6 +25,7 @@ export const layerSchema = z.object({
   fontSize: z.number().min(12).max(120).default(48),
   animation: z.enum(["rise", "drift", "pulse", "none"]).default("rise"),
   assetId: z.string().optional(),
+  keyframes: z.array(keyframeSchema).max(30).optional(),
 });
 export const sceneSchema = z.object({
   id: z.string().min(1).max(80),
@@ -44,6 +52,22 @@ export const timelineSchema = z
       });
     if (new Set(t.scenes.map((s) => s.id)).size !== t.scenes.length)
       ctx.addIssue({ code: "custom", message: "Scene IDs must be unique." });
+    for (const scene of t.scenes)
+      for (const layer of scene.layers) {
+        const keys = layer.keyframes || [];
+        if (
+          keys.some(
+            (k, i) =>
+              k.frame >= scene.durationFrames ||
+              (i > 0 && k.frame <= keys[i - 1].frame),
+          )
+        )
+          ctx.addIssue({
+            code: "custom",
+            message:
+              "Keyframes must increase strictly and fit inside their scene.",
+          });
+      }
     for (const s of t.scenes)
       if (new Set(s.layers.map((l) => l.id)).size !== s.layers.length)
         ctx.addIssue({
@@ -74,7 +98,13 @@ export type AudioTrack = {
 export type QCIssue = {
   sceneId: string;
   layerId?: string;
-  code: "bounds" | "overlap" | "readability" | "missing-asset";
+  code:
+    | "bounds"
+    | "overlap"
+    | "readability"
+    | "missing-asset"
+    | "text-overflow"
+    | "contrast";
   message: string;
   severity: "error" | "warning";
 };
@@ -139,5 +169,27 @@ export function animationState(frame: number, animation: Layer["animation"]) {
           ? Math.sin(frame / 45) * 8
           : 0,
     scale: animation === "pulse" ? 1 + Math.sin(frame / 20) * 0.025 : 1,
+  };
+}
+
+export function layerMotion(layer: Layer, frame: number) {
+  const fallback = animationState(frame, layer.animation),
+    keys = layer.keyframes || [];
+  if (!keys.length) return { ...fallback, x: 0, y: 0 };
+  const right = keys.findIndex((k) => k.frame >= frame);
+  const a = right < 0 ? keys[keys.length - 1] : keys[Math.max(0, right - 1)],
+    b = right < 0 ? a : keys[right];
+  const fraction =
+    a.frame === b.frame
+      ? 0
+      : Math.max(0, Math.min(1, (frame - a.frame) / (b.frame - a.frame)));
+  const value = (key: "x" | "y" | "scale" | "opacity") =>
+    a[key] + (b[key] - a[key]) * fraction;
+  return {
+    x: value("x"),
+    y: value("y"),
+    scale: value("scale"),
+    opacity: value("opacity"),
+    translateY: 0,
   };
 }

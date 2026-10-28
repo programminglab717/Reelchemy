@@ -19,3 +19,10 @@
 - Added static QC and one-pass local bounds correction with before/after evidence. Automated visual/temporal review remains open.
 - Added three seeded demo projects and JSON examples. See README for remaining product scope.
 - Updated Remotion packages together to 4.0.539; unified Zod on 4.6.7+ to resolve a vulnerable transitive version.
+
+## 0.2.0 — 2026-10-28
+
+- Added native Claude Messages support (mocked API validation), scene-local revision with stable timing/IDs, concurrency conflict detection, preserved original briefs, and non-destructive version restore.
+- Added scene duration/format/transition controls, duplication/deletion, layer geometry/text/color editing, and deterministic custom keyframe interpolation with schema constraints.
+- Added Chromium-based text measurement using shared rendering styles, two-pass localized font repair, before/after layout evidence, full-file decode checks, and allowlisted evidence downloads. Layout diagnostics do not claim semantic or temporal approval.
+- Verified 12 unit/layout tests; three browser tests passed for the creation and revision/restore flow before the new QC worker restart.

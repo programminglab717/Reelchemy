@@ -73,3 +73,39 @@ test("mobile composer is usable and does not overflow", async ({ page }) => {
   ).toBeTruthy();
   await page.screenshot({ path: "artifacts/ui-mobile.png", fullPage: true });
 });
+test("scene revision preserves other scenes and history can be restored", async ({
+  request,
+  page,
+}) => {
+  const response = await request.post("/api/projects", {
+    data: {
+      prompt: `Revision test ${Date.now()}`,
+      duration: 5,
+      format: "landscape",
+    },
+  });
+  expect(response.status()).toBe(201);
+  const created = await response.json();
+  const base = await (
+    await request.post(`/api/projects/${created.id}/plan`, { data: {} })
+  ).json();
+  const edited = await (
+    await request.post(`/api/projects/${created.id}/plan`, {
+      data: { revision: "A new dawn over the valley", sceneId: "scene-2" },
+    })
+  ).json();
+  expect(edited.timeline.scenes[0]).toEqual(base.timeline.scenes[0]);
+  expect(edited.timeline.scenes[2]).toEqual(base.timeline.scenes[2]);
+  expect(edited.brief.prompt).toBe(base.brief.prompt);
+  await page.goto("/");
+  await page.getByRole("button", { name: new RegExp(created.name) }).click();
+  await page
+    .getByLabel("Restore saved version")
+    .selectOption(base.revisions[0].id);
+  await expect(page.getByText(/3 saved versions/)).toBeVisible();
+  const restored = await (
+    await request.get(`/api/projects/${created.id}`)
+  ).json();
+  expect(restored.timeline).toEqual(base.timeline);
+  expect(restored.revisions).toHaveLength(3);
+});

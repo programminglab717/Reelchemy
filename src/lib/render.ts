@@ -9,6 +9,7 @@ import { mkdir, writeFile, stat } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { type Timeline, totalFrames, formats } from "./schema";
+import { checkLayout, RenderQCError } from "./layout-qc";
 import { repairBounds } from "./qc";
 let bundled: Promise<string> | undefined;
 export async function renderFilm(
@@ -18,7 +19,7 @@ export async function renderFilm(
   isCancelled: () => boolean = () => false,
 ) {
   const repaired = repairBounds(input, 1);
-  const timeline = repaired.timeline;
+  let timeline = repaired.timeline;
   if (repaired.after.some((i) => i.severity === "error"))
     throw new Error(
       `QC blocked export: ${repaired.after
@@ -27,6 +28,15 @@ export async function renderFilm(
         .join(" ")}`,
     );
   await mkdir(outputDir, { recursive: true });
+  const layout = await checkLayout(timeline, outputDir, isCancelled);
+  timeline = layout.timeline;
+  if (layout.after.length) {
+    await writeFile(
+      path.join(outputDir, "report.json"),
+      JSON.stringify({ qc: { layout }, timeline }, null, 2),
+    );
+    throw new RenderQCError(layout.after);
+  }
   const serveUrl = await (bundled ??= bundle({
     entryPoint: path.resolve("src/video/index.tsx"),
   }));
@@ -95,9 +105,16 @@ export async function renderFilm(
     throw new Error(
       "Encoded video failed codec/dimensions/fps/duration verification.",
     );
+  // Decode all encoded frames: catches damaged files, not artistic motion defects.
+  execFileSync(
+    "ffmpeg",
+    ["-v", "error", "-xerror", "-i", outputLocation, "-f", "null", "-"],
+    { timeout: 120000 },
+  );
   let start = 0;
   const samples = [];
   for (const [i, scene] of timeline.scenes.entries()) {
+    if (isCancelled()) throw new Error("Render cancelled.");
     for (const [label, offset] of [
       ["begin", Math.min(10, scene.durationFrames - 1)],
       ["middle", Math.floor(scene.durationFrames / 2)],
@@ -154,8 +171,11 @@ export async function renderFilm(
     },
     qc: {
       before: repaired.before,
-      after: repaired.after,
-      repairAttempts: repaired.attempts,
+      after: [...repaired.after, ...layout.after],
+      layout,
+      repairAttempts:
+        repaired.attempts +
+        (layout.changes.length ? Math.min(2, layout.changes.length) : 0),
       samples,
       temporalReview:
         "Per-scene moving clips generated for human review. Automated semantic/motion and audio review are not implemented.",

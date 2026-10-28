@@ -1054,3 +1054,63 @@ main {
     font-size: 8px;
   }
 }
+.layer-editor {
+  margin-top: 24px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px;
+}
+.layer-toolbar,
+.layer-fields {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+.layer-editor label {
+  font-size: 11px;
+  color: #66715d;
+}
+.layer-editor input,
+.layer-editor select {
+  display: block;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  max-width: 160px;
+  margin-top: 6px;
+}
+.layer-editor input[type="number"] {
+  width: 85px;
+}
+.layer-row {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  margin-bottom: 10px;
+}
+.layer-editor summary {
+  cursor: pointer;
+  font-size: 12px;
+}
+.layer-editor p {
+  font-size: 11px;
+  color: #748169;
+  line-height: 1.7;
+  margin: 12px 0;
+}
+.layer-editor textarea {
+  width: 100%;
+  font-family: monospace;
+  border: 1px solid var(--line);
+  margin: 10px 0;
+}
+.director-panel select {
+  border: 1px solid var(--line);
+  padding: 7px;
+  border-radius: 5px;
+  margin: 8px 0;
+  max-width: 100%;
+}

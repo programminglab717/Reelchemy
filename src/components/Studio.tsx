@@ -1,4 +1,5 @@
 "use client";
+import { LayerEditor } from "./LayerEditor";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
@@ -53,7 +54,8 @@ export function Studio() {
     [job, setJob] = useState<RenderJob | null>(null),
     [selected, setSelected] = useState(0),
     [dirty, setDirty] = useState(false),
-    [revision, setRevision] = useState("");
+    [revision, setRevision] = useState(""),
+    [revisionScope, setRevisionScope] = useState("scene");
   const player = useRef<PlayerRef>(null);
   useEffect(() => {
     api<Project[]>("/api/projects")
@@ -394,7 +396,12 @@ export function Studio() {
                           const p = await api<Project>(
                             `/api/projects/${project.id}/plan`,
                             "POST",
-                            { revision },
+                            {
+                              revision,
+                              ...(revisionScope === "scene"
+                                ? { sceneId: timeline.scenes[selected].id }
+                                : {}),
+                            },
                           );
                           remember(p);
                           setRevision("");
@@ -404,7 +411,15 @@ export function Studio() {
                         });
                       }}
                     >
-                      <label htmlFor="revision">Reimagine this story</label>
+                      <label htmlFor="revision">Describe your revision</label>
+                      <select
+                        aria-label="Revision scope"
+                        value={revisionScope}
+                        onChange={(e) => setRevisionScope(e.target.value)}
+                      >
+                        <option value="scene">Selected scene only</option>
+                        <option value="story">Whole storyboard</option>
+                      </select>
                       <textarea
                         id="revision"
                         placeholder="Describe a new direction…"
@@ -416,7 +431,7 @@ export function Studio() {
                         className="subtle"
                         disabled={busy || revision.trim().length < 3}
                       >
-                        Revise storyboard ↗
+                        Apply revision ↗
                       </button>
                     </form>
                   </section>
@@ -568,6 +583,52 @@ export function Studio() {
                     </button>
                   </section>
                 )}
+                <section className="scene-editor">
+                  <h2>Version history</h2>
+                  <select
+                    aria-label="Restore saved version"
+                    defaultValue=""
+                    disabled={busy || dirty}
+                    onChange={(e) => {
+                      const revisionId = e.target.value;
+                      if (!revisionId) return;
+                      void run(async () => {
+                        remember(
+                          await api<Project>(
+                            `/api/projects/${project.id}/restore`,
+                            "POST",
+                            { revisionId },
+                          ),
+                        );
+                        setSelected(0);
+                        setJob(null);
+                      });
+                      e.target.value = "";
+                    }}
+                  >
+                    <option value="">Choose a saved version to restore…</option>
+                    {[...project.revisions].reverse().map((r, i) => (
+                      <option value={r.id} key={r.id}>
+                        Version {project.revisions.length - i} · {r.source}
+                      </option>
+                    ))}
+                  </select>
+                  <small>
+                    Restoring saves a new version; earlier versions stay
+                    available.
+                  </small>
+                </section>
+                <LayerEditor
+                  key={scene?.id}
+                  timeline={timeline}
+                  selected={Math.min(selected, timeline.scenes.length - 1)}
+                  onChange={(t) => {
+                    setProject({ ...project, timeline: t });
+                    setSelected(Math.min(selected, t.scenes.length - 1));
+                    setDirty(true);
+                    setJob(null);
+                  }}
+                />
                 <section className="export-panel">
                   <div>
                     <span className="eyebrow">READY WHEN YOU ARE</span>

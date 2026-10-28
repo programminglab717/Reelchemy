@@ -1,11 +1,7 @@
 import React from "react";
+import { textStyle } from "../lib/text-style";
 import { AbsoluteFill, Sequence, useCurrentFrame } from "remotion";
-import {
-  animationState,
-  formats,
-  type Timeline,
-  type Scene,
-} from "../lib/schema";
+import { layerMotion, formats, type Timeline, type Scene } from "../lib/schema";
 function SceneView({
   scene,
   format,
@@ -14,7 +10,7 @@ function SceneView({
   format: Timeline["format"];
 }) {
   const frame = useCurrentFrame();
-  const { width } = formats[format];
+  const { width, height } = formats[format];
   const opacity =
     scene.transition === "fade"
       ? Math.min(1, frame / 10, (scene.durationFrames - frame) / 10)
@@ -36,7 +32,7 @@ function SceneView({
           }}
         />
         {scene.layers.map((l) => {
-          const a = animationState(frame, l.animation);
+          const a = layerMotion(l, frame);
           return (
             <div
               key={l.id}
@@ -48,24 +44,14 @@ function SceneView({
                 height: `${l.height * 100}%`,
                 color: l.color,
                 opacity: a.opacity,
-                transform: `translateY(${a.translateY}px) scale(${a.scale})`,
+                transform: `translate(${a.x * width}px, ${a.y * height + a.translateY}px) scale(${a.scale})`,
                 overflow: "hidden",
                 display: "flex",
                 alignItems: "center",
               }}
             >
               {l.kind === "text" ? (
-                <div
-                  style={{
-                    fontSize: (l.fontSize * width) / 1280,
-                    fontWeight: l.fontSize > 30 ? 700 : 500,
-                    lineHeight: 1.12,
-                    whiteSpace: "pre-wrap",
-                    overflowWrap: "anywhere",
-                  }}
-                >
-                  {l.text}
-                </div>
+                <div style={textStyle(l, width)}>{l.text}</div>
               ) : l.kind === "circle" ? (
                 <svg width="100%" height="100%" viewBox="0 0 800 220">
                   <ellipse

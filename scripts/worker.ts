@@ -8,6 +8,7 @@ import {
   updateJob,
   recoverJobs,
 } from "../src/lib/db";
+import { RenderQCError } from "../src/lib/layout-qc";
 import { renderFilm } from "../src/lib/render";
 const lock = path.join(dataDir, "worker.lock");
 async function main() {
@@ -62,7 +63,11 @@ async function main() {
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Render failed";
-        updateJob(job.id, { status: "failed", error: message });
+        updateJob(job.id, {
+          status: "failed",
+          error: message,
+          ...(error instanceof RenderQCError ? { issues: error.issues } : {}),
+        });
         console.error(
           JSON.stringify({
             event: "render.failed",

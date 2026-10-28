@@ -117,3 +117,65 @@ test("compatible provider sends server credentials and validates returned storyb
     }
   }
 });
+test("scene-local demo revision preserves timing, IDs and all unrelated scenes", async () => {
+  const { reviseScene } = await import("../src/lib/provider");
+  const t = mockPlan(brief);
+  const result = await reviseScene(t, "scene-2", "A new dawn");
+  assert.deepEqual(result.scenes[0], t.scenes[0]);
+  assert.deepEqual(result.scenes[2], t.scenes[2]);
+  assert.equal(result.scenes[1].durationFrames, t.scenes[1].durationFrames);
+  assert.equal(
+    result.scenes[1].layers.find((l) => l.id === "title")?.text,
+    "A new dawn",
+  );
+  assert.notEqual(t.scenes[1].intent, "A new dawn");
+});
+test("native Claude adapter uses Messages headers and validates structured response", async () => {
+  const oldFetch = globalThis.fetch;
+  const saved = { ...process.env };
+  try {
+    process.env.AI_PROVIDER = "anthropic";
+    delete process.env.AI_BASE_URL;
+    process.env.AI_MODEL = "test";
+    process.env.AI_API_KEY = "test-only";
+    globalThis.fetch = async (input, init) => {
+      assert.equal(String(input), "https://api.anthropic.com/v1/messages");
+      assert.equal(
+        (init?.headers as Record<string, string>)["x-api-key"],
+        "test-only",
+      );
+      const payload = JSON.parse(init!.body as string);
+      assert(payload.system.includes("JSON"));
+      assert.equal(payload.messages.length, 1);
+      return Response.json({
+        content: [{ type: "text", text: JSON.stringify(mockPlan(brief)) }],
+      });
+    };
+    assert.equal((await generatePlan(brief)).provider, "anthropic");
+  } finally {
+    globalThis.fetch = oldFetch;
+    for (const k of ["AI_PROVIDER", "AI_BASE_URL", "AI_MODEL", "AI_API_KEY"]) {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    }
+  }
+});
+test("custom keyframes interpolate deterministically and invalid ordering is rejected", async () => {
+  const { layerMotion } = await import("../src/lib/schema");
+  const t = mockPlan(brief);
+  const l = t.scenes[0].layers[0];
+  l.keyframes = [
+    { frame: 0, x: 0, y: 0, scale: 1, opacity: 0 },
+    { frame: 20, x: 0.2, y: 0.4, scale: 2, opacity: 1 },
+  ];
+  assert.deepEqual(layerMotion(l, 10), {
+    x: 0.1,
+    y: 0.2,
+    scale: 1.5,
+    opacity: 0.5,
+    translateY: 0,
+  });
+  assert.equal(layerMotion(l, 40).opacity, 1);
+  l.keyframes[1].frame = 0;
+  assert.equal(timelineSchema.safeParse(t).success, false);
+});
