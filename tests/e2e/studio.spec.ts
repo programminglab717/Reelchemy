@@ -10,6 +10,9 @@ test("idea → varied storyboard → saved edit → approval → actual MP4 down
   const idea = `A mountain sunrise ${Date.now()}`;
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Big ideas." })).toBeVisible();
+  // Heading HTML can be visible before hydration. Screenshots temporarily change
+  // input caret styles, so wait for client bootstrap before capturing the page.
+  await expect(page.getByLabel("Video idea")).toBeEnabled();
   await page.screenshot({ path: "artifacts/ui-studio.png", fullPage: true });
   await page.getByLabel("Video idea").fill(idea);
   await page.getByLabel("Duration", { exact: true }).selectOption("5");
@@ -106,6 +109,7 @@ test("mobile composer is usable and does not overflow", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await expect(page.getByLabel("Video idea")).toBeVisible();
+  await expect(page.getByLabel("Video idea")).toBeEnabled();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
