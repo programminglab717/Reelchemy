@@ -29,6 +29,7 @@ export function inspectTimeline(
       });
   for (const s of t.scenes) {
     for (const l of s.layers) {
+      if (l.hidden) continue;
       if (
         l.kind === "text" &&
         contrastRatio(l.color, s.background) <
@@ -85,7 +86,7 @@ export function inspectTimeline(
           severity: "warning",
         });
     }
-    const text = s.layers.filter((l) => l.kind === "text");
+    const text = s.layers.filter((l) => l.kind === "text" && !l.hidden);
     for (let i = 0; i < text.length; i++)
       for (let j = i + 1; j < text.length; j++) {
         const a = text[i],
@@ -121,6 +122,7 @@ export function repairBounds(
   ) {
     for (const s of timeline.scenes)
       for (const l of s.layers) {
+        if (l.hidden) continue;
         l.x = Math.min(l.x, 1 - l.width);
         l.y = Math.min(l.y, 1 - l.height);
       }

@@ -1238,3 +1238,243 @@ main.account-page {
 .account-card p[role="alert"] {
   color: #9a4930;
 }
+
+.editor-content {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.editor-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 18px 0;
+}
+.editor-actions [role="status"] {
+  color: var(--muted);
+  font-size: 12px;
+  margin-left: auto;
+}
+.save-warning {
+  background: #fff3de;
+  border: 1px solid #c78439;
+  padding: 16px;
+  margin: 18px 0;
+  border-radius: 10px;
+}
+.save-warning button {
+  margin: 6px;
+}
+.blank-start {
+  margin-top: 16px;
+}
+.canvas-editor p,
+.timeline-editor p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.canvas-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 18px;
+  align-items: start;
+}
+.canvas-stage {
+  position: relative;
+  background: #101d31;
+  width: 100%;
+  max-width: 820px;
+  isolation: isolate;
+  touch-action: none;
+}
+.layout-render {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.canvas-layer {
+  position: absolute;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 0;
+  cursor: move;
+  touch-action: none;
+  border-radius: 0;
+  min-width: 0;
+}
+.canvas-layer:hover {
+  border-color: #ffffff80;
+}
+.canvas-layer.selected {
+  border: 2px solid #d5f281;
+}
+.canvas-layer.locked {
+  cursor: default;
+}
+.canvas-layer:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 2px;
+}
+.canvas-resize {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  background: #d5f281;
+  border: 2px solid #101d31;
+  cursor: nwse-resize;
+  touch-action: none;
+  border-radius: 3px;
+  z-index: 2;
+}
+.canvas-guides {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 1px solid #ffffff40;
+}
+.canvas-stack h3 {
+  margin-top: 0;
+  font-size: 12px;
+}
+.canvas-stack > div:not(.canvas-inspector) {
+  display: flex;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  margin-bottom: 6px;
+  padding: 5px;
+}
+.canvas-stack .chosen-layer {
+  background: #edf2e1;
+}
+.canvas-stack button {
+  font-size: 10px;
+  padding: 5px;
+  border: 0;
+  border-radius: 4px;
+}
+.canvas-stack .layer-select {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+.canvas-inspector {
+  margin-top: 18px;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.canvas-inspector .layer-fields {
+  margin-top: 12px;
+}
+.timeline-scroll {
+  overflow-x: auto;
+}
+.timeline-content {
+  min-width: 380px;
+}
+.timeline-track {
+  position: relative;
+  height: 55px;
+  background: #f0f2ef;
+  margin: 8px 0;
+  border-radius: 6px;
+}
+.timeline-track > button,
+.timeline-track > span {
+  position: absolute;
+  height: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 9px;
+  border: 2px solid white;
+  border-radius: 6px;
+  text-align: left;
+  font-size: 11px;
+}
+.timeline-track > button.selected {
+  border-color: #699b2d;
+}
+.timeline-track small {
+  display: block;
+  font-size: 10px;
+  margin-top: 5px;
+}
+.timeline-ruler {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--muted);
+}
+.media-track,
+.caption-track {
+  height: 28px;
+}
+.media-track > span {
+  background: #d3e8e4;
+  padding: 5px;
+}
+.caption-track > span {
+  background: #e8def2;
+  padding: 5px;
+}
+.timeline-editor .scrub-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+}
+.timeline-editor .scrub-label input {
+  flex: 1;
+  min-width: 0;
+  max-width: none;
+  width: auto;
+}
+.timeline-editor output {
+  font-size: 11px;
+  color: var(--muted);
+}
+.timeline-editor .panel-heading {
+  flex-wrap: wrap;
+}
+@media (max-width: 1000px) {
+  .canvas-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .canvas-stack {
+    max-width: 100%;
+  }
+}
+
+.keyframe-controls {
+  padding: 12px 8px;
+}
+.keyframe-strip {
+  position: relative;
+  height: 30px;
+  border-bottom: 2px solid var(--line);
+  margin: 12px 10px;
+}
+.keyframe-strip button {
+  position: absolute;
+  transform: translateX(-50%);
+  padding: 4px;
+  background: transparent;
+  border: 0;
+  color: #526d32;
+  font-size: 18px;
+}
+.keyframe-strip button[aria-pressed="true"] {
+  color: #101d31;
+  outline: 1px solid #526d32;
+}
+.keyframe-controls label {
+  min-width: 100px;
+}

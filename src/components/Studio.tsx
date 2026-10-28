@@ -1,4 +1,6 @@
 "use client";
+import { CanvasEditor } from "./CanvasEditor";
+import { TimelineEditor } from "./TimelineEditor";
 import { useProjectEditor } from "./useProjectEditor";
 import { AssetPanel } from "./AssetPanel";
 import { LayerEditor } from "./LayerEditor";
@@ -232,7 +234,7 @@ export function Studio() {
         </div>
         <div className="sidebar-bottom">
           <div className="mode-dot" />
-          Local creative workspace<p>No-key demo available</p>
+          Your creative workspace<p>Private projects & exports</p>
           <button
             className="subtle"
             onClick={async () => {
@@ -266,7 +268,7 @@ export function Studio() {
             <strong>{project ? "Project studio" : "Studio"}</strong>
           </div>
           <span className="private">
-            <span>◉</span> Local workspace
+            <span>◉</span> Private workspace
           </span>
         </header>
         {!project ? (
@@ -433,7 +435,7 @@ export function Studio() {
                   >
                     Redo
                   </button>
-                  <span role="status">
+                  <span role="status" aria-label="Save status">
                     {editor.saving
                       ? "Saving…"
                       : dirty
@@ -615,6 +617,26 @@ export function Studio() {
                     </form>
                   </section>
                 </div>
+                <TimelineEditor
+                  timeline={timeline}
+                  selected={selected}
+                  onSelect={setSelected}
+                  player={player}
+                  inFrame={previewStart}
+                  outFrame={previewEnd}
+                />
+                <CanvasEditor
+                  key={`canvas-${scene?.id}`}
+                  timeline={timeline}
+                  selected={selected}
+                  assetSources={Object.fromEntries(
+                    (project.assets || []).map((a) => [
+                      a.id,
+                      `/api/projects/${project.id}/assets/${a.id}`,
+                    ]),
+                  )}
+                  onChange={changeTimeline}
+                />
                 <div className="section-heading">
                   <h2>Your storyboard</h2>
                   <span>SELECT A SCENE TO REFINE IT</span>
@@ -684,7 +706,7 @@ export function Studio() {
                         onChange={(e) =>
                           changeScene({
                             layers: scene.layers.map((l) =>
-                              l.id === "title"
+                              l.id === "title" && !l.locked
                                 ? { ...l, text: e.target.value }
                                 : l,
                             ),
@@ -701,7 +723,7 @@ export function Studio() {
                           changeScene({
                             accent: e.target.value,
                             layers: scene.layers.map((l) =>
-                              l.color === scene.accent
+                              l.color === scene.accent && !l.locked
                                 ? { ...l, color: e.target.value }
                                 : l,
                             ),
@@ -843,7 +865,7 @@ export function Studio() {
                   }}
                 />
                 <LayerEditor
-                  key={scene?.id}
+                  key={`layers-${scene?.id}`}
                   timeline={timeline}
                   selected={Math.min(selected, timeline.scenes.length - 1)}
                   onChange={changeTimeline}

@@ -11,10 +11,14 @@ test("blank canvas autosaves, undo/redo survives saves, and navigation reopens c
   );
   const input = page.getByLabel("Scene title", { exact: true });
   await input.fill("A manually edited story");
-  await expect(page.getByRole("status")).toHaveText("All changes saved");
+  await expect(page.getByRole("status", { name: "Save status" })).toHaveText(
+    "All changes saved",
+  );
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await expect(input).toHaveValue("Scene 1");
-  await expect(page.getByRole("status")).toHaveText("All changes saved");
+  await expect(page.getByRole("status", { name: "Save status" })).toHaveText(
+    "All changes saved",
+  );
   await page.getByRole("button", { name: "Redo", exact: true }).click();
   await expect(input).toHaveValue("A manually edited story");
   await page.getByRole("button", { name: "← Studio", exact: true }).click();
@@ -55,7 +59,9 @@ test("edits made while a save is in flight are kept and saved in order", async (
   await began;
   await title.fill("Newer edit during save");
   release();
-  await expect(page.getByRole("status")).toHaveText("All changes saved");
+  await expect(page.getByRole("status", { name: "Save status" })).toHaveText(
+    "All changes saved",
+  );
   await expect(title).toHaveValue("Newer edit during save");
   const projects = await (await request.get("/api/projects")).json();
   expect(projects[0].timeline.scenes[0].title).toBe("Newer edit during save");

@@ -1,4 +1,6 @@
 "use client";
+import { MotionJson } from "./MotionJson";
+import { KeyframeControls } from "./KeyframeControls";
 import { CameraEditor } from "./CameraEditor";
 import { useState } from "react";
 import {
@@ -11,14 +13,12 @@ import {
 function KeyframeEditor({
   layer,
   change,
+  durationFrames,
 }: {
+  durationFrames: number;
   layer: Layer;
   change: (l: Layer) => void;
 }) {
-  const [draft, setDraft] = useState(
-      JSON.stringify(layer.keyframes || [], null, 2),
-    ),
-    [error, setError] = useState("");
   return (
     <details>
       <summary>Custom keyframes</summary>
@@ -26,32 +26,18 @@ function KeyframeEditor({
         Frame, x/y offset as a fraction of the canvas, scale, and opacity.
         Custom keys replace the motion preset.
       </p>
-      <textarea
-        aria-label="Keyframe JSON"
-        rows={6}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
+      <KeyframeControls
+        label={`Layer ${layer.id}`}
+        keys={layer.keyframes || []}
+        durationFrames={durationFrames}
+        onChange={(keyframes) => change({ ...layer, keyframes })}
       />
-      <button
-        className="subtle"
-        onClick={() => {
-          try {
-            const next = layerSchema.parse({
-              ...layer,
-              keyframes: JSON.parse(draft),
-            });
-            change(next);
-            setError("");
-          } catch {
-            setError(
-              "Enter a valid keyframe array. Frames must increase and fit this scene.",
-            );
-          }
-        }}
-      >
-        Apply keyframes
-      </button>
-      {error && <p role="alert">{error}</p>}
+      <MotionJson
+        key={JSON.stringify(layer.keyframes)}
+        keys={layer.keyframes || []}
+        durationFrames={durationFrames}
+        onChange={(keyframes) => change({ ...layer, keyframes })}
+      />
     </details>
   );
 }
@@ -84,6 +70,7 @@ export function LayerEditor({
     });
   }
   function updateLayer(id: string, l: Layer) {
+    if (scene.layers.find((old) => old.id === id)?.locked) return;
     updateScene({
       layers: scene.layers.map((old) => (old.id === id ? l : old)),
     });
@@ -171,7 +158,7 @@ export function LayerEditor({
         </button>
       </div>
       <CameraEditor
-        key={JSON.stringify(scene.camera)}
+        key={`camera-${scene.id}`}
         scene={scene}
         onChange={(s) => updateScene(s)}
       />
@@ -180,85 +167,87 @@ export function LayerEditor({
           <summary>
             {layer.kind} · {layer.id}
           </summary>
-          <div className="layer-fields">
-            {layer.kind === "text" && (
-              <label>
-                Layer text
-                <input
-                  aria-label={`Text ${layer.id}`}
-                  value={layer.text}
-                  maxLength={140}
-                  onChange={(e) =>
-                    updateLayer(layer.id, { ...layer, text: e.target.value })
-                  }
-                />
-              </label>
-            )}
-            {(["x", "y", "width", "height", "fontSize"] as const).map(
-              (field) => (
-                <label key={field}>
-                  {field}
+          <fieldset className="editor-content" disabled={layer.locked}>
+            <div className="layer-fields">
+              {layer.kind === "text" && (
+                <label>
+                  Layer text
                   <input
-                    aria-label={`${field} ${layer.id}`}
-                    type="number"
-                    step={field === "fontSize" ? 1 : 0.01}
-                    min={field === "fontSize" ? 12 : 0}
-                    max={field === "fontSize" ? 120 : 1}
-                    value={layer[field]}
+                    aria-label={`Text ${layer.id}`}
+                    value={layer.text}
+                    maxLength={140}
                     onChange={(e) =>
-                      updateLayer(layer.id, {
-                        ...layer,
-                        [field]: Number(e.target.value),
-                      })
+                      updateLayer(layer.id, { ...layer, text: e.target.value })
                     }
                   />
                 </label>
-              ),
-            )}
-            <label>
-              Color
-              <input
-                type="color"
-                value={layer.color}
-                onChange={(e) =>
-                  updateLayer(layer.id, { ...layer, color: e.target.value })
-                }
-              />
-            </label>
-            <label>
-              Motion
-              <select
-                value={layer.animation}
-                onChange={(e) =>
-                  updateLayer(layer.id, {
-                    ...layer,
-                    animation: e.target.value as Layer["animation"],
-                    keyframes: undefined,
+              )}
+              {(["x", "y", "width", "height", "fontSize"] as const).map(
+                (field) => (
+                  <label key={field}>
+                    {field}
+                    <input
+                      aria-label={`${field} ${layer.id}`}
+                      type="number"
+                      step={field === "fontSize" ? 1 : 0.01}
+                      min={field === "fontSize" ? 12 : 0}
+                      max={field === "fontSize" ? 120 : 1}
+                      value={layer[field]}
+                      onChange={(e) =>
+                        updateLayer(layer.id, {
+                          ...layer,
+                          [field]: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                ),
+              )}
+              <label>
+                Color
+                <input
+                  type="color"
+                  value={layer.color}
+                  onChange={(e) =>
+                    updateLayer(layer.id, { ...layer, color: e.target.value })
+                  }
+                />
+              </label>
+              <label>
+                Motion
+                <select
+                  value={layer.animation}
+                  onChange={(e) =>
+                    updateLayer(layer.id, {
+                      ...layer,
+                      animation: e.target.value as Layer["animation"],
+                      keyframes: undefined,
+                    })
+                  }
+                >
+                  {["rise", "drift", "pulse", "none"].map((a) => (
+                    <option key={a}>{a}</option>
+                  ))}
+                </select>
+              </label>
+              <button
+                className="subtle"
+                disabled={scene.layers.length <= 1}
+                onClick={() =>
+                  updateScene({
+                    layers: scene.layers.filter((l) => l.id !== layer.id),
                   })
                 }
               >
-                {["rise", "drift", "pulse", "none"].map((a) => (
-                  <option key={a}>{a}</option>
-                ))}
-              </select>
-            </label>
-            <button
-              className="subtle"
-              disabled={scene.layers.length <= 1}
-              onClick={() =>
-                updateScene({
-                  layers: scene.layers.filter((l) => l.id !== layer.id),
-                })
-              }
-            >
-              Remove layer
-            </button>
-          </div>
-          <KeyframeEditor
-            key={JSON.stringify(layer.keyframes)}
-            layer={layer}
-            change={(l) => updateLayer(layer.id, l)}
-          />
+                Remove layer
+              </button>
+            </div>
+            <KeyframeEditor
+              layer={layer}
+              durationFrames={scene.durationFrames}
+              change={(l) => updateLayer(layer.id, l)}
+            />
+          </fieldset>
         </details>
       ))}
       <button

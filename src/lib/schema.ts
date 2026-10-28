@@ -34,6 +34,8 @@ export const layerSchema = z.object({
   color: color,
   fontSize: z.number().min(12).max(120).default(48),
   animation: z.enum(["rise", "drift", "pulse", "none"]).default("rise"),
+  hidden: z.boolean().optional(),
+  locked: z.boolean().optional(),
   assetId: z.string().optional(),
   keyframes: z.array(keyframeSchema).max(30).optional(),
 });

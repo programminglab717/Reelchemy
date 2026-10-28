@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
-import { sceneSchema, type Scene } from "@/lib/schema";
+import { KeyframeControls } from "./KeyframeControls";
+import { MotionJson } from "./MotionJson";
+import type { Scene } from "@/lib/schema";
 export function CameraEditor({
   scene,
   onChange,
@@ -8,47 +9,27 @@ export function CameraEditor({
   scene: Scene;
   onChange: (s: Scene) => void;
 }) {
-  const [text, setText] = useState(JSON.stringify(scene.camera || [], null, 2)),
-    [error, setError] = useState("");
   return (
     <details className="layer-row">
       <summary>Scene camera keyframes</summary>
       <p>
-        Move/zoom the whole scene; captions stay fixed. Frame, x/y canvas
-        offset, scale and opacity. Use an empty array to reset.
+        Move or zoom the whole scene while captions stay fixed. Add keys at
+        different frames, then inspect the result in Live preview. Reset returns
+        to a fixed camera.
       </p>
-      <textarea
-        aria-label="Camera keyframe JSON"
-        rows={5}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
+      <KeyframeControls
+        label="Camera"
+        keys={scene.camera || []}
+        durationFrames={scene.durationFrames}
+        onChange={(camera) => onChange({ ...scene, camera })}
       />
-      <button
-        className="subtle"
-        onClick={() => {
-          try {
-            const camera = JSON.parse(text);
-            const next = sceneSchema.parse({ ...scene, camera });
-            if (
-              next.camera?.some(
-                (k, i, a) =>
-                  k.frame >= scene.durationFrames ||
-                  (i > 0 && k.frame <= a[i - 1].frame),
-              )
-            )
-              throw new Error();
-            onChange(next);
-            setError("");
-          } catch {
-            setError(
-              "Camera keys must be valid, increase strictly, and fit the scene.",
-            );
-          }
-        }}
-      >
-        Apply camera motion
-      </button>
-      {error && <p role="alert">{error}</p>}
+      <MotionJson
+        key={JSON.stringify(scene.camera)}
+        camera
+        keys={scene.camera || []}
+        durationFrames={scene.durationFrames}
+        onChange={(camera) => onChange({ ...scene, camera })}
+      />
     </details>
   );
 }

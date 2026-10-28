@@ -50,7 +50,7 @@ export async function checkLayout(
                 },
               },
               ...scene.layers
-                .filter((l) => l.kind === "text")
+                .filter((l) => l.kind === "text" && !l.hidden)
                 .map((l) =>
                   React.createElement(
                     "div",

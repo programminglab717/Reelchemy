@@ -78,3 +78,9 @@ Maintain small, reviewed local commits with meaningful tests and update VALIDATI
 ## Completed since the public-scope decision (0.6.0)
 
 The first public-account foundation is implemented: verified-email accounts, password reset/session revocation, private personal studios, resource authorization, workspace-scoped render caches, private media responses, durable mail outbox and an offline legacy-owner assignment script. The current checkpoint still uses development SQLite/files and has not been deployed publicly. These changes reduce the backend work remaining; they do not complete account deletion/privacy, public abuse protection, managed storage or deployment gates. See CHANGELOG.md and VALIDATION.md for the current executed evidence rather than treating the original gap matrix as a claim that every listed item is still absent.
+
+## Manual editor progress (0.7.0)
+
+The next checkpoint implements blank manual projects, bounded undo/redo, autosave, transactional stale-save rejection, save-before-navigation and visible draft recovery actions. A shared-renderer layout canvas adds selection/drag/resize, snapping/alignment, lock/hide and layer ordering. A timeline adds zoom, frame scrubbing and scene/media timing displays; layer/camera motion now has visual keyframe controls.
+
+These are implemented capabilities, not completion of the editor workstream. Undo history is session-local; unsaved browser state is not durably cached offline. Rotation, typography controls, scene split/trim, waveform/media-bar manipulation, footage ingestion, recording, broader caption tooling and realistic creator acceptance remain open. Sixty-second/output-size caps are unchanged pending long-video benchmarks. See the current validation record for browser/render evidence.

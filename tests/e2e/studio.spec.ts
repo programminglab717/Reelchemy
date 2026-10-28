@@ -19,7 +19,9 @@ test("idea → varied storyboard → saved edit → approval → actual MP4 down
   ).toBeVisible();
   await expect(page.locator(".scene-card")).toHaveCount(3);
   await page.getByLabel("On-screen text").fill("Every story starts somewhere.");
-  await expect(page.getByRole("status")).toHaveText("All changes saved");
+  await expect(page.getByRole("status", { name: "Save status" })).toHaveText(
+    "All changes saved",
+  );
   await page.screenshot({
     path: "artifacts/ui-storyboard.png",
     fullPage: true,
@@ -64,7 +66,9 @@ test("idea → varied storyboard → saved edit → approval → actual MP4 down
     "Every story starts somewhere.",
   );
   await page.getByLabel("On-screen text").fill("A revised opening.");
-  await expect(page.getByRole("status")).toHaveText("All changes saved");
+  await expect(page.getByRole("status", { name: "Save status" })).toHaveText(
+    "All changes saved",
+  );
   await page.getByRole("button", { name: "Approve & export MP4" }).click();
   await expect(page.getByText("Your film is ready.")).toBeVisible({
     timeout: 200000,
@@ -171,7 +175,9 @@ test("uploaded PNG, keyframe editing and export history survive refresh", async 
   await page.getByRole("button", { name: "Upload asset", exact: true }).click();
   await expect(page.getByText("test.png", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Add to selected scene" }).click();
-  await expect(page.getByRole("status")).toHaveText("All changes saved");
+  await expect(page.getByRole("status", { name: "Save status" })).toHaveText(
+    "All changes saved",
+  );
   await page
     .locator(".layer-row")
     .filter({ hasText: "text · title" })
@@ -183,6 +189,11 @@ test("uploaded PNG, keyframe editing and export history survive refresh", async 
     .locator(".layer-row")
     .filter({ hasText: "text · title" })
     .getByText("Custom keyframes", { exact: true })
+    .click();
+  await page
+    .locator(".layer-row")
+    .filter({ hasText: "text · title" })
+    .getByText("Advanced keyframe JSON", { exact: true })
     .click();
   await page
     .locator(".layer-row")
@@ -199,7 +210,9 @@ test("uploaded PNG, keyframe editing and export history survive refresh", async 
     .filter({ hasText: "text · title" })
     .getByRole("button", { name: "Apply keyframes", exact: true })
     .click();
-  await expect(page.getByRole("status")).toHaveText("All changes saved");
+  await expect(page.getByRole("status", { name: "Save status" })).toHaveText(
+    "All changes saved",
+  );
   const saved = await (await request.get(`/api/projects/${p.id}`)).json();
   expect(
     saved.timeline.scenes[0].layers.some(
@@ -295,7 +308,9 @@ test("audio upload, timed mix and captions produce AAC and downloadable subtitle
   await page.getByLabel("startFrame audio", { exact: true }).fill("30");
   await page.getByRole("button", { name: "Add caption", exact: true }).click();
   await page.getByLabel("Caption 1 text").fill("A story with sound.");
-  await expect(page.getByRole("status")).toHaveText("All changes saved");
+  await expect(page.getByRole("status", { name: "Save status" })).toHaveText(
+    "All changes saved",
+  );
   await page.getByRole("button", { name: "Approve & export MP4" }).click();
   await expect(page.getByText("Your film is ready.")).toBeVisible({
     timeout: 200000,
@@ -370,6 +385,7 @@ test("scene-only preview and generic character/arrow/camera primitives render to
     .click();
   await page.getByRole("button", { name: "Add arrow", exact: true }).click();
   await page.getByText("Scene camera keyframes", { exact: true }).click();
+  await page.getByText("Advanced camera JSON", { exact: true }).click();
   await page.getByLabel("Camera keyframe JSON").fill(
     JSON.stringify([
       { frame: 0, x: 0, y: 0, scale: 1, opacity: 1 },
@@ -377,7 +393,9 @@ test("scene-only preview and generic character/arrow/camera primitives render to
     ]),
   );
   await page.getByRole("button", { name: "Apply camera motion" }).click();
-  await expect(page.getByRole("status")).toHaveText("All changes saved");
+  await expect(page.getByRole("status", { name: "Save status" })).toHaveText(
+    "All changes saved",
+  );
   const saved = await (await request.get(`/api/projects/${p.id}`)).json();
   expect(
     saved.timeline.scenes[1].layers.some(

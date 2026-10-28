@@ -65,3 +65,12 @@
 - Validation results are recorded in VALIDATION.md after the complete account/editor/render suite finishes.
 - Completed validation: 28 unit tests and all 10 isolated development browser tests passed, including the authenticated video creation/export workflows. Production build, lint, type checking, formatting and audit passed; real SMTP/HTTPS staging and public production operations remain unverified.
 - Strengthened private-file tests with a real image and completed export/evidence, all owner-positive and cross-account-negative checks passing. Fixed isolated test-service refresh loops with a temporary source/dependency mirror and fresh test-only secrets. Hardened authentication database permissions; final unit count is 29 passing tests and the final production rebuild passed.
+
+## 0.7.0 — 2026-10-28
+
+- Added manual blank projects, bounded undo/redo across saves, serialized debounced autosave, save-before-navigation/sign-out, unload protection, and explicit local-draft handling for save failures/conflicts.
+- Timeline PATCH and version restore require a base revision. SQLite transactions reject stale revisions with HTTP 409 and retain concurrent uploaded asset metadata; delayed save responses preserve later browser edits.
+- Added a shared-renderer arrangement canvas with layer selection, pointer drag/resize, keyboard nudging, edge/center snapping, alignment, stacking and lock/hide controls. Hidden artwork is omitted from preview/export and visual QC; locked layers remain visible.
+- Added a zoomable timeline with frame scrubbing, selectable timed scene blocks and audio/caption timing bars. Direct media-bar trimming, scene split and waveforms remain unfinished.
+- Added visual layer/camera keyframe markers and frame/offset/scale/opacity controls, including add/remove/reset. Advanced JSON remains available and validates scene timing.
+- Kept live AI verification deferred. This checkpoint develops the manual editor; it does not complete the public-production acceptance gates. See VALIDATION.md for executed checks and limits.

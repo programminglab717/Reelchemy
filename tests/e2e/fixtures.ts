@@ -1,13 +1,29 @@
 import { test as base, expect, type APIRequestContext } from "@playwright/test";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
+// Keep real abuse controls enabled. Fast suites can share a source IP and
+// legitimately exhaust signup/sign-in windows; honor Retry-After, never bypass it.
+async function authPost(
+  request: APIRequestContext,
+  url: string,
+  options: Parameters<APIRequestContext["post"]>[1],
+) {
+  for (let attempt = 0; ; attempt++) {
+    const response = await request.post(url, options);
+    if (response.status() !== 429 || attempt >= 2) return response;
+    const retryAfter = Number(response.headers()["retry-after"] || 60);
+    await new Promise((resolve) =>
+      setTimeout(resolve, (Math.max(1, Math.min(65, retryAfter)) + 1) * 1000),
+    );
+  }
+}
 export async function account(request: APIRequestContext, label = "Creator") {
   const email = `${label.toLowerCase().replace(/[^a-z]/g, "")}-${crypto.randomUUID()}@example.test`,
     password = "Test-only-passphrase-4826";
   const headers = {
     origin: process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3001",
   };
-  const response = await request.post("/api/auth/sign-up/email", {
+  const response = await authPost(request, "/api/auth/sign-up/email", {
     headers,
     data: { name: label, email, password, callbackURL: "/" },
   });
@@ -20,7 +36,7 @@ export async function account(request: APIRequestContext, label = "Creator") {
   const url = await mailLink(email, "Verify");
   const verification = await request.get(url);
   expect(verification.ok()).toBeTruthy();
-  const login = await request.post("/api/auth/sign-in/email", {
+  const login = await authPost(request, "/api/auth/sign-in/email", {
     headers,
     data: { email, password },
   });
