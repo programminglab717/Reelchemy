@@ -1,0 +1,21 @@
+import { getJob, updateJob } from "@/lib/db";
+import { failure, localMutation } from "@/lib/http";
+type Context = { params: Promise<{ id: string }> };
+export async function GET(_: Request, { params }: Context) {
+  const job = getJob((await params).id);
+  return job
+    ? Response.json(job)
+    : Response.json({ error: "Job not found" }, { status: 404 });
+}
+export async function DELETE(req: Request, { params }: Context) {
+  try {
+    localMutation(req);
+    const job = getJob((await params).id);
+    if (!job) return Response.json({ error: "Job not found" }, { status: 404 });
+    if (job.status !== "queued" && job.status !== "rendering")
+      throw new Error("Only active renders can be cancelled.");
+    return Response.json(updateJob(job.id, { status: "cancelled" }));
+  } catch (e) {
+    return failure(e);
+  }
+}

@@ -1,0 +1,150 @@
+{
+  "fps": 30,
+  "format": "landscape",
+  "scenes": [
+    {
+      "id": "scene-1",
+      "title": "The opening",
+      "intent": "How a small idea becomes a connected system. — introduce the idea",
+      "durationFrames": 300,
+      "background": "#101D31",
+      "accent": "#D3F4A1",
+      "strategy": "typography",
+      "layers": [
+        {
+          "id": "eyebrow",
+          "kind": "text",
+          "x": 0.08,
+          "y": 0.1,
+          "width": 0.84,
+          "height": 0.07,
+          "text": "01 / TYPOGRAPHY",
+          "color": "#D3F4A1",
+          "fontSize": 18,
+          "animation": "rise"
+        },
+        {
+          "id": "title",
+          "kind": "text",
+          "x": 0.08,
+          "y": 0.23,
+          "width": 0.84,
+          "height": 0.23,
+          "text": "How a small idea becomes a connected system.",
+          "color": "#F5F5F0",
+          "fontSize": 52,
+          "animation": "rise"
+        },
+        {
+          "id": "visual",
+          "kind": "circle",
+          "x": 0.15,
+          "y": 0.55,
+          "width": 0.7,
+          "height": 0.3,
+          "text": "",
+          "color": "#D3F4A1",
+          "fontSize": 48,
+          "animation": "pulse"
+        }
+      ],
+      "transition": "fade"
+    },
+    {
+      "id": "scene-2",
+      "title": "A wider perspective",
+      "intent": "How a small idea becomes a connected system. — establish a world",
+      "durationFrames": 300,
+      "background": "#18293A",
+      "accent": "#B6BEFF",
+      "strategy": "landscape",
+      "layers": [
+        {
+          "id": "eyebrow",
+          "kind": "text",
+          "x": 0.08,
+          "y": 0.1,
+          "width": 0.84,
+          "height": 0.07,
+          "text": "02 / LANDSCAPE",
+          "color": "#B6BEFF",
+          "fontSize": 18,
+          "animation": "rise"
+        },
+        {
+          "id": "title",
+          "kind": "text",
+          "x": 0.08,
+          "y": 0.23,
+          "width": 0.84,
+          "height": 0.23,
+          "text": "A different perspective.",
+          "color": "#F5F5F0",
+          "fontSize": 52,
+          "animation": "rise"
+        },
+        {
+          "id": "visual",
+          "kind": "mountain",
+          "x": 0.15,
+          "y": 0.55,
+          "width": 0.7,
+          "height": 0.3,
+          "text": "",
+          "color": "#B6BEFF",
+          "fontSize": 48,
+          "animation": "drift"
+        }
+      ],
+      "transition": "fade"
+    },
+    {
+      "id": "scene-3",
+      "title": "Connect the dots",
+      "intent": "How a small idea becomes a connected system. — bring the idea together",
+      "durationFrames": 300,
+      "background": "#162C2C",
+      "accent": "#F7CFA0",
+      "strategy": "diagram",
+      "layers": [
+        {
+          "id": "eyebrow",
+          "kind": "text",
+          "x": 0.08,
+          "y": 0.1,
+          "width": 0.84,
+          "height": 0.07,
+          "text": "03 / DIAGRAM",
+          "color": "#F7CFA0",
+          "fontSize": 18,
+          "animation": "rise"
+        },
+        {
+          "id": "title",
+          "kind": "text",
+          "x": 0.08,
+          "y": 0.23,
+          "width": 0.84,
+          "height": 0.23,
+          "text": "Everything is connected.",
+          "color": "#F5F5F0",
+          "fontSize": 52,
+          "animation": "rise"
+        },
+        {
+          "id": "visual",
+          "kind": "nodes",
+          "x": 0.15,
+          "y": 0.55,
+          "width": 0.7,
+          "height": 0.3,
+          "text": "",
+          "color": "#F7CFA0",
+          "fontSize": 48,
+          "animation": "drift"
+        }
+      ],
+      "transition": "fade"
+    }
+  ]
+}

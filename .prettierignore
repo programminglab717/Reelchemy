@@ -1,0 +1,7 @@
+node_modules
+.next
+.data
+artifacts
+package-lock.json
+test-results
+playwright-report
