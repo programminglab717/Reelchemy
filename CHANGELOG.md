@@ -52,3 +52,4 @@
 - Added focused scene-only preview using original timeline frames/audio/captions, generic character/arrow/gradient primitives, camera keyframes and event sampling.
 - Added declared-background contrast and caption-speed warnings, plus audio peak/near-silence warnings. These are technical heuristics, not semantic or perceptual quality approval.
 - Unit validation: 25 passing tests, including actual subprocess termination, persisted queue recovery, audio analysis and cache-corruption regression. Full browser validation is recorded in VALIDATION.md after the final run.
+- Reconnected after a transport outage, confirmed preserved source/state, and committed the recovered feature checkpoint. Final restored-instance validation passed all 25 unit tests and all 8 production browser tests; the production rebuild is free of the dynamic-filesystem trace warnings.
