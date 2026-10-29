@@ -83,3 +83,5 @@
 - Added direct video/audio/caption track movement/trimming with pointer/keyboard controls, source/scene/caption bounds and gesture-level undo. Numeric controls remain available.
 - Extended portable archives to revalidate/remap footage and retain source audio; export now enforces the importable compressed-size cap. Internal re-ingestion accepts bounded normalized image/audio sizes while public upload caps remain unchanged.
 - Live AI verification remains deferred; project duration/output-size caps remain unchanged pending benchmarks. See VALIDATION.md for executed evidence rather than treating implemented controls as production acceptance.
+
+- Final 0.8 validation: 44 unit tests, the full 17-case isolated browser suite, and two post-correction export checks passed. Fixed a reproduced delayed-source-audio timing defect; added mobile footage and real cache-reuse checks. Build/lint/type/format/audit passed, with zero audited vulnerabilities.

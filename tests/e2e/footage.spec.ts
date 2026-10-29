@@ -269,6 +269,28 @@ test("uploaded footage trims/splits with exact source pictures and audible inter
     await expect(page.locator(".scene-card")).toHaveCount(2);
     saved = await (await request.get(`/api/projects/${p.id}`)).json();
     expect(saved.timeline.scenes[1].layers[0].video.offsetFrames).toBe(60);
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: `${process.env.REELCHEMY_ARTIFACT_DIR}/footage-editor-mobile.png`,
+      fullPage: true,
+    });
+    await page.setViewportSize({ width: 1280, height: 900 });
+    // New loopback ports/tokens on each attempt must not invalidate byte-identical footage.
+    await page.getByRole("button", { name: "Approve & export MP4" }).click();
+    await expect(page.getByText("Your film is ready.")).toBeVisible({
+      timeout: 200000,
+    });
+    const repeated = await (
+      await request.get(`/api/projects/${p.id}/render`)
+    ).json();
+    expect(
+      repeated[0].report.sceneCache.map((s: { reused: boolean }) => s.reused),
+    ).toEqual([true, true]);
     // Keep a media artifact only in the isolated run; the temporary fixture folder is cleaned.
     expect((await readFile(file)).length).toBeGreaterThan(10000);
   } finally {

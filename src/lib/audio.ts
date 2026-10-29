@@ -137,7 +137,7 @@ export async function muxAudio(
     const seconds = track.durationFrames / 30,
       fade = track.fadeFrames / 30;
     filters.push(
-      `[${i + 1}:a]atrim=start=${track.offsetFrames / 30}:duration=${seconds},asetpts=PTS-STARTPTS,volume=${track.volume},afade=t=in:st=0:d=${fade},afade=t=out:st=${seconds - fade}:d=${fade},adelay=${Math.round((track.startFrame * 1000) / 30)}|${Math.round((track.startFrame * 1000) / 30)}[a${i}]`,
+      `[${i + 1}:a]aresample=async=1:first_pts=0,atrim=start=${track.offsetFrames / 30}:duration=${seconds},asetpts=PTS-STARTPTS,volume=${track.volume},afade=t=in:st=0:d=${fade},afade=t=out:st=${seconds - fade}:d=${fade},adelay=${Math.round((track.startFrame * 1000) / 30)}|${Math.round((track.startFrame * 1000) / 30)}[a${i}]`,
     );
   }
   filters.push(

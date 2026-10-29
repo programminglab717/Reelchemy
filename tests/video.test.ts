@@ -13,10 +13,113 @@ process.env.REELCHEMY_DATA_DIR = await mkdtemp(
 const { storeVideo } = await import("../src/lib/video");
 const { assetDir, resolveAssetSources, validateProjectAssets } =
   await import("../src/lib/assets");
-const { probeMedia } = await import("../src/lib/audio");
+const { probeMedia, muxAudio } = await import("../src/lib/audio");
 const { exportArchive, importArchive } = await import("../src/lib/archive");
 const { serveVideoAssets } = await import("../src/lib/video-server");
 const { sceneCacheKey } = await import("../src/lib/render-cache");
+test("a clip with a delayed source audio stream keeps its silence before the tone", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-delayed-audio-"));
+  try {
+    const source = path.join(dir, "delayed.mp4"),
+      output = path.join(dir, "video.mp4");
+    execFileSync("ffmpeg", [
+      "-v",
+      "error",
+      "-f",
+      "lavfi",
+      "-i",
+      "color=black:size=160x90:rate=30:duration=4",
+      "-itsoffset",
+      "0.5",
+      "-f",
+      "lavfi",
+      "-i",
+      "sine=frequency=880:duration=2",
+      "-map",
+      "0:v",
+      "-map",
+      "1:a",
+      "-c:v",
+      "libx264",
+      "-threads",
+      "1",
+      "-c:a",
+      "aac",
+      source,
+    ]);
+    const asset = await storeVideo(
+      await readFile(source),
+      "delayed.mp4",
+      "Owned test",
+    );
+    execFileSync("ffmpeg", [
+      "-v",
+      "error",
+      "-f",
+      "lavfi",
+      "-i",
+      "color=black:size=160x90:rate=30:duration=5",
+      "-c:v",
+      "libx264",
+      "-threads",
+      "1",
+      output,
+    ]);
+    const t = blankTimeline({
+      prompt: "Delay",
+      duration: 5,
+      format: "landscape",
+    });
+    t.scenes[0].layers = [
+      {
+        ...t.scenes[0].layers[0],
+        kind: "video",
+        assetId: asset.id,
+        video: {
+          startFrame: 0,
+          offsetFrames: 0,
+          durationFrames: 120,
+          volume: 1,
+          audio: true,
+          fit: "contain",
+        },
+      },
+    ];
+    await muxAudio(t, output);
+    const pcm = execFileSync(
+      "ffmpeg",
+      [
+        "-v",
+        "error",
+        "-i",
+        output,
+        "-vn",
+        "-ar",
+        "48000",
+        "-ac",
+        "1",
+        "-f",
+        "f32le",
+        "-",
+      ],
+      { maxBuffer: 2000000 },
+    );
+    const rms = (start: number, end: number) => {
+      let sum = 0;
+      for (let i = Math.floor(start * 48000); i < Math.floor(end * 48000); i++)
+        sum += pcm.readFloatLE(i * 4) ** 2;
+      return Math.sqrt(sum / ((end - start) * 48000));
+    };
+    assert(rms(0.1, 0.3) < 0.0001, "audio must retain its leading silence");
+    assert(rms(0.8, 1.5) > 0.01, "the delayed tone must still be present");
+    assert(
+      rms(3, 4.5) < 0.0001,
+      "source audio must end before the remaining video silence",
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
 test("silent portrait WebM is accepted and long input is rejected before normalization", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-webm-fixture-"));
   try {
