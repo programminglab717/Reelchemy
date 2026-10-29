@@ -1,3 +1,4 @@
+import { clipAudioTracks } from "./clip-audio";
 import { runCommand } from "./process";
 import { execFileSync } from "node:child_process";
 import {
@@ -36,8 +37,9 @@ export async function storeAudio(
   bytes: Buffer,
   name: string,
   license: string,
+  maxBytes = 10 * 1024 * 1024,
 ): Promise<Asset> {
-  if (bytes.length > 10 * 1024 * 1024)
+  if (bytes.length > maxBytes)
     throw new Error("Audio files must be 10 MB or smaller.");
   const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-audio-"));
   try {
@@ -109,7 +111,9 @@ export async function muxAudio(
   videoPath: string,
   cancelled: () => boolean = () => false,
 ) {
-  const tracks = t.audioTracks || [];
+  const tracks = [...(t.audioTracks || []), ...clipAudioTracks(t)];
+  if (tracks.length > 32)
+    throw new Error("Use at most 32 audible clips/tracks per export.");
   if (!tracks.length)
     return { tracks: 0, codec: null, peakDb: null, duration: null };
   const inputs: string[] = [],
@@ -118,7 +122,11 @@ export async function muxAudio(
     if (!validAssetId(track.assetId)) throw new Error("Invalid audio asset.");
     const input = path.join(assetDir, track.assetId);
     const probe = probeMedia(input);
-    if (probe.streams[0]?.codec_type !== "audio")
+    if (
+      !probe.streams.some(
+        (s: { codec_type: string }) => s.codec_type === "audio",
+      )
+    )
       throw new Error("Audio tracks require audio assets.");
     if (
       track.offsetFrames + track.durationFrames >

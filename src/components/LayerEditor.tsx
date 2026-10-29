@@ -1,5 +1,6 @@
 "use client";
 import { MotionJson } from "./MotionJson";
+import { VideoClipEditor } from "./VideoClipEditor";
 import { KeyframeControls } from "./KeyframeControls";
 import { CameraEditor } from "./CameraEditor";
 import { useState } from "react";
@@ -9,6 +10,7 @@ import {
   type Layer,
   type Scene,
   type Timeline,
+  type Asset,
 } from "@/lib/schema";
 function KeyframeEditor({
   layer,
@@ -45,10 +47,12 @@ export function LayerEditor({
   timeline,
   selected,
   onChange,
+  assets = [],
 }: {
   timeline: Timeline;
   selected: number;
   onChange: (t: Timeline) => void;
+  assets?: Asset[];
 }) {
   const scene = timeline.scenes[selected];
   const [error, setError] = useState("");
@@ -168,6 +172,14 @@ export function LayerEditor({
             {layer.kind} · {layer.id}
           </summary>
           <fieldset className="editor-content" disabled={layer.locked}>
+            {layer.kind === "video" && (
+              <VideoClipEditor
+                layer={layer}
+                asset={assets.find((a) => a.id === layer.assetId)}
+                sceneFrames={scene.durationFrames}
+                onChange={(l) => updateLayer(layer.id, l)}
+              />
+            )}
             <div className="layer-fields">
               {layer.kind === "text" && (
                 <label>
@@ -232,7 +244,7 @@ export function LayerEditor({
               </label>
               <button
                 className="subtle"
-                disabled={scene.layers.length <= 1}
+                disabled={scene.layers.length === 0}
                 onClick={() =>
                   updateScene({
                     layers: scene.layers.filter((l) => l.id !== layer.id),

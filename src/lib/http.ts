@@ -57,8 +57,8 @@ export async function body(req: Request) {
     new TextDecoder().decode(await readLimitedBody(req, 100000)),
   );
 }
-export async function multipart(req: Request) {
-  const bytes = await readLimitedBody(req, 11 * 1024 * 1024);
+export async function multipart(req: Request, maxBytes = 11 * 1024 * 1024) {
+  const bytes = await readLimitedBody(req, maxBytes);
   return new Request(req.url, {
     method: "POST",
     headers: { "content-type": req.headers.get("content-type") || "" },

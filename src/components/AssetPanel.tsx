@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import type { Project } from "@/lib/schema";
+import { VideoUpload } from "./VideoUpload";
 export function AssetPanel({
   project,
   onProject,
@@ -15,6 +16,7 @@ export function AssetPanel({
   return (
     <section className="layer-editor">
       <h2>Project assets</h2>
+      <VideoUpload projectId={project.id} onProject={onProject} />
       <form
         onSubmit={async (e) => {
           e.preventDefault();
@@ -116,7 +118,14 @@ export function AssetPanel({
       <div className="asset-grid">
         {(project.assets || []).map((a) => (
           <div key={a.id}>
-            {a.mime === "audio/wav" ? (
+            {a.mime === "video/mp4" ? (
+              <video
+                controls
+                preload="metadata"
+                width={180}
+                src={`/api/projects/${project.id}/assets/${a.id}`}
+              />
+            ) : a.mime === "audio/wav" ? (
               <audio
                 controls
                 preload="none"
@@ -133,7 +142,7 @@ export function AssetPanel({
             )}
             <p>{a.name}</p>
             <small>{a.license}</small>
-            {a.mime === "image/png" && (
+            {a.mime !== "audio/wav" && (
               <button
                 className="subtle"
                 disabled={project.timeline?.scenes.some(
@@ -141,7 +150,9 @@ export function AssetPanel({
                 )}
                 onClick={() => onAdd(a.id)}
               >
-                Add to selected scene
+                {a.mime === "video/mp4"
+                  ? "Add video to selected scene"
+                  : "Add to selected scene"}
               </button>
             )}
           </div>

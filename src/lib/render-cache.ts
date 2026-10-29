@@ -39,6 +39,7 @@ export function sceneCacheKey(
   t: Timeline,
   assetSources: Record<string, string>,
   fingerprint: string,
+  assetFingerprints: Record<string, string> = {},
 ) {
   const hash = createHash("sha256")
     .update("scene-cache-v1:h264:yuv420p")
@@ -51,7 +52,10 @@ export function sceneCacheKey(
       ),
     ),
   ].sort();
-  for (const id of ids) hash.update(id).update(assetSources[id] || "MISSING");
+  for (const id of ids)
+    hash
+      .update(id)
+      .update(assetFingerprints[id] || assetSources[id] || "MISSING");
   return hash.digest("hex");
 }
 let sourceFingerprint: Promise<string> | undefined;
@@ -74,6 +78,8 @@ async function fingerprint() {
     "src/lib/text-style.ts",
     "src/lib/captions.ts",
     "src/lib/audio-math.ts",
+    "src/lib/clip-audio.ts",
+    "src/lib/video-server.ts",
     "node_modules/remotion/package.json",
   ])
     hash.update(await readFile(f));
@@ -138,6 +144,7 @@ export async function renderCachedScenes(options: {
   timeline: Timeline;
   serveUrl: string;
   assetSources: Record<string, string>;
+  assetFingerprints?: Record<string, string>;
   browserExecutable: string;
   outputLocation: string;
   cancelSignal: Parameters<typeof renderMedia>[0]["cancelSignal"];
@@ -169,7 +176,12 @@ export async function renderCachedScenes(options: {
   for (let i = 0; i < timeline.scenes.length; i++) {
     if (isCancelled()) throw new Error("Render cancelled.");
     const local = localSceneTimeline(timeline, i),
-      key = sceneCacheKey(local, assetSources, source),
+      key = sceneCacheKey(
+        local,
+        assetSources,
+        source,
+        options.assetFingerprints,
+      ),
       target = path.join(cacheRoot, key),
       video = path.join(target, "video.mp4");
     let reused = await cacheEntryValid(target, local, key);

@@ -3,8 +3,14 @@ import { readFile, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { assetDir, validAssetId, storeImage } from "./assets";
+import {
+  assetDir,
+  validAssetId,
+  storeImage,
+  validateProjectAssets,
+} from "./assets";
 import { storeAudio } from "./audio";
+import { storeVideo } from "./video";
 import {
   timelineSchema,
   type Project,
@@ -28,7 +34,10 @@ const portableProject = z.object({
         name: z.string().max(100),
         source: z.string().max(500),
         license: z.string().min(1).max(500),
-        mime: z.enum(["image/png", "audio/wav"]),
+        mime: z.enum(["image/png", "audio/wav", "video/mp4"]),
+        width: z.number().int().min(1).max(4096).optional(),
+        height: z.number().int().min(1).max(4096).optional(),
+        hasAudio: z.boolean().optional(),
         durationFrames: z.number().int().min(0).max(3600).optional(),
         createdAt: z.string().datetime(),
       }),
@@ -72,7 +81,10 @@ export async function exportArchive(project: Project) {
       throw new Error("Project exceeds the 150 MB portable export limit.");
     files[`assets/${asset.id}`] = await readFile(file);
   }
-  return zipSync(files, { level: 6 });
+  const zip = zipSync(files, { level: 6 });
+  if (zip.length > 50 * 1024 * 1024)
+    throw new Error("Project exceeds the 50 MB portable archive limit.");
+  return zip;
 }
 export async function importArchive(bytes: Uint8Array): Promise<Project> {
   if (bytes.length > 50 * 1024 * 1024)
@@ -125,11 +137,15 @@ export async function importArchive(bytes: Uint8Array): Promise<Project> {
     for (const a of input.assets || []) {
       const source = files[`assets/${a.id}`];
       if (!source) throw new Error(`Missing archived asset: ${a.name}`);
-      const asset = await (a.mime === "audio/wav" ? storeAudio : storeImage)(
-        Buffer.from(source),
-        a.name,
-        a.license,
-      );
+      const asset =
+        a.mime === "video/mp4"
+          ? await storeVideo(Buffer.from(source), a.name, a.license)
+          : await (a.mime === "audio/wav" ? storeAudio : storeImage)(
+              Buffer.from(source),
+              a.name,
+              a.license,
+              25 * 1024 * 1024,
+            );
       assets.push(asset);
       mapping.set(a.id, asset.id);
     }
@@ -139,7 +155,11 @@ export async function importArchive(bytes: Uint8Array): Promise<Project> {
         for (const layer of s.layers)
           if (layer.assetId) {
             const id = mapping.get(layer.assetId);
-            if (!id || assets.find((a) => a.id === id)?.mime !== "image/png")
+            if (
+              !id ||
+              assets.find((a) => a.id === id)?.mime !==
+                (layer.kind === "video" ? "video/mp4" : "image/png")
+            )
               throw new Error("Invalid image reference in archived timeline.");
             layer.assetId = id;
           }
@@ -155,7 +175,9 @@ export async function importArchive(bytes: Uint8Array): Promise<Project> {
           throw new Error("Invalid audio reference in archived timeline.");
         track.assetId = id;
       }
-      return timelineSchema.parse(result);
+      const timeline = timelineSchema.parse(result);
+      validateProjectAssets({ assets } as Project, timeline);
+      return timeline;
     };
     return {
       ...input,

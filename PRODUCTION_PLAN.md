@@ -84,3 +84,9 @@ The first public-account foundation is implemented: verified-email accounts, pas
 The next checkpoint implements blank manual projects, bounded undo/redo, autosave, transactional stale-save rejection, save-before-navigation and visible draft recovery actions. A shared-renderer layout canvas adds selection/drag/resize, snapping/alignment, lock/hide and layer ordering. A timeline adds zoom, frame scrubbing and scene/media timing displays; layer/camera motion now has visual keyframe controls.
 
 These are implemented capabilities, not completion of the editor workstream. Undo history is session-local; unsaved browser state is not durably cached offline. Rotation, typography controls, scene split/trim, waveform/media-bar manipulation, footage ingestion, recording, broader caption tooling and realistic creator acceptance remain open. Sixty-second/output-size caps are unchanged pending long-video benchmarks. See the current validation record for browser/render evidence.
+
+## Footage and timeline progress (0.8.0)
+
+Footage upload/normalization, fit/source-range/source-volume controls, source-audio mixing, private seeking and portable footage archives are implemented. Scene splitting preserves global audio/caption timing and original motion/source phases. Video/audio/caption bars now move and trim directly with source/scene/neighbor bounds and undo.
+
+This advances the manual mixed-media workflow. Remaining work includes waveforms, recording, ripple editing, richer typography/rotation, caption styling/import, five-minute/1080p benchmarks and creator acceptance, alongside production storage/quotas/retention/abuse controls and deployment operations. Upload normalization is bounded local processing, not distributed ingestion or an OS-level decoder sandbox. Sixty-second project/output limits and deferred live-AI verification are unchanged.

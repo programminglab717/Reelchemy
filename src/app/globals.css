@@ -1478,3 +1478,64 @@ main.account-page {
 .keyframe-controls label {
   min-width: 100px;
 }
+
+.footage-track {
+  height: 30px;
+}
+.footage-track > span {
+  background: #d9e2f3;
+  padding: 5px;
+}
+.video-clip-controls {
+  border-bottom: 1px solid var(--line);
+  padding: 12px 0;
+}
+.asset-grid video {
+  max-width: 100%;
+  border-radius: 6px;
+}
+
+.timed-track {
+  height: 34px;
+}
+.timed-clip {
+  display: flex;
+  position: absolute;
+  height: 100%;
+  min-width: 16px;
+  background: #d3e8e4;
+  border: 1px solid white;
+  border-radius: 5px;
+  overflow: hidden;
+}
+.caption-track .timed-clip {
+  background: #e8def2;
+}
+.footage-track .timed-clip {
+  background: #d9e2f3;
+}
+.timed-clip button {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 3px;
+  font-size: 10px;
+  touch-action: none;
+  min-width: 0;
+}
+.timed-clip .track-body {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: grab;
+}
+.timed-clip .track-handle {
+  flex: 0 0 12px;
+  cursor: ew-resize;
+  background: #0000000d;
+}
+.timed-clip button:focus-visible {
+  outline: 2px solid #344f46;
+  outline-offset: -2px;
+}

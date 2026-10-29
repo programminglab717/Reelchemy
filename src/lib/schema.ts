@@ -22,6 +22,7 @@ export const layerSchema = z.object({
     "mountain",
     "nodes",
     "image",
+    "video",
     "character",
     "arrow",
     "gradient",
@@ -38,6 +39,16 @@ export const layerSchema = z.object({
   locked: z.boolean().optional(),
   assetId: z.string().optional(),
   keyframes: z.array(keyframeSchema).max(30).optional(),
+  video: z
+    .object({
+      startFrame: z.number().int().min(0).max(599),
+      offsetFrames: z.number().int().min(0).max(3599),
+      durationFrames: z.number().int().min(1).max(600),
+      volume: z.number().min(0).max(1).default(1),
+      audio: z.boolean().default(false),
+      fit: z.enum(["contain", "cover"]).default("contain"),
+    })
+    .optional(),
 });
 export const sceneSchema = z.object({
   id: z.string().min(1).max(80),
@@ -47,9 +58,12 @@ export const sceneSchema = z.object({
   background: color,
   accent: color,
   strategy: z.enum(["typography", "diagram", "landscape"]),
-  layers: z.array(layerSchema).min(1).max(20),
+  layers: z.array(layerSchema).max(20),
   transition: z.enum(["fade", "cut"]).default("fade"),
   camera: z.array(keyframeSchema).max(30).optional(),
+  motionOffsetFrames: z.number().int().min(0).max(1799).optional(),
+  fadeIn: z.boolean().optional(),
+  fadeOut: z.boolean().optional(),
 });
 export const audioTrackSchema = z.object({
   id: z.string().min(1).max(80),
@@ -85,6 +99,23 @@ export const timelineSchema = z
       captions = [...(t.captions || [])].sort(
         (a, b) => a.startFrame - b.startFrame,
       );
+    if (
+      tracks.length +
+        t.scenes.flatMap((s) =>
+          s.layers.filter(
+            (l) =>
+              l.kind === "video" &&
+              !l.hidden &&
+              l.video?.audio &&
+              l.video.volume > 0,
+          ),
+        ).length >
+      32
+    )
+      ctx.addIssue({
+        code: "custom",
+        message: "Use at most 32 audible clips/tracks.",
+      });
     if (
       new Set(tracks.map((a) => a.id)).size !== tracks.length ||
       new Set(captions.map((c) => c.id)).size !== captions.length
@@ -125,6 +156,12 @@ export const timelineSchema = z
     if (new Set(t.scenes.map((s) => s.id)).size !== t.scenes.length)
       ctx.addIssue({ code: "custom", message: "Scene IDs must be unique." });
     for (const scene of t.scenes)
+      if ((scene.motionOffsetFrames || 0) + scene.durationFrames > 1800)
+        ctx.addIssue({
+          code: "custom",
+          message: "Scene motion phase must fit within 60 seconds.",
+        });
+    for (const scene of t.scenes)
       if (
         (scene.camera || []).some(
           (k, i, keys) =>
@@ -136,6 +173,20 @@ export const timelineSchema = z
           code: "custom",
           message: "Camera keyframes must increase and fit their scene.",
         });
+    for (const scene of t.scenes)
+      for (const layer of scene.layers)
+        if (
+          layer.kind === "video" &&
+          (!layer.assetId ||
+            !layer.video ||
+            layer.video.startFrame + layer.video.durationFrames >
+              scene.durationFrames)
+        )
+          ctx.addIssue({
+            code: "custom",
+            message:
+              "Video layers require an asset and a clip range that fits their scene.",
+          });
     for (const scene of t.scenes)
       for (const layer of scene.layers)
         if (layer.kind === "image" && !layer.assetId)
@@ -179,8 +230,11 @@ export type Asset = {
   name: string;
   source: string;
   license: string;
-  mime: "image/png" | "audio/wav";
+  mime: "image/png" | "audio/wav" | "video/mp4";
   durationFrames?: number;
+  width?: number;
+  height?: number;
+  hasAudio?: boolean;
   createdAt: string;
 };
 export type AudioTrack = z.infer<typeof audioTrackSchema>;

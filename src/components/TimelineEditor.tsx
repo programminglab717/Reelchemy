@@ -1,7 +1,9 @@
 "use client";
+import { TimedTrack } from "./TimedTrack";
 import { useEffect, useState, type RefObject } from "react";
 import type { PlayerRef } from "@remotion/player";
-import { totalFrames, type Timeline } from "@/lib/schema";
+import { totalFrames, type Timeline, type Asset } from "@/lib/schema";
+import { splitScene } from "@/lib/timeline-edit";
 
 export function TimelineEditor({
   timeline,
@@ -10,6 +12,8 @@ export function TimelineEditor({
   player,
   inFrame,
   outFrame,
+  onChange,
+  assets,
 }: {
   timeline: Timeline;
   selected: number;
@@ -17,6 +21,8 @@ export function TimelineEditor({
   player: RefObject<PlayerRef | null>;
   inFrame: number;
   outFrame: number;
+  onChange: (t: Timeline) => void;
+  assets: Asset[];
 }) {
   const [frame, setFrame] = useState(0),
     [zoom, setZoom] = useState(1);
@@ -59,6 +65,22 @@ export function TimelineEditor({
             onChange={(e) => setZoom(Number(e.target.value))}
           />
         </label>
+        <button
+          className="subtle"
+          disabled={
+            timeline.scenes.length >= 12 ||
+            frame - scenes[selected].start < 30 ||
+            frame - scenes[selected].start >
+              scenes[selected].durationFrames - 30
+          }
+          onClick={() =>
+            onChange(
+              splitScene(timeline, selected, frame - scenes[selected].start),
+            )
+          }
+        >
+          Split scene at playhead
+        </button>
       </div>
       <div className="timeline-scroll">
         <div className="timeline-content" style={{ width: `${zoom * 100}%` }}>
@@ -104,41 +126,129 @@ export function TimelineEditor({
               </button>
             ))}
           </div>
-          {(timeline.audioTracks || []).map((t, i) => (
-            <div
-              key={t.id}
-              className="timeline-track media-track"
-              aria-label={`Audio track ${i + 1}`}
-            >
-              <span
-                style={{
-                  left: marker(t.startFrame),
-                  width: marker(t.durationFrames),
-                }}
-              >
-                Audio {i + 1} · {t.volume.toFixed(1)} gain
-              </span>
-            </div>
+          {(timeline.audioTracks || []).map((track, i) => (
+            <TimedTrack
+              key={`audio-${track.id}`}
+              label={`Audio ${i + 1}`}
+              displayName={
+                assets.find((a) => a.id === track.assetId)?.name ||
+                `Audio ${i + 1}`
+              }
+              range={track}
+              totalFrames={duration}
+              bounds={{
+                minFrame: 0,
+                maxFrame: duration,
+                sourceFrames:
+                  assets.find((a) => a.id === track.assetId)?.durationFrames ||
+                  0,
+              }}
+              className="media-track"
+              onChange={(range) =>
+                onChange({
+                  ...timeline,
+                  audioTracks: timeline.audioTracks!.map((old) =>
+                    old.id === track.id
+                      ? {
+                          ...old,
+                          ...range,
+                          fadeFrames: Math.min(
+                            old.fadeFrames,
+                            Math.floor(range.durationFrames / 2),
+                          ),
+                        }
+                      : old,
+                  ),
+                })
+              }
+            />
           ))}
-          {!!timeline.captions?.length && (
-            <div
-              className="timeline-track caption-track"
-              aria-label="Caption track"
-            >
-              {timeline.captions.map((c) => (
-                <span
-                  key={c.id}
-                  title={c.text}
-                  style={{
-                    left: marker(c.startFrame),
-                    width: marker(c.endFrame - c.startFrame),
-                  }}
-                >
-                  {c.text}
-                </span>
-              ))}
-            </div>
+          {scenes.flatMap((s) =>
+            s.layers.flatMap((l, i) =>
+              l.kind !== "video" || !l.video
+                ? []
+                : [
+                    <TimedTrack
+                      key={`footage-${s.id}-${l.id}`}
+                      label={`Footage ${s.index + 1}.${i + 1}`}
+                      displayName={`${assets.find((a) => a.id === l.assetId)?.name || "Footage"}${l.hidden ? " (hidden)" : ""}`}
+                      disabled={l.locked}
+                      range={{
+                        ...l.video,
+                        startFrame: s.start + l.video.startFrame,
+                      }}
+                      totalFrames={duration}
+                      bounds={{
+                        minFrame: s.start,
+                        maxFrame: s.start + s.durationFrames,
+                        sourceFrames:
+                          assets.find((a) => a.id === l.assetId)
+                            ?.durationFrames || 0,
+                      }}
+                      className="footage-track"
+                      onChange={(range) =>
+                        onChange({
+                          ...timeline,
+                          scenes: timeline.scenes.map((scene, j) =>
+                            j !== s.index
+                              ? scene
+                              : {
+                                  ...scene,
+                                  layers: scene.layers.map((old) =>
+                                    old.id !== l.id
+                                      ? old
+                                      : {
+                                          ...old,
+                                          video: {
+                                            ...old.video!,
+                                            ...range,
+                                            startFrame:
+                                              range.startFrame - s.start,
+                                          },
+                                        },
+                                  ),
+                                },
+                          ),
+                        })
+                      }
+                    />,
+                  ],
+            ),
           )}
+          {[...(timeline.captions || [])]
+            .sort((a, b) => a.startFrame - b.startFrame)
+            .map((cue, i, cues) => (
+              <TimedTrack
+                key={`caption-${cue.id}`}
+                label={`Caption ${i + 1}`}
+                displayName={cue.text}
+                range={{
+                  startFrame: cue.startFrame,
+                  offsetFrames: 0,
+                  durationFrames: cue.endFrame - cue.startFrame,
+                }}
+                totalFrames={duration}
+                bounds={{
+                  minFrame: cues[i - 1]?.endFrame || 0,
+                  maxFrame: cues[i + 1]?.startFrame ?? duration,
+                }}
+                className="caption-track"
+                onChange={(range) =>
+                  onChange({
+                    ...timeline,
+                    captions: timeline.captions!.map((old) =>
+                      old.id === cue.id
+                        ? {
+                            ...old,
+                            startFrame: range.startFrame,
+                            endFrame: range.startFrame + range.durationFrames,
+                          }
+                        : old,
+                    ),
+                  })
+                }
+              />
+            ))}
           <div className="timeline-ruler">
             <span>0s</span>
             <span>{(duration / 60).toFixed(1)}s</span>
@@ -147,8 +257,9 @@ export function TimelineEditor({
         </div>
       </div>
       <p>
-        Select a scene to arrange it. Audio and caption bars show saved timing;
-        use the media controls below to adjust their ranges.
+        Select a scene to arrange it. Split at the playhead with at least one
+        second on each side. Clip controls below adjust source in, start and
+        length; audio/caption timing stays on the same global frames.
       </p>
     </section>
   );

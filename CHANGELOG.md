@@ -74,3 +74,12 @@
 - Added a zoomable timeline with frame scrubbing, selectable timed scene blocks and audio/caption timing bars. Direct media-bar trimming, scene split and waveforms remain unfinished.
 - Added visual layer/camera keyframe markers and frame/offset/scale/opacity controls, including add/remove/reset. Advanced JSON remains available and validates scene timing.
 - Kept live AI verification deferred. This checkpoint develops the manual editor; it does not complete the public-production acceptance gates. See VALIDATION.md for executed checks and limits.
+
+## 0.8.0 — 2026-10-29
+
+- Added validated MP4/MOV/WebM ingestion, bounded 30 fps H.264/AAC normalization, private range requests, asset reuse and editable video layers with source in/start/duration/fit/volume controls.
+- Added job-scoped loopback footage delivery for rendering, byte-based cache fingerprints and explicit source-audio mixing. The first embedded-video approach failed in real rendering; footage no longer travels in data-URL query parameters.
+- Added scene splitting that preserves global timing, clip source frames, custom/camera poses, preset phase and outer fades; empty/background-only scenes are now supported.
+- Added direct video/audio/caption track movement/trimming with pointer/keyboard controls, source/scene/caption bounds and gesture-level undo. Numeric controls remain available.
+- Extended portable archives to revalidate/remap footage and retain source audio; export now enforces the importable compressed-size cap. Internal re-ingestion accepts bounded normalized image/audio sizes while public upload caps remain unchanged.
+- Live AI verification remains deferred; project duration/output-size caps remain unchanged pending benchmarks. See VALIDATION.md for executed evidence rather than treating implemented controls as production acceptance.

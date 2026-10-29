@@ -1,7 +1,12 @@
 import { SoundAndCaptions } from "./SoundAndCaptions";
 import React from "react";
 import { textStyle } from "../lib/text-style";
-import { AbsoluteFill, Sequence, useCurrentFrame } from "remotion";
+import {
+  AbsoluteFill,
+  Sequence,
+  useCurrentFrame,
+  OffthreadVideo,
+} from "remotion";
 import {
   layerMotion,
   keyframeMotion,
@@ -22,11 +27,16 @@ function SceneView({
 }) {
   const currentFrame = useCurrentFrame();
   const frame = layoutOnly ? 0 : currentFrame;
+  const motionFrame = frame + (scene.motionOffsetFrames || 0);
   const { width, height } = formats[format];
   const camera = keyframeMotion(layoutOnly ? [] : scene.camera || [], frame);
   const opacity =
     !layoutOnly && scene.transition === "fade"
-      ? Math.min(1, frame / 10, (scene.durationFrames - frame) / 10)
+      ? Math.min(
+          1,
+          scene.fadeIn === false ? 1 : frame / 10,
+          scene.fadeOut === false ? 1 : (scene.durationFrames - frame) / 10,
+        )
       : 1;
   return (
     <AbsoluteFill
@@ -54,7 +64,7 @@ function SceneView({
           .map((l) => {
             const a = layoutOnly
               ? keyframeMotion([], 0)
-              : layerMotion(l, frame);
+              : layerMotion(l, l.keyframes?.length ? frame : motionFrame);
             return (
               <div
                 key={l.id}
@@ -72,10 +82,27 @@ function SceneView({
                   alignItems: "center",
                 }}
               >
-                {l.kind === "character" ? (
+                {l.kind === "video" && l.video ? (
+                  <Sequence
+                    layout="none"
+                    from={layoutOnly ? 0 : l.video.startFrame}
+                    durationInFrames={layoutOnly ? 1 : l.video.durationFrames}
+                  >
+                    <OffthreadVideo
+                      src={assetSources[l.assetId || ""]}
+                      trimBefore={l.video.offsetFrames}
+                      muted
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: l.video.fit,
+                      }}
+                    />
+                  </Sequence>
+                ) : l.kind === "character" ? (
                   <svg width="100%" height="100%" viewBox="0 0 200 300">
                     <g
-                      transform={`rotate(${Math.sin(frame / 18) * 3},100,160)`}
+                      transform={`rotate(${Math.sin(motionFrame / 18) * 3},100,160)`}
                     >
                       <path
                         d="M80 220L70 285M120 220L130 285"
@@ -168,7 +195,7 @@ function SceneView({
                     />
                     <circle
                       cx={400 + Math.cos(frame / 35) * 180}
-                      cy={110 + Math.sin(frame / 35) * 85}
+                      cy={110 + Math.sin(motionFrame / 35) * 85}
                       r="15"
                       fill={l.color}
                     />
@@ -211,7 +238,7 @@ function SceneView({
                         key={i}
                         cx={x}
                         cy={y}
-                        r={18 + Math.sin(frame / 20 + i) * 4}
+                        r={18 + Math.sin(motionFrame / 20 + i) * 4}
                         fill={l.color}
                       />
                     ))}

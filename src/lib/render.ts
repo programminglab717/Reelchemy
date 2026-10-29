@@ -1,3 +1,4 @@
+import { serveVideoAssets } from "./video-server";
 import { renderCachedScenes } from "./render-cache";
 import { runCommand } from "./process";
 import { muxAudio } from "./audio";
@@ -25,7 +26,32 @@ export async function renderFilm(
   cacheNamespace: string = "local",
 ) {
   onStage("Checking assets");
-  const assetSources = await resolveAssetSources(input);
+  const media = await serveVideoAssets(input, await resolveAssetSources(input));
+  try {
+    return await renderResolved(
+      input,
+      outputDir,
+      onProgress,
+      isCancelled,
+      onStage,
+      cacheNamespace,
+      media.sources,
+      media.fingerprints,
+    );
+  } finally {
+    await media.close();
+  }
+}
+async function renderResolved(
+  input: Timeline,
+  outputDir: string,
+  onProgress: (p: number) => void,
+  isCancelled: () => boolean,
+  onStage: (stage: string) => void,
+  cacheNamespace: string,
+  assetSources: Record<string, string>,
+  assetFingerprints: Record<string, string>,
+) {
   const repaired = repairBounds(input, 1, Object.keys(assetSources));
   let timeline = repaired.timeline;
   if (repaired.after.some((i) => i.severity === "error"))
@@ -75,6 +101,7 @@ export async function renderFilm(
       namespace: cacheNamespace,
       serveUrl,
       assetSources,
+      assetFingerprints,
       browserExecutable,
       outputLocation,
       cancelSignal: cancel.cancelSignal,

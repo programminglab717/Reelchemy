@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
@@ -14,8 +14,9 @@ export async function storeImage(
   bytes: Buffer,
   name: string,
   license: string,
+  maxBytes = 10 * 1024 * 1024,
 ): Promise<Asset> {
-  if (bytes.length > 10 * 1024 * 1024)
+  if (bytes.length > maxBytes)
     throw new Error("Images must be 10 MB or smaller.");
   const image = sharp(bytes, { limitInputPixels: 16000000 });
   const meta = await image.metadata();
@@ -45,9 +46,15 @@ export async function resolveAssetSources(t: Timeline) {
   for (const s of t.scenes)
     for (const l of s.layers) {
       if (!l.assetId) continue;
+      if (sources[l.assetId]) continue;
       if (!validAssetId(l.assetId))
         throw new Error(`Missing or invalid asset: ${l.assetId}`);
       try {
+        if (l.kind === "video") {
+          await stat(path.join(assetDir, l.assetId));
+          sources[l.assetId] = `local-video:${l.assetId}`;
+          continue;
+        }
         sources[l.assetId] =
           `data:image/png;base64,${(await readFile(path.join(assetDir, l.assetId))).toString("base64")}`;
       } catch {
@@ -68,10 +75,27 @@ export function validateProjectAssets(project: Project, t: Timeline) {
       if (
         layer.assetId &&
         !project.assets?.some(
-          (a) => a.id === layer.assetId && a.mime === "image/png",
+          (a) =>
+            a.id === layer.assetId &&
+            a.mime === (layer.kind === "video" ? "video/mp4" : "image/png"),
         )
       )
-        throw new Error("Image references must belong to this project.");
+        throw new Error(
+          "Visual assets must belong to this project and match the layer type.",
+        );
+  for (const scene of t.scenes)
+    for (const layer of scene.layers)
+      if (layer.kind === "video") {
+        const asset = project.assets?.find((a) => a.id === layer.assetId),
+          clip = layer.video;
+        if (
+          !clip ||
+          clip.offsetFrames + clip.durationFrames > (asset?.durationFrames || 0)
+        )
+          throw new Error("Video trim exceeds the source duration.");
+        if (clip.audio && !asset?.hasAudio)
+          throw new Error("This video has no source audio.");
+      }
   for (const track of t.audioTracks || []) {
     const asset = project.assets?.find((a) => a.id === track.assetId);
     if (asset?.mime !== "audio/wav")

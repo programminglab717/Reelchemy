@@ -1,4 +1,5 @@
 "use client";
+import { clipAudioTracks } from "@/lib/clip-audio";
 import { CanvasEditor } from "./CanvasEditor";
 import { TimelineEditor } from "./TimelineEditor";
 import { useProjectEditor } from "./useProjectEditor";
@@ -19,6 +20,7 @@ import {
   type Project,
   type RenderJob,
   type Timeline,
+  type Layer,
 } from "@/lib/schema";
 const ideas = [
   {
@@ -547,7 +549,8 @@ export function Studio() {
                     <div className="preview-caption">
                       <span>◉ Procedural composition</span>
                       <span>
-                        {timeline.audioTracks?.length
+                        {(timeline.audioTracks?.length || 0) +
+                        clipAudioTracks(timeline).length
                           ? "Audio preview"
                           : "Silent preview"}
                       </span>
@@ -618,12 +621,14 @@ export function Studio() {
                   </section>
                 </div>
                 <TimelineEditor
+                  assets={project.assets || []}
                   timeline={timeline}
                   selected={selected}
                   onSelect={setSelected}
                   player={player}
                   inFrame={previewStart}
                   outFrame={previewEnd}
+                  onChange={changeTimeline}
                 />
                 <CanvasEditor
                   key={`canvas-${scene?.id}`}
@@ -844,28 +849,46 @@ export function Studio() {
                   onProject={editor.mergeAssets}
                   onAdd={(assetId) => {
                     if (!scene) return;
+                    const asset = project.assets?.find((a) => a.id === assetId);
+                    const video = asset?.mime === "video/mp4";
+                    const layer: Layer = {
+                      id: crypto.randomUUID(),
+                      kind: video ? "video" : "image",
+                      assetId,
+                      x: video ? 0 : 0.1,
+                      y: video ? 0 : 0.5,
+                      width: video ? 1 : 0.8,
+                      height: video ? 1 : 0.35,
+                      text: "",
+                      color: "#FFFFFF",
+                      fontSize: 48,
+                      animation: video ? "none" : "rise",
+                      ...(video
+                        ? {
+                            video: {
+                              startFrame: 0,
+                              offsetFrames: 0,
+                              durationFrames: Math.min(
+                                scene.durationFrames,
+                                asset.durationFrames || 1,
+                              ),
+                              volume: 1,
+                              audio: !!asset.hasAudio,
+                              fit: "contain" as const,
+                            },
+                          }
+                        : {}),
+                    };
                     changeScene({
-                      layers: [
-                        ...scene.layers,
-                        {
-                          id: crypto.randomUUID(),
-                          kind: "image",
-                          assetId,
-                          x: 0.1,
-                          y: 0.5,
-                          width: 0.8,
-                          height: 0.35,
-                          text: "",
-                          color: "#FFFFFF",
-                          fontSize: 48,
-                          animation: "rise",
-                        },
-                      ],
+                      layers: video
+                        ? [layer, ...scene.layers]
+                        : [...scene.layers, layer],
                     });
                   }}
                 />
                 <LayerEditor
                   key={`layers-${scene?.id}`}
+                  assets={project.assets || []}
                   timeline={timeline}
                   selected={Math.min(selected, timeline.scenes.length - 1)}
                   onChange={changeTimeline}
