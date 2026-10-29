@@ -1646,3 +1646,55 @@ main.account-page {
   min-width: 120px;
   max-width: 100%;
 }
+.project-heading {
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.project-heading > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.project-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.trash-page {
+  margin: 0 auto;
+  padding: 32px 20px;
+  max-width: 960px;
+}
+.trash-page > label {
+  display: block;
+  margin: 24px 0;
+}
+.trash-page input {
+  display: block;
+  width: min(100%, 360px);
+  margin-top: 8px;
+}
+.trash-page ul {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.trash-page li {
+  padding: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+}
+.trash-page li > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.trash-page h2 {
+  font-size: 18px;
+  margin: 0;
+}

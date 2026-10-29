@@ -1,13 +1,13 @@
 {
   "name": "reelchemy",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0",
     "build": "next build",
     "start": "next start --hostname 0.0.0.0",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts",
+    "test": "tsx --test --test-concurrency=2 tests/*.test.ts",
     "render:sample": "tsx scripts/render-sample.ts",
     "test:e2e": "playwright test",
     "worker": "tsx scripts/worker.ts",

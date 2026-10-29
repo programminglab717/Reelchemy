@@ -12,22 +12,27 @@ export const runtime = "nodejs";
 async function GETHandler(req: Request, _ctx: unknown, access: Access) {
   try {
     const search = new URL(req.url).searchParams;
-    const { query, offset, limit } = z
+    const { query, offset, limit, trashed } = z
       .object({
         query: z.string().trim().max(100),
         offset: z.coerce.number().int().min(0).max(100000),
         limit: z.coerce.number().int().min(1).max(50),
+        trashed: z
+          .enum(["true", "false"])
+          .transform((value) => value === "true"),
       })
       .parse({
         query: search.get("q") || "",
         offset: search.get("offset") || 0,
         limit: search.get("limit") || 50,
+        trashed: search.get("trashed") || "false",
       });
-    const count = countProjects(access.workspace.id, query);
+    const count = countProjects(access.workspace.id, query, trashed);
     const projects = listProjects(access.workspace.id, {
       query,
       offset,
       limit,
+      trashed,
     });
     return Response.json(projects, {
       headers: {

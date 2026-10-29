@@ -104,3 +104,7 @@ Private checksummed snapshots and non-overwriting restore are implemented for th
 ## Typography progress (0.10.0)
 
 Text can now be edited/styled directly from the selected canvas layer: system family, weight, alignment, spacing and decorations share preview/export/QC styles and survive autosave/history/archives. Narrow glyph clipping receives actual Chromium scroll-dimension checks. A split-phase regression in orbital graphics was reproduced and fixed. Rotation, brand fonts, richer crop/ripple editing, duration/output benchmarks and creator acceptance remain open alongside the public-service backend/operations work.
+
+## Project Trash progress (0.11.0)
+
+Recoverable project removal and restoration are implemented with save/take guards, active-job cancellation, owner-scoped search/pagination and resource hiding until restore. Additive migrations are serialized/tested across parallel starts. This advances deliberate delete/restore UX while retaining all files and versions; permanent privacy erasure, storage reclamation and retention policy remain open.

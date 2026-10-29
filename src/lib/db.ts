@@ -23,21 +23,44 @@ db.exec(
 db.exec(
   "CREATE TABLE IF NOT EXISTS workspaces(id TEXT PRIMARY KEY,owner_id TEXT NOT NULL UNIQUE,name TEXT NOT NULL)",
 );
-if (
-  !(db.pragma("table_info(projects)") as { name: string }[]).some(
-    (c) => c.name === "workspace_id",
+// Serialize additive column migrations across web/worker startup.
+db.transaction(() => {
+  if (
+    !(db.pragma("table_info(projects)") as { name: string }[]).some(
+      (c) => c.name === "workspace_id",
+    )
   )
-)
-  db.exec("ALTER TABLE projects ADD COLUMN workspace_id TEXT");
-db.exec(
-  "CREATE INDEX IF NOT EXISTS projects_workspace_idx ON projects(workspace_id)",
-);
+    db.exec("ALTER TABLE projects ADD COLUMN workspace_id TEXT");
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS projects_workspace_idx ON projects(workspace_id)",
+  );
+  if (
+    !(db.pragma("table_info(projects)") as { name: string }[]).some(
+      (c) => c.name === "trashed_at",
+    )
+  )
+    db.exec("ALTER TABLE projects ADD COLUMN trashed_at TEXT");
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS projects_trash_idx ON projects(workspace_id,trashed_at)",
+  );
+}).immediate();
 export function databaseHealthy() {
   return (db.prepare("SELECT 1 AS ok").get() as { ok: number }).ok === 1;
 }
-export type ProjectQuery = { query?: string; offset?: number; limit?: number };
-function projectFilter(workspaceId: string | undefined, query = "") {
-  const clauses: string[] = [],
+export type ProjectQuery = {
+  query?: string;
+  offset?: number;
+  limit?: number;
+  trashed?: boolean;
+};
+function projectFilter(
+  workspaceId: string | undefined,
+  query = "",
+  trashed = false,
+) {
+  const clauses: string[] = [
+      trashed ? "trashed_at IS NOT NULL" : "trashed_at IS NULL",
+    ],
     values: (string | number)[] = [];
   if (workspaceId) {
     clauses.push("workspace_id=?");
@@ -52,8 +75,12 @@ function projectFilter(workspaceId: string | undefined, query = "") {
     values,
   };
 }
-export function countProjects(workspaceId: string, query = "") {
-  const filter = projectFilter(workspaceId, query);
+export function countProjects(
+  workspaceId: string,
+  query = "",
+  trashed = false,
+) {
+  const filter = projectFilter(workspaceId, query, trashed);
   return (
     db
       .prepare(`SELECT COUNT(*) AS count FROM projects${filter.where}`)
@@ -64,18 +91,21 @@ export function listProjects(
   workspaceId?: string,
   options: ProjectQuery = {},
 ): Project[] {
-  const filter = projectFilter(workspaceId, options.query);
+  const filter = projectFilter(workspaceId, options.query, options.trashed);
   return (
     db
       .prepare(
-        `SELECT data FROM projects${filter.where} ORDER BY rowid DESC LIMIT ? OFFSET ?`,
+        `SELECT data,trashed_at FROM projects${filter.where} ORDER BY rowid DESC LIMIT ? OFFSET ?`,
       )
       .all(
         ...filter.values,
         Math.min(50, Math.max(1, options.limit || 50)),
         Math.max(0, options.offset || 0),
-      ) as { data: string }[]
-  ).map((r) => JSON.parse(r.data));
+      ) as { data: string; trashed_at: string | null }[]
+  ).map((r) => ({
+    ...JSON.parse(r.data),
+    ...(r.trashed_at ? { trashedAt: r.trashed_at } : {}),
+  }));
 }
 export function getProject(id: string): Project | undefined {
   const row = db.prepare("SELECT data FROM projects WHERE id=?").get(id) as
@@ -292,10 +322,39 @@ export function ensureWorkspace(userId: string, name: string): Workspace {
     return workspace;
   })();
 }
-export function projectInWorkspace(id: string, workspaceId: string) {
+export function projectInWorkspace(
+  id: string,
+  workspaceId: string,
+  includeTrashed = false,
+) {
   return !!db
-    .prepare("SELECT id FROM projects WHERE id=? AND workspace_id=?")
+    .prepare(
+      `SELECT id FROM projects WHERE id=? AND workspace_id=?${includeTrashed ? "" : " AND trashed_at IS NULL"}`,
+    )
     .get(id, workspaceId);
+}
+export function setProjectTrashed(id: string, trashed: boolean) {
+  return db.transaction(() => {
+    const row = db
+      .prepare("SELECT trashed_at FROM projects WHERE id=?")
+      .get(id) as { trashed_at: string | null } | undefined;
+    if (!row) throw new Error("Project not found.");
+    if (trashed) {
+      const jobs = db
+        .prepare(
+          "SELECT id FROM jobs WHERE project_id=? AND status IN ('queued','rendering')",
+        )
+        .all(id) as { id: string }[];
+      for (const job of jobs)
+        updateJob(job.id, {
+          status: "cancelled",
+          stage: "Cancelled by moving project to Trash",
+        });
+    }
+    const at = trashed ? row.trashed_at || new Date().toISOString() : null;
+    db.prepare("UPDATE projects SET trashed_at=? WHERE id=?").run(at, id);
+    return { trashedAt: at };
+  })();
 }
 export function claimLegacyProjects(workspaceId: string, apply = false) {
   const count = (

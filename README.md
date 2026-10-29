@@ -167,3 +167,11 @@ The GitHub Actions workflow runs local/static/unit/build checks and isolated bro
 Select a text layer on the canvas to edit its content, size, system font family, weight, alignment, line/letter spacing, italic and underline styling. The same controls are available in the layer inspector. Locked layers disable editing. Reset keeps content and size, and resets the other text styling; undo restores the previous appearance. Autosave, versions, scene splits and portable archives retain the styles.
 
 Rendering and layout diagnostics use the same style function. Text that cannot fit after bounded font repair blocks export. These are system font families with platform fallbacks; uploaded brand fonts, arbitrary font URLs, rotation and richer crop tools are still separate work.
+
+## Recoverable project removal (0.11.0)
+
+**Move project to Trash** saves the editor first and asks for confirmation. Media, saved versions and completed exports are retained; queued/rendering exports are cancelled. Normal resource routes become unavailable until the owner restores the project from the searchable Trash page. Restore does not restart cancelled renders. An unsaved narration take must be saved or discarded before Trash navigation/removal.
+
+Trash works on desktop/mobile and offers retry for loading errors. It is not permanent deletion: files still consume storage, and no automatic retention deadline applies. Permanent project/account erasure remains a production release gate.
+
+Unit/media checks use at most two test processes to keep worker startup and Chromium layout checks reliable on a small host. Run builds and browser/media checks sequentially when sharing limited CPU resources; do not increase heartbeat freshness allowances to hide an unavailable worker.

@@ -159,3 +159,12 @@ The separate restored installation matched **48 projects and 31 jobs**, includin
 - **One mobile typography test passed** in 23.1 seconds (`/tmp/reelchemy-010-mobile.log`, evidence `/tmp/reelchemy-e2e-BVV1Uz`), including no horizontal overflow at 390 pixels. Its canvas screenshot was visually inspected.
 - The production build passed (`/tmp/reelchemy-010-build.log`). The full 22-browser run recorded above precedes typography; the targeted runs exercise the changed canvas/render paths. Subsequent removal of redundant text/size fields in the secondary layer inspector is presentation-only and covered by static checks.
 - Live AI and real SMTP remain unrun. No public deployment, five-minute/1080p support claim, real microphone/device acceptance or overall creator-quality acceptance is implied.
+
+## Recoverable project Trash — 29 October 2026 (0.11.0)
+
+- **64 unit tests passed**, none skipped, with bounded test concurrency (`/tmp/reelchemy-trash-unit-sequential.log`, 20.2 seconds). Includes terminal export cancellation, independent Trash state surviving late saves, full saved-state restoration and a three-process legacy migration retaining original data.
+- The first overlapping build/browser/unbounded-unit run had one worker-startup readiness failure and one browser startup timeout; it is not counted as a clean pass. Limiting unit concurrency to two and rerunning without overlapping heavy checks resolved resource starvation without relaxing worker heartbeat freshness or browser assertions. Final browser evidence follows below.
+- Production build passed (`/tmp/reelchemy-trash-build.log`), including the authenticated Trash page and private Trash mutation/restore endpoint.
+- No permanent data erasure, storage reclamation or retention automation is claimed. Existing backups preserve trashed records/media as part of the private snapshot.
+
+Final focused browser run: **6 passed**, none skipped, in 2.1 minutes (`/tmp/reelchemy-trash-final.log`, evidence `/tmp/reelchemy-e2e-weBNVs`). It covers editor autosave/undo/in-flight saves/stale tabs, library pagination/rename/mobile sign-out, Trash confirmation cancellation/acceptance, private route hiding and cross-account restore rejection, restored media/revisions, mobile Trash layout, failure/reload recovery and anonymous redirects. The real studio and render worker were restarted; anonymous projects returned 401, sign-in 200 and readiness 200 with all checks true. Formatting, lint and type checking passed.

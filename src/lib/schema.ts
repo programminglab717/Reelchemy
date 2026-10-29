@@ -289,6 +289,7 @@ export type Project = {
   revisions: Revision[];
   messages: { role: "user" | "assistant"; content: string }[];
   createdAt: string;
+  trashedAt?: string;
 };
 export type ProviderConfig = {
   provider: "mock" | "compatible";

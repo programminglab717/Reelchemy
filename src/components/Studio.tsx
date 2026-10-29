@@ -219,6 +219,37 @@ export function Studio() {
       router.refresh();
     });
   }
+  async function openTrash() {
+    await run(async () => {
+      if (recordingPending)
+        throw new Error(
+          "Save or discard your narration take before opening Trash.",
+        );
+      await save();
+      router.push("/trash");
+    });
+  }
+  async function trashCurrentProject() {
+    if (!project) return;
+    await run(async () => {
+      if (recordingPending)
+        throw new Error(
+          "Save or discard your narration take before moving this project to Trash.",
+        );
+      if (
+        !window.confirm(
+          `Move “${project.name}” to Trash? Its media and saved versions will be kept. Active exports will be cancelled. You can restore it from Trash.`,
+        )
+      )
+        return;
+      await save();
+      await api(`/api/projects/${project.id}/trash`, "DELETE");
+      remember(null);
+      setJob(null);
+      setSelected(0);
+      setListRefresh((n) => n + 1);
+    });
+  }
   function changeScene(update: Partial<Timeline["scenes"][number]>) {
     if (!project?.timeline) return;
     changeTimeline({
@@ -299,6 +330,15 @@ export function Studio() {
           <span className="count">{projectCount}</span>
         </button>
         <div className="recent-label">RECENT PROJECTS</div>
+        <button
+          className="nav-item"
+          aria-label="Trash"
+          title="Trash"
+          disabled={busy || editor.saving}
+          onClick={() => void openTrash()}
+        >
+          ♲ <span>Trash</span>
+        </button>
         <label className="project-search">
           Find a project
           <input
@@ -499,6 +539,9 @@ export function Studio() {
               aria-label="Your projects"
             >
               <h2>Your projects</h2>
+              <Link href="/trash" className="subtle">
+                Open Trash
+              </Link>
               <label>
                 Find a project
                 <input
@@ -572,13 +615,22 @@ export function Studio() {
                     : "Your director is planning the story…"}
                 </p>
               </div>
-              <button
-                className="subtle"
-                onClick={() => void navigate(null)}
-                disabled={busy || editor.saving}
-              >
-                ← Studio
-              </button>
+              <div className="project-heading-actions">
+                <button
+                  className="subtle"
+                  disabled={busy || editor.saving}
+                  onClick={() => void trashCurrentProject()}
+                >
+                  Move project to Trash
+                </button>
+                <button
+                  className="subtle"
+                  onClick={() => void navigate(null)}
+                  disabled={busy || editor.saving}
+                >
+                  ← Studio
+                </button>
+              </div>
             </div>
             {timeline && (
               <fieldset className="editor-content" disabled={busy}>

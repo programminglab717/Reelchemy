@@ -109,3 +109,11 @@
 - Preview/export and Chromium text QC share the exact typography styles. Geometry checks now include scroll dimensions so wide glyph tracking cannot silently clip inside a narrow box.
 - Corrected orbital graphic motion after scene splitting: both horizontal and vertical coordinates now retain the original motion phase. A browser regression failed before the fix and passes afterward.
 - Verified 62 unit tests, the production build and targeted browser/export/mobile regressions. Current validation evidence and remaining release gates are in VALIDATION.md.
+
+## 0.11.0 — 2026-10-29
+
+- Added recoverable project Trash, private searchable/paginated restore UI, save-before-trash and narration-take navigation guards. Trashed projects retain media/versions/finished exports; active jobs are cancelled and cannot revive through late worker updates.
+- Standard project/job/media/archive/evidence/download routes reject trashed resources, including their owner, until restoration. Restore uses an explicit ownership-checked route; other accounts cannot list or restore a trashed project. Late saves preserve the independent Trash marker.
+- Serialized additive ownership/Trash migrations across parallel service startup, with a real three-process legacy-database regression.
+- Bounded unit-test process concurrency to two after simultaneous build/browser/media runs caused resource starvation. The corrected bounded run passes all 64 unit tests; actual worker freshness checks remain unchanged.
+- Trash is reversible organization, not permanent deletion/privacy erasure, storage reclamation or automatic retention.

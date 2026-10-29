@@ -17,6 +17,7 @@ export function secureRoute<P extends Params>(
     access: Access,
   ) => Response | Promise<Response>,
   resource: "user" | "project" | "job",
+  options: { includeTrashed?: boolean } = {},
 ) {
   return async (req: Request, context: { params: Promise<P> }) => {
     let session;
@@ -42,7 +43,8 @@ export function secureRoute<P extends Params>(
     else if (resource === "job") projectId = getJob(params.id)?.projectId;
     if (
       resource !== "user" &&
-      (!projectId || !projectInWorkspace(projectId, workspace.id))
+      (!projectId ||
+        !projectInWorkspace(projectId, workspace.id, options.includeTrashed))
     )
       return Response.json({ error: "Resource not found." }, { status: 404 });
     return handler(req, context, { workspace, user: session.user });
