@@ -1,6 +1,6 @@
 {
   "name": "reelchemy",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0",
@@ -18,7 +18,8 @@
     "auth:migrate": "tsx scripts/auth-migrate.ts",
     "workspace:claim": "tsx scripts/claim-legacy.ts",
     "mail:worker": "tsx scripts/mail-worker.ts",
-    "test:isolated": "tsx scripts/test-isolated.ts"
+    "test:isolated": "tsx scripts/test-isolated.ts",
+    "backup": "tsx scripts/backup.ts"
   },
   "dependencies": {
     "@remotion/bundler": "4.0.539",

@@ -95,3 +95,10 @@
 - Added project-name search, paginated loading, metadata compare-and-swap renaming and preservation of newer names during delayed timeline revisions. Added mobile project reopening/search and visible sign-out.
 - Added public liveness/readiness probes, a render-worker heartbeat, graceful heartbeat/lock cleanup, readiness checks in isolated test startup, and a GitHub Actions check workflow. The workflow is configured but has not been run on GitHub.
 - Live AI/SMTP checks and public deployment remain deferred. Local checks and remaining release gates are recorded in VALIDATION.md and PRODUCTION_PLAN.md.
+
+## 0.9.1 — 2026-10-29
+
+- Added admin-only private SQLite/media/export backup, checksum/integrity/reference verification, and restore into a new installation directory. Database snapshots use the SQLite backup API and standalone journal mode, rather than copying live WAL files.
+- Restore preserves the source, revokes copied sessions/reset tokens, marks pending exports failed for explicit restart, and rebases saved export paths. Existing targets, traversal, source-directory aliases, symlinks, unexpected files, corrupt media copies and missing references are rejected.
+- Added an operations runbook with coordinated writer shutdown, inclusion/exclusion rules and local restore steps. Off-host encryption/delivery, scheduling, retention and production RPO/RTO remain unconfigured.
+- Executed a real local snapshot and separate restore of 558 files (146,108,046 bytes), alongside an account/media/authentication regression drill. See VALIDATION.md for final counts and full browser evidence.

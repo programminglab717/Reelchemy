@@ -96,3 +96,7 @@ This advances the manual mixed-media workflow. Remaining work includes waveforms
 The manual workflow now includes microphone take capture/review/download/retry, source waveforms, plain SRT/WebVTT import, burned-caption style controls, clipping checks for every cue, project-name search/pagination and concurrent-safe renaming. Mobile can reopen saved projects and sign out. Liveness/readiness probes and a render-worker heartbeat cover basic availability; a CI workflow is configured but has not run on GitHub.
 
 These changes do not complete creator acceptance, real microphone/device testing, richer typography/rotation/crop/ripple editing, long-video benchmarks, offline draft durability, deletion/privacy, public quotas/budgets, managed storage, backup/restore/staging or production operations. Live AI remains deferred. Existing duration/output caps remain in force.
+
+## Local backup and restore progress (0.9.1)
+
+Private checksummed snapshots and non-overwriting restore are implemented for the existing SQLite/filesystem adapter, with a real account/media/authentication drill and a separate snapshot/restore of this workspace. Sessions/tokens are revoked in the restored copy and pending renders require explicit restart. The runbook requires coordinated writer shutdown. This closes the initial local backup-tooling gap; chosen off-host storage/encryption, scheduling/retention, staging and measured production restore objectives remain open. This is not a managed database/object-store adapter or a public deployment.

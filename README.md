@@ -2,7 +2,7 @@
 
 A conversation-first creative studio. Start with an idea, review a storyboard, edit scenes, preview a deterministic composition, and download an actual MP4.
 
-This is an actively developed local MVP, not the complete product scope. Demo mode uses a deterministic planner with three varied scenes; it is explicitly not an AI model. An OpenAI-compatible adapter is available and tested against mocked API responses. Native Claude Messages is also implemented. Both adapters have mocked-response tests; real paid-provider requests have not been verified.
+This is an actively developed local build toward the public product, with release gates still open. Demo mode uses a deterministic planner with three varied scenes; it is explicitly not an AI model. An OpenAI-compatible adapter is available and tested against mocked API responses. Native Claude Messages is also implemented. Both adapters have mocked-response tests; real paid-provider requests have not been verified.
 
 ## Run
 
@@ -157,3 +157,7 @@ Search projects by name and load additional pages from the sidebar or mobile pro
 `GET /api/health/live` reports process liveness. `GET /api/health` returns 200 only when the studio database, authentication initialization, writable storage/free-space floor and a render-worker heartbeat are healthy; otherwise it returns 503. Responses contain booleans only, without paths, credentials or project details. Heartbeats expire after 30 seconds. `REELCHEMY_MIN_FREE_BYTES` defaults to 200 MB (clamped to 50 MB–10 GB). This is an availability probe, not a render-capacity or SMTP-delivery guarantee. AI credentials are not required for readiness.
 
 The GitHub Actions workflow runs local/static/unit/build checks and isolated browser/media tests with demo AI and private synthetic mail. It is configuration until a hosted run is recorded; no remote push was performed.
+
+## Backup and restore
+
+`npm run backup -- create <new-directory>`, `verify <backup-directory>` and `restore <backup-directory> <new-restore-directory>` provide private checksummed SQLite/media/export snapshots. Restore preserves the source installation, verifies before copying, revokes copied sessions/tokens and marks pending exports failed for an explicit restart. Stop all writers for a coordinated snapshot; use a new destination each time. See [OPERATIONS.md](OPERATIONS.md) for inclusion/exclusion rules, private storage requirements, an isolated restore drill and remaining production operations work.
