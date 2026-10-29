@@ -34,6 +34,15 @@ export const layerSchema = z.object({
   text: z.string().max(140).default(""),
   color: color,
   fontSize: z.number().min(12).max(120).default(48),
+  fontFamily: z.enum(["sans", "serif", "mono"]).optional(),
+  fontWeight: z
+    .enum(["regular", "medium", "semibold", "bold", "heavy"])
+    .optional(),
+  textAlign: z.enum(["left", "center", "right"]).optional(),
+  lineHeight: z.number().min(1).max(2).optional(),
+  letterSpacing: z.number().min(-2).max(8).optional(),
+  italic: z.boolean().optional(),
+  underline: z.boolean().optional(),
   animation: z.enum(["rise", "drift", "pulse", "none"]).default("rise"),
   hidden: z.boolean().optional(),
   locked: z.boolean().optional(),

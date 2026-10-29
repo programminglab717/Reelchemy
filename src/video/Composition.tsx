@@ -194,7 +194,7 @@ function SceneView({
                       strokeWidth="2"
                     />
                     <circle
-                      cx={400 + Math.cos(frame / 35) * 180}
+                      cx={400 + Math.cos(motionFrame / 35) * 180}
                       cy={110 + Math.sin(motionFrame / 35) * 85}
                       r="15"
                       fill={l.color}

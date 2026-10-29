@@ -161,3 +161,9 @@ The GitHub Actions workflow runs local/static/unit/build checks and isolated bro
 ## Backup and restore
 
 `npm run backup -- create <new-directory>`, `verify <backup-directory>` and `restore <backup-directory> <new-restore-directory>` provide private checksummed SQLite/media/export snapshots. Restore preserves the source installation, verifies before copying, revokes copied sessions/tokens and marks pending exports failed for an explicit restart. Stop all writers for a coordinated snapshot; use a new destination each time. See [OPERATIONS.md](OPERATIONS.md) for inclusion/exclusion rules, private storage requirements, an isolated restore drill and remaining production operations work.
+
+## Text styling (0.10.0)
+
+Select a text layer on the canvas to edit its content, size, system font family, weight, alignment, line/letter spacing, italic and underline styling. The same controls are available in the layer inspector. Locked layers disable editing. Reset keeps content and size, and resets the other text styling; undo restores the previous appearance. Autosave, versions, scene splits and portable archives retain the styles.
+
+Rendering and layout diagnostics use the same style function. Text that cannot fit after bounded font repair blocks export. These are system font families with platform fallbacks; uploaded brand fonts, arbitrary font URLs, rotation and richer crop tools are still separate work.

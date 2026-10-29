@@ -102,3 +102,10 @@
 - Restore preserves the source, revokes copied sessions/reset tokens, marks pending exports failed for explicit restart, and rebases saved export paths. Existing targets, traversal, source-directory aliases, symlinks, unexpected files, corrupt media copies and missing references are rejected.
 - Added an operations runbook with coordinated writer shutdown, inclusion/exclusion rules and local restore steps. Off-host encryption/delivery, scheduling, retention and production RPO/RTO remain unconfigured.
 - Executed a real local snapshot and separate restore of 558 files (146,108,046 bytes), alongside an account/media/authentication regression drill. See VALIDATION.md for final counts and full browser evidence.
+
+## 0.10.0 — 2026-10-29
+
+- Added text content/size and font-family, weight, alignment, line/letter spacing, italic and underline controls in the canvas inspector, with matching layer controls, locks, autosave, undo/reset and portable preservation.
+- Preview/export and Chromium text QC share the exact typography styles. Geometry checks now include scroll dimensions so wide glyph tracking cannot silently clip inside a narrow box.
+- Corrected orbital graphic motion after scene splitting: both horizontal and vertical coordinates now retain the original motion phase. A browser regression failed before the fix and passes afterward.
+- Verified 62 unit tests, the production build and targeted browser/export/mobile regressions. Current validation evidence and remaining release gates are in VALIDATION.md.

@@ -3,6 +3,7 @@ import { MotionJson } from "./MotionJson";
 import { VideoClipEditor } from "./VideoClipEditor";
 import { KeyframeControls } from "./KeyframeControls";
 import { CameraEditor } from "./CameraEditor";
+import { TypographyControls } from "./TypographyControls";
 import { useState } from "react";
 import {
   layerSchema,
@@ -172,6 +173,14 @@ export function LayerEditor({
             {layer.kind} · {layer.id}
           </summary>
           <fieldset className="editor-content" disabled={layer.locked}>
+            {layer.kind === "text" && (
+              <TypographyControls
+                editContent={false}
+                layer={layer}
+                label={`Layer ${layer.id}`}
+                onChange={(l) => updateLayer(layer.id, l)}
+              />
+            )}
             {layer.kind === "video" && (
               <VideoClipEditor
                 layer={layer}

@@ -100,3 +100,7 @@ These changes do not complete creator acceptance, real microphone/device testing
 ## Local backup and restore progress (0.9.1)
 
 Private checksummed snapshots and non-overwriting restore are implemented for the existing SQLite/filesystem adapter, with a real account/media/authentication drill and a separate snapshot/restore of this workspace. Sessions/tokens are revoked in the restored copy and pending renders require explicit restart. The runbook requires coordinated writer shutdown. This closes the initial local backup-tooling gap; chosen off-host storage/encryption, scheduling/retention, staging and measured production restore objectives remain open. This is not a managed database/object-store adapter or a public deployment.
+
+## Typography progress (0.10.0)
+
+Text can now be edited/styled directly from the selected canvas layer: system family, weight, alignment, spacing and decorations share preview/export/QC styles and survive autosave/history/archives. Narrow glyph clipping receives actual Chromium scroll-dimension checks. A split-phase regression in orbital graphics was reproduced and fixed. Rotation, brand fonts, richer crop/ripple editing, duration/output benchmarks and creator acceptance remain open alongside the public-service backend/operations work.

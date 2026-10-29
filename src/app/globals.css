@@ -1636,3 +1636,13 @@ main.account-page {
     white-space: nowrap;
   }
 }
+.typography-controls {
+  padding: 12px 0;
+}
+.typography-controls input[type="number"] {
+  max-width: 100px;
+}
+.typography-controls textarea {
+  min-width: 120px;
+  max-width: 100%;
+}

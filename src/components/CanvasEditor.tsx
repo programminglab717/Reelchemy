@@ -4,6 +4,7 @@ import { Player } from "@remotion/player";
 import { SceneLayout } from "@/video/Composition";
 import { formats, type Timeline, type Layer } from "@/lib/schema";
 import { placeLayer } from "@/lib/canvas";
+import { TypographyControls } from "./TypographyControls";
 
 export function CanvasEditor({
   timeline,
@@ -252,6 +253,15 @@ export function CanvasEditor({
               <strong>
                 {layer.kind} · {layer.id}
               </strong>
+              {layer.kind === "text" && (
+                <fieldset className="editor-content" disabled={layer.locked}>
+                  <TypographyControls
+                    layer={layer}
+                    label={`Canvas ${layer.id}`}
+                    onChange={update}
+                  />
+                </fieldset>
+              )}
               <div className="layer-fields">
                 <button
                   className="subtle"

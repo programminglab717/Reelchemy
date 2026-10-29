@@ -85,13 +85,14 @@ export async function checkLayout(
           .evaluateAll((nodes) =>
             nodes.map((n) => {
               const outer = n.getBoundingClientRect(),
-                inner = n.firstElementChild!.getBoundingClientRect();
+                text = n.firstElementChild!,
+                inner = text.getBoundingClientRect();
               return {
                 id: n.getAttribute("data-layer-id")!,
                 width: outer.width,
                 height: outer.height,
-                textWidth: inner.width,
-                textHeight: inner.height,
+                textWidth: Math.max(inner.width, text.scrollWidth),
+                textHeight: Math.max(inner.height, text.scrollHeight),
               };
             }),
           );

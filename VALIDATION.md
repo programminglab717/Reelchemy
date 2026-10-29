@@ -151,3 +151,11 @@ The **full 0.9.0 isolated development browser suite passed all 22 tests**, none 
 - The full 22-browser run above preceded backup tooling; backup is covered by its dedicated real-database/account/media integration drill. It does not exercise off-host backup, encrypted storage, production deployment, RPO/RTO or automatic retention.
 
 The separate restored installation matched **48 projects and 31 jobs**, including 25 completed exports. All **25 retained MP4s passed a full FFmpeg decode** from the restored directories. This is local recovery evidence, not a remote-host failover or creator-quality review.
+
+## Typography and split-motion regression — 29 October 2026 (0.10.0)
+
+- **62 unit tests passed**, none skipped (`/tmp/reelchemy-010-unit.log`), including typography bounds/default scaling/history/portable preservation and actual Chromium horizontal glyph clipping, with all preceding backup/account/media regressions.
+- **Three focused isolated browser tests passed** in 2.9 minutes (`/tmp/reelchemy-010-type-phase.log`, evidence `/tmp/reelchemy-e2e-bNfh5Q`): existing canvas gestures/locks/stack/export; orbital graphics retaining both coordinates after a split; and text styles surviving autosave/locks/reset/undo/reload and an actual MP4 export. The orbital test first failed against the old implementation with different horizontal positions, then passed after the renderer correction.
+- **One mobile typography test passed** in 23.1 seconds (`/tmp/reelchemy-010-mobile.log`, evidence `/tmp/reelchemy-e2e-BVV1Uz`), including no horizontal overflow at 390 pixels. Its canvas screenshot was visually inspected.
+- The production build passed (`/tmp/reelchemy-010-build.log`). The full 22-browser run recorded above precedes typography; the targeted runs exercise the changed canvas/render paths. Subsequent removal of redundant text/size fields in the secondary layer inspector is presentation-only and covered by static checks.
+- Live AI and real SMTP remain unrun. No public deployment, five-minute/1080p support claim, real microphone/device acceptance or overall creator-quality acceptance is implied.
