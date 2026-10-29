@@ -32,15 +32,49 @@ if (
 db.exec(
   "CREATE INDEX IF NOT EXISTS projects_workspace_idx ON projects(workspace_id)",
 );
-export function listProjects(workspaceId?: string): Project[] {
+export function databaseHealthy() {
+  return (db.prepare("SELECT 1 AS ok").get() as { ok: number }).ok === 1;
+}
+export type ProjectQuery = { query?: string; offset?: number; limit?: number };
+function projectFilter(workspaceId: string | undefined, query = "") {
+  const clauses: string[] = [],
+    values: (string | number)[] = [];
+  if (workspaceId) {
+    clauses.push("workspace_id=?");
+    values.push(workspaceId);
+  }
+  if (query) {
+    clauses.push("json_extract(data,'$.name') LIKE ? ESCAPE '\\'");
+    values.push(`%${query.replace(/[\\%_]/g, "\\$&")}%`);
+  }
+  return {
+    where: clauses.length ? ` WHERE ${clauses.join(" AND ")}` : "",
+    values,
+  };
+}
+export function countProjects(workspaceId: string, query = "") {
+  const filter = projectFilter(workspaceId, query);
+  return (
+    db
+      .prepare(`SELECT COUNT(*) AS count FROM projects${filter.where}`)
+      .get(...filter.values) as { count: number }
+  ).count;
+}
+export function listProjects(
+  workspaceId?: string,
+  options: ProjectQuery = {},
+): Project[] {
+  const filter = projectFilter(workspaceId, options.query);
   return (
     db
       .prepare(
-        workspaceId
-          ? "SELECT data FROM projects WHERE workspace_id=? ORDER BY rowid DESC LIMIT 50"
-          : "SELECT data FROM projects ORDER BY rowid DESC LIMIT 50",
+        `SELECT data FROM projects${filter.where} ORDER BY rowid DESC LIMIT ? OFFSET ?`,
       )
-      .all(...(workspaceId ? [workspaceId] : [])) as { data: string }[]
+      .all(
+        ...filter.values,
+        Math.min(50, Math.max(1, options.limit || 50)),
+        Math.max(0, options.offset || 0),
+      ) as { data: string }[]
   ).map((r) => JSON.parse(r.data));
 }
 export function getProject(id: string): Project | undefined {
@@ -68,12 +102,22 @@ export function createProject(brief: CreativeBrief, workspaceId?: string) {
     workspaceId,
   );
 }
+export function renameProject(id: string, name: string, baseName: string) {
+  return db.transaction(() => {
+    const p = getProject(id);
+    if (!p) throw new Error("Project not found.");
+    if (p.name !== baseName) return null;
+    p.name = name;
+    return saveProject(p);
+  })();
+}
 export function reviseProject(p: Project, timeline: Timeline, source: string) {
   return db.transaction(() => {
     const latest = getProject(p.id);
     if (!latest || revisionId(latest) !== revisionId(p))
       throw new RevisionConflict();
     p.timeline = timeline;
+    p.name = latest.name;
     p.assets = latest.assets;
     p.revisions.push({
       id: randomUUID(),

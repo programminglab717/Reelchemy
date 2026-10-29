@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState, type PointerEvent } from "react";
+import { useRef, useState, type PointerEvent, type ReactNode } from "react";
 import {
   editTrack,
   type TrackRange,
@@ -15,6 +15,7 @@ export function TimedTrack({
   disabled = false,
   className = "",
   displayName,
+  media,
 }: {
   label: string;
   range: TrackRange;
@@ -24,6 +25,7 @@ export function TimedTrack({
   disabled?: boolean;
   className?: string;
   displayName?: string;
+  media?: (range: TrackRange) => ReactNode;
 }) {
   const lane = useRef<HTMLDivElement>(null);
   const gesture = useRef<{
@@ -68,6 +70,7 @@ export function TimedTrack({
           width: `${(shown.durationFrames / totalFrames) * 100}%`,
         }}
       >
+        {media?.(shown)}
         {(
           [
             ["start", `Trim start ${label}`, "‹"],

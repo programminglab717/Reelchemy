@@ -1,4 +1,9 @@
-import { formats, type Timeline, type QCIssue } from "./schema";
+import {
+  captionStyleSchema,
+  formats,
+  type Timeline,
+  type QCIssue,
+} from "./schema";
 export function contrastRatio(a: string, b: string) {
   const luminance = (hex: string) => {
     const channels = [1, 3, 5]
@@ -15,6 +20,20 @@ export function inspectTimeline(
   assetIds: string[] = [],
 ): QCIssue[] {
   const issues: QCIssue[] = [];
+  if (t.captions?.length) {
+    const style = t.captionStyle || captionStyleSchema.parse({});
+    if (
+      style.backgroundOpacity < 0.8 ||
+      contrastRatio(style.color, style.background) < 4.5
+    )
+      issues.push({
+        sceneId: "captions",
+        code: "contrast",
+        severity: "warning",
+        message:
+          "Caption contrast depends on the artwork or is low against its background. Inspect the caption area in the rendered video.",
+      });
+  }
   for (const caption of t.captions || [])
     if (
       caption.text.length / ((caption.endFrame - caption.startFrame) / 30) >

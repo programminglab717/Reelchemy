@@ -1,5 +1,6 @@
 "use client";
 import { TimedTrack } from "./TimedTrack";
+import { AudioWaveform } from "./AudioWaveform";
 import { useEffect, useState, type RefObject } from "react";
 import type { PlayerRef } from "@remotion/player";
 import { totalFrames, type Timeline, type Asset } from "@/lib/schema";
@@ -14,6 +15,7 @@ export function TimelineEditor({
   outFrame,
   onChange,
   assets,
+  projectId,
 }: {
   timeline: Timeline;
   selected: number;
@@ -23,6 +25,7 @@ export function TimelineEditor({
   outFrame: number;
   onChange: (t: Timeline) => void;
   assets: Asset[];
+  projectId: string;
 }) {
   const [frame, setFrame] = useState(0),
     [zoom, setZoom] = useState(1);
@@ -144,6 +147,13 @@ export function TimelineEditor({
                   0,
               }}
               className="media-track"
+              media={(range) => (
+                <AudioWaveform
+                  src={`/api/projects/${projectId}/assets/${track.assetId}/waveform`}
+                  range={range}
+                  volume={track.volume}
+                />
+              )}
               onChange={(range) =>
                 onChange({
                   ...timeline,
@@ -186,6 +196,21 @@ export function TimelineEditor({
                             ?.durationFrames || 0,
                       }}
                       className="footage-track"
+                      media={
+                        assets.find((a) => a.id === l.assetId)?.hasAudio
+                          ? (range) => (
+                              <AudioWaveform
+                                src={`/api/projects/${projectId}/assets/${l.assetId}/waveform`}
+                                range={range}
+                                volume={
+                                  l.video!.audio && !l.hidden
+                                    ? l.video!.volume
+                                    : 0
+                                }
+                              />
+                            )
+                          : undefined
+                      }
                       onChange={(range) =>
                         onChange({
                           ...timeline,

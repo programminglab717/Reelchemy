@@ -2,20 +2,31 @@
 import { useState } from "react";
 import type { Project } from "@/lib/schema";
 import { VideoUpload } from "./VideoUpload";
+import { NarrationRecorder } from "./NarrationRecorder";
 export function AssetPanel({
   project,
   onProject,
   onAdd,
+  onRecordingPending,
+  onRecordStart,
 }: {
   project: Project;
   onProject: (p: Project) => void;
   onAdd: (id: string) => void;
+  onRecordingPending: (pending: boolean) => void;
+  onRecordStart: () => void;
 }) {
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   return (
     <section className="layer-editor">
       <h2>Project assets</h2>
+      <NarrationRecorder
+        projectId={project.id}
+        onProject={onProject}
+        onPendingChange={onRecordingPending}
+        onStart={onRecordStart}
+      />
       <VideoUpload projectId={project.id} onProject={onProject} />
       <form
         onSubmit={async (e) => {

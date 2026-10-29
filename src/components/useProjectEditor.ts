@@ -63,6 +63,13 @@ export function useProjectEditor() {
     },
     [publish],
   );
+  const mergeName = useCallback(
+    (p: Project) => {
+      if (current.current?.id === p.id)
+        publish({ ...current.current, name: p.name });
+    },
+    [publish],
+  );
   const save = useCallback(async () => {
     if (flight.current) return flight.current;
     if (blocked.current)
@@ -149,6 +156,7 @@ export function useProjectEditor() {
     open,
     change,
     mergeAssets,
+    mergeName,
     save,
     dirty,
     saving,

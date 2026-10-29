@@ -85,3 +85,13 @@
 - Live AI verification remains deferred; project duration/output-size caps remain unchanged pending benchmarks. See VALIDATION.md for executed evidence rather than treating implemented controls as production acceptance.
 
 - Final 0.8 validation: 44 unit tests, the full 17-case isolated browser suite, and two post-correction export checks passed. Fixed a reproduced delayed-source-audio timing defect; added mobile footage and real cache-reuse checks. Build/lint/type/format/audit passed, with zero audited vulnerabilities.
+
+## 0.9.0 — 2026-10-29
+
+- Added bounded UTF-8 SRT/WebVTT import with a preview, explicit merge/replace, frame quantization, cue/overlap validation and undo. Current captions can be downloaded before rendering. Unsupported subtitle positioning/styling is rejected explicitly; supported inline formatting is converted to plain text.
+- Added shared preview/export caption appearance controls for font, size, weight, colors, background opacity, alignment, safe-edge margin and vertical position. Every cue receives a Chromium clipping check; caption styles are carried into scene rendering/cache keys and portable archives.
+- Added microphone narration through a bounded AudioWorklet/PCM WAV path: explicit permission, input meter, take review, download, upload retry, source-rights metadata, recording limits and cleanup. Navigation/sign-out protect an unsaved take. Automated recording uses Chromium synthetic input, not a real microphone usability test.
+- Added private source waveforms to audio/video timeline bars. Waveforms follow source trims and clip gain, preserve leading source silence, use bounded FFmpeg extraction and a bounded cache, and never claim to represent the final mixed output.
+- Added project-name search, paginated loading, metadata compare-and-swap renaming and preservation of newer names during delayed timeline revisions. Added mobile project reopening/search and visible sign-out.
+- Added public liveness/readiness probes, a render-worker heartbeat, graceful heartbeat/lock cleanup, readiness checks in isolated test startup, and a GitHub Actions check workflow. The workflow is configured but has not been run on GitHub.
+- Live AI/SMTP checks and public deployment remain deferred. Local checks and remaining release gates are recorded in VALIDATION.md and PRODUCTION_PLAN.md.

@@ -1,0 +1,46 @@
+name: Checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  studio:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      AI_PROVIDER: mock
+      EMAIL_DELIVERY: file
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - name: Install media/browser prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-liberation
+          npx playwright install --with-deps chromium
+          node --input-type=module -e 'import {chromium} from "playwright-core"; console.log(`CHROMIUM_PATH=${chromium.executablePath()}`)' >> "$GITHUB_ENV"
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: npm run typecheck
+      - name: Browser and real media workflows with synthetic accounts
+        run: npm run test:isolated
+      - run: npm audit --audit-level=high
+      - name: Preserve failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-evidence
+          retention-days: 7
+          path: |
+            /tmp/reelchemy-e2e-*/app/test-results/
+            /tmp/reelchemy-e2e-*/services.log

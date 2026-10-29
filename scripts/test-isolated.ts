@@ -75,7 +75,14 @@ try {
       const r = await fetch(`${baseURL}/api/projects`, {
         signal: AbortSignal.timeout(2000),
       });
-      if (r.status === 401) {
+      if (
+        r.status === 401 &&
+        (
+          await fetch(`${baseURL}/api/health`, {
+            signal: AbortSignal.timeout(5000),
+          })
+        ).ok
+      ) {
         ready = true;
         break;
       }

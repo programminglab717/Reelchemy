@@ -4,6 +4,7 @@ import { CanvasEditor } from "./CanvasEditor";
 import { TimelineEditor } from "./TimelineEditor";
 import { useProjectEditor } from "./useProjectEditor";
 import { AssetPanel } from "./AssetPanel";
+import { ProjectName } from "./ProjectName";
 import { LayerEditor } from "./LayerEditor";
 import { ExportHistory, QualityEvidence } from "./ExportHistory";
 import { MediaEditor } from "./MediaEditor";
@@ -62,6 +63,13 @@ export function Studio() {
     [duration, setDuration] = useState(15),
     [format, setFormat] = useState<Timeline["format"]>("landscape");
   const [ready, setReady] = useState(false);
+  const [projectQuery, setProjectQuery] = useState("");
+  const [listedQuery, setListedQuery] = useState<string | null>(null);
+  const [projectCount, setProjectCount] = useState(0);
+  const [nextOffset, setNextOffset] = useState<number | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [listRefresh, setListRefresh] = useState(0);
+  const listVersion = useRef(0);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [job, setJob] = useState<RenderJob | null>(null),
@@ -73,13 +81,73 @@ export function Studio() {
     Math.max(0, (project?.timeline?.scenes.length || 1) - 1),
   );
   const [scenePreview, setScenePreview] = useState(false);
+  const [recordingPending, setRecordingPending] = useState(false);
   const player = useRef<PlayerRef>(null);
   useEffect(() => {
-    api<Project[]>("/api/projects")
-      .then(setProjects)
-      .catch((e) => setError(e.message))
-      .finally(() => setReady(true));
-  }, []);
+    const version = ++listVersion.current;
+    const controller = new AbortController();
+    const timer = setTimeout(
+      () => {
+        void fetch(
+          `/api/projects?limit=20&q=${encodeURIComponent(projectQuery)}`,
+          { signal: controller.signal },
+        )
+          .then(async (response) => {
+            const result = await response.json();
+            if (!response.ok)
+              throw new Error(result.error || "Could not load projects.");
+            if (controller.signal.aborted || version !== listVersion.current)
+              return;
+            setProjects(result);
+            setListedQuery(projectQuery);
+            setProjectCount(Number(response.headers.get("X-Total-Count") || 0));
+            setNextOffset(
+              response.headers.has("X-Next-Offset")
+                ? Number(response.headers.get("X-Next-Offset"))
+                : null,
+            );
+          })
+          .catch((e) => {
+            if (!controller.signal.aborted) setError(e.message);
+          })
+          .finally(() => {
+            if (!controller.signal.aborted) setReady(true);
+          });
+      },
+      projectQuery ? 250 : 0,
+    );
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [projectQuery, listRefresh]);
+  async function loadMoreProjects() {
+    if (nextOffset === null || loadingMore) return;
+    const version = listVersion.current;
+    setLoadingMore(true);
+    try {
+      const response = await fetch(
+        `/api/projects?limit=20&offset=${nextOffset}&q=${encodeURIComponent(projectQuery)}`,
+      );
+      const result = await response.json();
+      if (!response.ok)
+        throw new Error(result.error || "Could not load projects.");
+      if (version !== listVersion.current) return;
+      setProjects((old) => [
+        ...new Map([...old, ...result].map((p) => [p.id, p])).values(),
+      ]);
+      setProjectCount(Number(response.headers.get("X-Total-Count") || 0));
+      setNextOffset(
+        response.headers.has("X-Next-Offset")
+          ? Number(response.headers.get("X-Next-Offset"))
+          : null,
+      );
+    } catch (e) {
+      if (version === listVersion.current) setError((e as Error).message);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
   useEffect(() => {
     if (!job || !["queued", "rendering"].includes(job.status)) return;
     const timer = setInterval(
@@ -104,7 +172,7 @@ export function Studio() {
   }
   function remember(p: Project | null) {
     editor.open(p);
-    if (p) setProjects((old) => [p, ...old.filter((x) => x.id !== p.id)]);
+    if (p) setListRefresh((n) => n + 1);
   }
   async function create(blank = false) {
     await run(async () => {
@@ -124,6 +192,10 @@ export function Studio() {
   }
   async function navigate(p: Project | null) {
     await run(async () => {
+      if (recordingPending)
+        throw new Error(
+          "Save or discard your narration take before leaving this project.",
+        );
       await save();
       remember(p ? await api<Project>(`/api/projects/${p.id}`) : null);
       setSelected(0);
@@ -134,6 +206,18 @@ export function Studio() {
     editor.change(t);
     setSelected(Math.min(selected, t.scenes.length - 1));
     setJob(null);
+  }
+  async function signOut() {
+    await run(async () => {
+      if (recordingPending)
+        throw new Error(
+          "Save or discard your narration take before signing out.",
+        );
+      await save();
+      await authClient.signOut();
+      router.replace("/sign-in");
+      router.refresh();
+    });
   }
   function changeScene(update: Partial<Timeline["scenes"][number]>) {
     if (!project?.timeline) return;
@@ -197,6 +281,7 @@ export function Studio() {
         </Link>
         <button
           className="new-project"
+          aria-label="New creation"
           onClick={() => void navigate(null)}
           disabled={busy || editor.saving}
         >
@@ -206,15 +291,28 @@ export function Studio() {
         <div className="nav-label">YOUR WORKSPACE</div>
         <button
           className={`nav-item ${!project ? "current" : ""}`}
+          aria-label="Studio"
           onClick={() => void navigate(null)}
           disabled={busy || editor.saving}
         >
           ▦ <span>Studio</span>
-          <span className="count">{projects.length}</span>
+          <span className="count">{projectCount}</span>
         </button>
         <div className="recent-label">RECENT PROJECTS</div>
+        <label className="project-search">
+          Find a project
+          <input
+            aria-label="Search projects"
+            value={projectQuery}
+            maxLength={100}
+            placeholder="Search by name…"
+            onChange={(e) => setProjectQuery(e.target.value)}
+          />
+        </label>
         <div className="project-list">
-          {projects.length ? (
+          {listedQuery !== projectQuery ? (
+            <p role="status">Searching projects…</p>
+          ) : projects.length ? (
             projects.map((p) => (
               <button
                 key={p.id}
@@ -228,10 +326,19 @@ export function Studio() {
             ))
           ) : (
             <p className="empty-recent">
-              Your next great idea
-              <br />
-              starts here.
+              {projectQuery
+                ? "No projects match this name."
+                : "Your next great idea starts here."}
             </p>
+          )}
+          {listedQuery === projectQuery && nextOffset !== null && (
+            <button
+              className="subtle"
+              disabled={loadingMore}
+              onClick={() => void loadMoreProjects()}
+            >
+              {loadingMore ? "Loading projects…" : "Load more projects"}
+            </button>
           )}
         </div>
         <div className="sidebar-bottom">
@@ -239,18 +346,8 @@ export function Studio() {
           Your creative workspace<p>Private projects & exports</p>
           <button
             className="subtle"
-            onClick={async () => {
-              if (dirty) {
-                try {
-                  await save();
-                } catch {
-                  return;
-                }
-              }
-              await authClient.signOut();
-              router.replace("/sign-in");
-              router.refresh();
-            }}
+            disabled={busy || editor.saving}
+            onClick={() => void signOut()}
           >
             Sign out
           </button>
@@ -265,6 +362,13 @@ export function Studio() {
       </aside>
       <main>
         <header className="topbar">
+          <button
+            className="subtle mobile-sign-out"
+            disabled={busy || editor.saving}
+            onClick={() => void signOut()}
+          >
+            Sign out
+          </button>
           <div>
             Workspace <span>/</span>{" "}
             <strong>{project ? "Project studio" : "Studio"}</strong>
@@ -390,6 +494,54 @@ export function Studio() {
                 setJob(null);
               }}
             />
+            <section
+              className="mobile-project-library"
+              aria-label="Your projects"
+            >
+              <h2>Your projects</h2>
+              <label>
+                Find a project
+                <input
+                  aria-label="Search projects"
+                  value={projectQuery}
+                  maxLength={100}
+                  placeholder="Search by name…"
+                  onChange={(e) => setProjectQuery(e.target.value)}
+                />
+              </label>
+              {listedQuery !== projectQuery ? (
+                <p role="status">Searching projects…</p>
+              ) : projects.length ? (
+                <ul>
+                  {projects.map((p) => (
+                    <li key={p.id}>
+                      <button
+                        className="subtle"
+                        onClick={() => void navigate(p)}
+                        disabled={busy || editor.saving}
+                      >
+                        {p.name}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>
+                  {projectQuery
+                    ? "No projects match this name."
+                    : "Your saved projects will appear here."}
+                </p>
+              )}
+              {listedQuery === projectQuery && nextOffset !== null && (
+                <button
+                  className="subtle"
+                  disabled={loadingMore}
+                  onClick={() => void loadMoreProjects()}
+                >
+                  {loadingMore ? "Loading projects…" : "Load more projects"}
+                </button>
+              )}
+            </section>
             <p className="home-foot">
               No templates to fit into. Just room to create.
             </p>
@@ -400,6 +552,20 @@ export function Studio() {
               <div>
                 <span className="eyebrow">CREATION WORKSPACE</span>
                 <h1>{project.name}</h1>
+                <ProjectName
+                  key={project.id}
+                  name={project.name}
+                  onRename={async (name) => {
+                    await save();
+                    const renamed = await api<Project>(
+                      `/api/projects/${project.id}/name`,
+                      "PATCH",
+                      { name, baseName: project.name },
+                    );
+                    editor.mergeName(renamed);
+                    setListRefresh((n) => n + 1);
+                  }}
+                />
                 <p>
                   {timeline
                     ? `${timeline.scenes.length} scenes · ${totalFrames(timeline) / 30}s · ${timeline.format} · ${project.revisions.length} saved versions`
@@ -621,6 +787,7 @@ export function Studio() {
                   </section>
                 </div>
                 <TimelineEditor
+                  projectId={project.id}
                   assets={project.assets || []}
                   timeline={timeline}
                   selected={selected}
@@ -845,6 +1012,8 @@ export function Studio() {
                   </small>
                 </section>
                 <AssetPanel
+                  onRecordingPending={setRecordingPending}
+                  onRecordStart={() => player.current?.pause()}
                   project={project}
                   onProject={editor.mergeAssets}
                   onAdd={(assetId) => {
@@ -1034,7 +1203,7 @@ export function Studio() {
           </div>
         )}
         {error && (
-          <div className="error-banner" role="alert">
+          <div className="error-banner" role="alert" aria-label="Studio error">
             <strong>Something needs attention.</strong> {error}
             <button aria-label="Dismiss error" onClick={() => setError("")}>
               ×

@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { CaptionTools } from "./CaptionTools";
 import {
   timelineSchema,
   totalFrames,
@@ -28,8 +29,8 @@ export function MediaEditor({
     <section className="layer-editor">
       <h2>Sound & captions</h2>
       <p>
-        Timing is in frames at 30 fps. Captions appear in the bottom safe area
-        and are included in the MP4. Keep important artwork above that area.
+        Timing is in frames at 30 fps. Captions are included in the MP4. Keep
+        important artwork clear of your chosen caption area.
       </p>
       <div className="layer-fields">
         {assets
@@ -118,6 +119,7 @@ export function MediaEditor({
           </div>
         </div>
       ))}
+      <CaptionTools timeline={timeline} onChange={onChange} />
       <div className="layer-fields">
         <h3>Caption cues</h3>
         <button

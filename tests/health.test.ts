@@ -1,0 +1,83 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { recentHeartbeat, HEARTBEAT_NAME } from "../src/lib/worker-heartbeat";
+import { mkdtemp, readFile, rm, access } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { spawn, type ChildProcess } from "node:child_process";
+
+test("worker heartbeat rejects stale, missing, malformed and implausible future timestamps", () => {
+  const now = Date.now();
+  for (const value of [
+    null,
+    {},
+    { at: 123 },
+    { at: "invalid" },
+    { at: new Date(now - 30001).toISOString() },
+    { at: new Date(now + 5001).toISOString() },
+  ])
+    assert.equal(recentHeartbeat(value, now), false);
+  assert(recentHeartbeat({ at: new Date(now).toISOString() }, now));
+  assert(recentHeartbeat({ at: new Date(now - 29999).toISOString() }, now));
+});
+test("real worker readiness follows its heartbeat and graceful shutdown cleans its lock", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-health-"));
+  process.env.REELCHEMY_DATA_DIR = dir;
+  process.env.REELCHEMY_ARTIFACT_DIR = path.join(dir, "artifacts");
+  process.env.EMAIL_DELIVERY = "file";
+  const children: ChildProcess[] = [];
+  async function stop(child: ChildProcess) {
+    if (child.exitCode !== null) return;
+    const closed = new Promise<void>((resolve) =>
+      child.once("close", () => resolve()),
+    );
+    child.kill("SIGTERM");
+    const timer = setTimeout(() => child.kill("SIGKILL"), 10000);
+    try {
+      await closed;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  try {
+    const { readiness } = await import("../src/lib/health");
+    assert.equal((await readiness()).status, "not-ready");
+    const child = spawn(
+      process.execPath,
+      ["--import", "tsx", "scripts/worker.ts"],
+      {
+        env: { ...process.env, AI_PROVIDER: "mock" },
+        stdio: ["ignore", "ignore", "pipe"],
+      },
+    );
+    children.push(child);
+    let errors = "";
+    child.stderr?.on("data", (b) => {
+      errors += String(b).slice(0, 2000);
+    });
+    let ready = false;
+    for (let i = 0; i < 100; i++) {
+      if (child.exitCode !== null) throw new Error(`Worker exited: ${errors}`);
+      try {
+        if (
+          recentHeartbeat(
+            JSON.parse(await readFile(path.join(dir, HEARTBEAT_NAME), "utf8")),
+          )
+        ) {
+          ready = true;
+          break;
+        }
+      } catch {}
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    assert(ready, "Worker must publish a fresh heartbeat.");
+    assert.equal((await readiness()).status, "ready");
+    await stop(child);
+    assert.equal((await readiness()).checks.worker, false);
+    await assert.rejects(() => access(path.join(dir, "worker.lock")));
+    await assert.rejects(() => access(path.join(dir, HEARTBEAT_NAME)));
+  } finally {
+    await Promise.all(children.map(stop));
+    await rm(dir, { recursive: true, force: true });
+  }
+});

@@ -90,3 +90,9 @@ These are implemented capabilities, not completion of the editor workstream. Und
 Footage upload/normalization, fit/source-range/source-volume controls, source-audio mixing, private seeking and portable footage archives are implemented. Scene splitting preserves global audio/caption timing and original motion/source phases. Video/audio/caption bars now move and trim directly with source/scene/neighbor bounds and undo.
 
 This advances the manual mixed-media workflow. Remaining work includes waveforms, recording, ripple editing, richer typography/rotation, caption styling/import, five-minute/1080p benchmarks and creator acceptance, alongside production storage/quotas/retention/abuse controls and deployment operations. Upload normalization is bounded local processing, not distributed ingestion or an OS-level decoder sandbox. Sixty-second project/output limits and deferred live-AI verification are unchanged.
+
+## Narration, captions and project reliability progress (0.9.0)
+
+The manual workflow now includes microphone take capture/review/download/retry, source waveforms, plain SRT/WebVTT import, burned-caption style controls, clipping checks for every cue, project-name search/pagination and concurrent-safe renaming. Mobile can reopen saved projects and sign out. Liveness/readiness probes and a render-worker heartbeat cover basic availability; a CI workflow is configured but has not run on GitHub.
+
+These changes do not complete creator acceptance, real microphone/device testing, richer typography/rotation/crop/ripple editing, long-video benchmarks, offline draft durability, deletion/privacy, public quotas/budgets, managed storage, backup/restore/staging or production operations. Live AI remains deferred. Existing duration/output caps remain in force.

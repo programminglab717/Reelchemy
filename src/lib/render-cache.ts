@@ -22,6 +22,9 @@ export function localSceneTimeline(t: Timeline, index: number): Timeline {
     fps: t.fps,
     format: t.format,
     scenes: [t.scenes[index]],
+    ...(t.captionStyle && t.captions?.length
+      ? { captionStyle: t.captionStyle }
+      : {}),
     ...(t.captions?.length
       ? {
           captions: t.captions

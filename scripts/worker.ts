@@ -1,4 +1,4 @@
-import { open, unlink } from "node:fs/promises";
+import { open, unlink, writeFile, rename } from "node:fs/promises";
 import path from "node:path";
 import {
   artifactDir,
@@ -11,6 +11,7 @@ import {
   recordJobStage,
   workspaceForProject,
 } from "../src/lib/db";
+import { HEARTBEAT_NAME } from "../src/lib/worker-heartbeat";
 import { RenderQCError } from "../src/lib/layout-qc";
 import { transientRenderError } from "../src/lib/retry";
 import { renderFilm } from "../src/lib/render";
@@ -30,9 +31,30 @@ async function main() {
     process.on(signal, () => {
       stopping = true;
     });
-  recoverJobs();
-  console.log("Reelchemy render worker ready");
+  const heartbeat = path.join(dataDir, HEARTBEAT_NAME);
+  const heartbeatTemp = `${heartbeat}.${process.pid}.tmp`;
+  let heartbeatWriting = false;
+  async function beat() {
+    if (heartbeatWriting) return;
+    heartbeatWriting = true;
+    try {
+      await writeFile(
+        heartbeatTemp,
+        JSON.stringify({ at: new Date().toISOString() }),
+        { mode: 0o600 },
+      );
+      await rename(heartbeatTemp, heartbeat);
+    } finally {
+      heartbeatWriting = false;
+    }
+  }
+  const timer = setInterval(() => {
+    void beat().catch(() => {});
+  }, 5000);
   try {
+    recoverJobs();
+    await beat();
+    console.log("Reelchemy render worker ready");
     while (!stopping) {
       const claimed = claimJob();
       if (!claimed) {
@@ -122,7 +144,15 @@ async function main() {
       }
     }
   } finally {
-    await unlink(lock);
+    clearInterval(timer);
+    while (heartbeatWriting) await new Promise((r) => setTimeout(r, 20));
+    for (const file of [heartbeat, heartbeatTemp, lock]) {
+      try {
+        await unlink(file);
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+      }
+    }
   }
 }
 main().catch((e) => {

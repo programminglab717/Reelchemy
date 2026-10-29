@@ -85,6 +85,17 @@ export const captionSchema = z.object({
     .max(80)
     .transform((s) => s.replace(/\s+/g, " ")),
 });
+export const captionStyleSchema = z.object({
+  fontFamily: z.enum(["sans", "serif", "mono"]).default("sans"),
+  fontSize: z.number().int().min(18).max(56).default(28),
+  bold: z.boolean().default(false),
+  color: color.default("#ffffff"),
+  background: color.default("#000000"),
+  backgroundOpacity: z.number().min(0).max(1).default(0.87),
+  position: z.enum(["top", "middle", "bottom"]).default("bottom"),
+  align: z.enum(["left", "center", "right"]).default("center"),
+  margin: z.number().min(3).max(12).default(3),
+});
 export const timelineSchema = z
   .object({
     fps: z.literal(30),
@@ -92,6 +103,7 @@ export const timelineSchema = z
     scenes: z.array(sceneSchema).min(1).max(12),
     audioTracks: z.array(audioTrackSchema).max(4).optional(),
     captions: z.array(captionSchema).max(100).optional(),
+    captionStyle: captionStyleSchema.optional(),
   })
   .superRefine((t, ctx) => {
     const frames = t.scenes.reduce((n, s) => n + s.durationFrames, 0);

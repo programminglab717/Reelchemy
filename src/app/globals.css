@@ -1539,3 +1539,100 @@ main.account-page {
   outline: 2px solid #344f46;
   outline-offset: -2px;
 }
+
+.narration-recorder,
+.caption-tools {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.narration-recorder audio {
+  max-width: 100%;
+}
+.narration-recorder meter {
+  width: 120px;
+}
+.caption-tools input[type="color"] {
+  min-width: 48px;
+  width: 56px;
+  padding: 2px;
+}
+.timed-clip .audio-waveform,
+.timed-clip .waveform-message {
+  position: absolute;
+  inset: 3px 12px;
+  width: calc(100% - 24px);
+  height: calc(100% - 6px);
+  pointer-events: none;
+}
+.audio-waveform {
+  fill: #195b48;
+  opacity: 0.32;
+}
+.timed-clip .waveform-message {
+  font-size: 8px;
+  opacity: 0.5;
+  text-align: right;
+}
+.timed-clip .waveform-retry {
+  position: absolute;
+  right: 12px;
+  top: 0;
+  z-index: 2;
+  font-size: 8px;
+  background: #fff;
+}
+.timed-clip .track-body,
+.timed-clip .track-handle {
+  position: relative;
+}
+.project-search {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin: 0 12px 10px;
+}
+.project-search input {
+  width: 100%;
+  min-width: 0;
+  margin-top: 5px;
+  background: #ffffff10;
+  border: 1px solid #ffffff30;
+  color: inherit;
+}
+.mobile-project-library,
+.mobile-sign-out {
+  display: none;
+}
+@media (max-width: 720px) {
+  .sidebar .project-search {
+    display: none;
+  }
+  .mobile-project-library {
+    display: block;
+    padding: 20px 0;
+  }
+  .mobile-project-library input {
+    width: 100%;
+    margin: 8px 0;
+  }
+  .mobile-project-library ul {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+  }
+  .mobile-project-library li,
+  .mobile-project-library li button {
+    width: 100%;
+    overflow-wrap: anywhere;
+  }
+  .mobile-sign-out {
+    display: block;
+    order: 2;
+    padding: 6px;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+}

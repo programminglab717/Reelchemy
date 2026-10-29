@@ -5,6 +5,7 @@ import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { formats, type Timeline, type QCIssue } from "./schema";
 import { textStyle } from "./text-style";
+import { CaptionOverlay } from "../video/CaptionOverlay";
 export class RenderQCError extends Error {
   constructor(public issues: QCIssue[]) {
     super(issues.map((i) => i.message).join(" "));
@@ -138,6 +139,38 @@ export async function checkLayout(
               after: layer.fontSize,
             });
         }
+      }
+    }
+    // Measure every cue, including cues between sampled scene screenshots.
+    // Report clipping instead of changing user-selected caption appearance.
+    for (const caption of timeline.captions || []) {
+      if (cancelled()) throw new Error("Render cancelled.");
+      await page.setContent(
+        renderToStaticMarkup(
+          React.createElement(CaptionOverlay, {
+            timeline,
+            text: caption.text,
+            id: caption.id,
+          }),
+        ),
+      );
+      const clipped = await page
+        .locator("[data-caption-id]")
+        .evaluate(
+          (n) =>
+            n.scrollHeight > n.clientHeight + 1 ||
+            n.scrollWidth > n.clientWidth + 1,
+        );
+      if (clipped) {
+        const issue: QCIssue = {
+          sceneId: "captions",
+          layerId: caption.id,
+          code: "text-overflow",
+          severity: "error",
+          message: `Caption ${caption.id} is clipped. Reduce its font size or shorten the cue.`,
+        };
+        before.push(issue);
+        after.push(issue);
       }
     }
   } finally {
