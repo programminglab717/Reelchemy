@@ -43,6 +43,10 @@ export const layerSchema = z.object({
   letterSpacing: z.number().min(-2).max(8).optional(),
   italic: z.boolean().optional(),
   underline: z.boolean().optional(),
+  imageFit: z.enum(["contain", "cover"]).optional(),
+  mediaPosition: z
+    .object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) })
+    .optional(),
   animation: z.enum(["rise", "drift", "pulse", "none"]).default("rise"),
   hidden: z.boolean().optional(),
   locked: z.boolean().optional(),

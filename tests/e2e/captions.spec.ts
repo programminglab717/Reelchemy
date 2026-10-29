@@ -1,5 +1,5 @@
 import { test, expect } from "./fixtures";
-import sharp from "sharp";
+import { encodedFrame } from "./media-frame";
 
 test("subtitle import is atomic, undoable and styled consistently in preview, archives and MP4", async ({
   page,
@@ -109,13 +109,14 @@ test("subtitle import is atomic, undoable and styled consistently in preview, ar
   const job = (
     await (await request.get(`/api/projects/${p.id}/render`)).json()
   )[0];
-  const screenshot = await request.get(
-    `/api/jobs/${job.id}/evidence/scene-1-middle.png`,
-  );
-  // Middle scene snapshot falls in cue 2; actual pixels must reflect custom top/yellow style.
-  const { data, info } = await sharp(await screenshot.body())
-    .raw()
-    .toBuffer({ resolveWithObject: true });
+  // Decode the cached/encoded MP4, not an independently rendered evidence PNG.
+  const frame = await encodedFrame(request, job.id, 2.5);
+  const { data } = frame;
+  const info = {
+    width: frame.width,
+    height: frame.height,
+    channels: frame.channels,
+  };
   let topYellow = 0,
     bottomYellow = 0;
   for (let y = 0; y < info.height; y++)

@@ -3,11 +3,12 @@ import { redirect } from "next/navigation";
 import { getAuth } from "@/lib/auth";
 import { TrashProjects } from "@/components/TrashProjects";
 export default async function Page() {
+  const requestHeaders = await headers();
   let session;
   try {
     session = await (
       await getAuth()
-    ).api.getSession({ headers: await headers() });
+    ).api.getSession({ headers: requestHeaders });
   } catch {
     redirect("/sign-in");
   }

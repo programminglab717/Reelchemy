@@ -1,6 +1,7 @@
 import { SoundAndCaptions } from "./SoundAndCaptions";
 import React from "react";
 import { textStyle } from "../lib/text-style";
+import { mediaStyle } from "../lib/media-style";
 import {
   AbsoluteFill,
   Sequence,
@@ -92,11 +93,7 @@ function SceneView({
                       src={assetSources[l.assetId || ""]}
                       trimBefore={l.video.offsetFrames}
                       muted
-                      style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: l.video.fit,
-                      }}
+                      style={mediaStyle(l)}
                     />
                   </Sequence>
                 ) : l.kind === "character" ? (
@@ -165,11 +162,7 @@ function SceneView({
                   <img
                     alt=""
                     src={assetSources[l.assetId || ""]}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "contain",
-                    }}
+                    style={mediaStyle(l)}
                   />
                 ) : l.kind === "text" ? (
                   <div style={textStyle(l, width)}>{l.text}</div>

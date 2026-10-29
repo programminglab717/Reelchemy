@@ -112,3 +112,7 @@ Recoverable project removal and restoration are implemented with save/take guard
 ## Request-budget progress (0.12.0)
 
 Persistent per-workspace windows now bound write/upload/planning/export attempts with atomic cross-process admission, origin/ownership-first enforcement and useful retry errors. Readiness detects invalid operator policy. This is an initial public abuse-control layer; byte quotas, actual provider token/spend accounting, global ingestion isolation, deletion/privacy, chosen hosting/storage and production load/abuse tests remain required.
+
+## Media framing progress (0.13.0)
+
+Images/video now have canvas fit/fill/crop alignment controls, live gesture preview, one-step gesture undo and non-destructive source preservation. Actual downloaded MP4 frame pixels validate both image and footage framing. Caption/text export checks also decode MP4 frames directly. The production Trash page remains dynamic independently of build-time credentials. Rotation/masks, ripple editing, long-video benchmarks, private draft durability, public storage/spend/privacy/ingestion controls and deployment/creator acceptance remain open.

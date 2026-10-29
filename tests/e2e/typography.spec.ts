@@ -1,5 +1,5 @@
 import { test, expect } from "./fixtures";
-import sharp from "sharp";
+import { encodedFrame } from "./media-frame";
 test("canvas text styling autosaves, respects locks/undo and reaches a real MP4", async ({
   page,
   request,
@@ -99,12 +99,22 @@ test("canvas text styling autosaves, respects locks/undo and reaches a real MP4"
     italic: true,
     underline: true,
   });
-  const image = await request.get(
-    `/api/jobs/${job.id}/evidence/scene-1-middle.png`,
-  );
-  expect(
-    (await sharp(await image.body()).stats()).channels[0].max,
-  ).toBeGreaterThan(230);
+  const frame = await encodedFrame(request, job.id, 2.5);
+  let widestUnderline = 0;
+  for (let y = 0; y < frame.height; y++) {
+    let white = 0;
+    for (let x = 0; x < frame.width; x++) {
+      const i = (y * frame.width + x) * 3;
+      if (
+        frame.data[i] > 235 &&
+        frame.data[i + 1] > 235 &&
+        frame.data[i + 2] > 235
+      )
+        white++;
+    }
+    widestUnderline = Math.max(widestUnderline, white);
+  }
+  expect(widestUnderline).toBeGreaterThan(650);
 });
 
 test("mobile canvas exposes text controls without horizontal overflow", async ({

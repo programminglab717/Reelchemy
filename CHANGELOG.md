@@ -125,3 +125,11 @@
 - Isolated tests exercise the real default policies; authentication abuse controls remain enabled. Added restart/concurrent-admission/HTTP/private-scope tests without real provider calls.
 - Allowed retrying the same project archive after a failed import by resetting its file chooser after each attempt.
 - Request caps are not storage quotas, provider token/dollar budgets, billing, global ingestion isolation or a substitute for public-service capacity controls.
+
+## 0.13.0 — 2026-10-29
+
+- Added non-destructive fit/fill-and-crop controls with horizontal/vertical source framing for images and video. Canvas slider drags preview locally, cancel with Escape and commit as one undo step; locks/reset, autosave, splitting, portable archives and scene-cache invalidation retain framing correctly.
+- Preview/export share constrained media style values; image defaults retain the complete source and video keeps its existing fit default.
+- Strengthened media/caption/typography browser verification by decoding the downloaded MP4 directly. Fixed a test that called Sharp statistics on an input rather than the intended cropped region.
+- Fixed production Trash classification by reading request headers before authentication initialization; the build now keeps Trash dynamic when production credentials are absent at build time.
+- Verified 69 unit tests and five focused browser cases including actual encoded image/video crop pixels, captions, text underline output and mobile typography. No source media is destructively cropped.

@@ -5,6 +5,7 @@ import { SceneLayout } from "@/video/Composition";
 import { formats, type Timeline, type Layer } from "@/lib/schema";
 import { placeLayer } from "@/lib/canvas";
 import { TypographyControls } from "./TypographyControls";
+import { MediaFitControls } from "./MediaFitControls";
 
 export function CanvasEditor({
   timeline,
@@ -253,6 +254,16 @@ export function CanvasEditor({
               <strong>
                 {layer.kind} · {layer.id}
               </strong>
+              {(layer.kind === "image" || layer.kind === "video") && (
+                <fieldset className="editor-content" disabled={layer.locked}>
+                  <MediaFitControls
+                    key={layer.id}
+                    layer={layer}
+                    onChange={update}
+                    onPreview={setDraft}
+                  />
+                </fieldset>
+              )}
               {layer.kind === "text" && (
                 <fieldset className="editor-content" disabled={layer.locked}>
                   <TypographyControls

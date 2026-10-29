@@ -183,3 +183,9 @@ Verified workspaces share persistent request counters across web-process restart
 Exhaustion returns HTTP 429, `RATE_LIMITED`, and a `Retry-After` value. Editing keeps local unsaved work when a save is limited; recording uploads retain the take for retry/download. Counters are scoped to the workspace and transactionally admitted. Invalid limit configuration disables mutations with 503 and makes readiness fail.
 
 Server settings in `.env.example` tune these positive-integer counts. Isolated functional tests use the real default policy and synthetic accounts. These are request abuse controls, not stored-byte quotas, actual token/spend accounting, paid credits, IP/WAF protection or distributed media-process isolation. Those remain public-production work.
+
+## Media framing (0.13.0)
+
+Select an image or video layer on the canvas to **Fit** the complete source or **Fill and crop** to the layer box. Horizontal/vertical framing selects which portion is visible. Drag previews update the canvas; release commits one undo step, and Escape cancels. **Center media** resets alignment while retaining the fit choice. Locked layers disable these controls.
+
+The source file stays intact. Autosave, versions, scene splitting, portable projects and exports preserve the fit/framing. Framing is constrained to normalized positions; generated scene data cannot inject arbitrary CSS or remote media sources. Rotation and more advanced masking remain separate work.

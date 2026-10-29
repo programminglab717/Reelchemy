@@ -79,6 +79,7 @@ async function fingerprint() {
     "src/lib/render-cache.ts",
     "src/lib/schema.ts",
     "src/lib/text-style.ts",
+    "src/lib/media-style.ts",
     "src/lib/captions.ts",
     "src/lib/audio-math.ts",
     "src/lib/clip-audio.ts",

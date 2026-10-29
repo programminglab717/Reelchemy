@@ -176,3 +176,11 @@ Final focused browser run: **6 passed**, none skipped, in 2.1 minutes (`/tmp/ree
 - Live AI/provider usage and SMTP were not invoked. Request limits count attempts; this result does not establish monetary budgets, storage limits, public load capacity, decoder isolation or a public deployment.
 
 Production build passed with the development server confirmed stopped (`/tmp/reelchemy-limits-build-clean.log`); lint, type checking and formatting passed. The ordinary dev process was explicitly stopped before that final build after the earlier shutdown detector missed it.
+
+## Media framing and encoded-frame checks — 29 October 2026 (0.13.0)
+
+- **69 unit tests passed**, none skipped (`/tmp/reelchemy-framing-unit.log`, 21 seconds), including constrained/default media styles, split/portable preservation and scene-local cache invalidation.
+- **Five isolated browser cases passed** in 3.7 minutes (`/tmp/reelchemy-framing-encoded.log`, evidence `/tmp/reelchemy-e2e-37nhZs`): image framing, video framing, caption styling, typography/underline and mobile text controls. Framing gestures preview without saving, cancel with Escape, commit one undo step, respect locks and survive reload.
+- Image/video tests decode the actual downloaded MP4 and measure known blue pixels in the selected source region. Caption tests count yellow pixels in the top area of the encoded MP4, and typography checks detect its wide encoded underline. Earlier evidence PNGs are independently rendered Remotion stills, rather than decoded MP4 frames; these stronger checks now cover actual encoded/cache output.
+- An initial crop assertion failed because Sharp stats inspected the original full input rather than the preceding extract operation. The rendered framing itself was correct. The replacement directly decodes the MP4; the existing audio/caption region check also materializes its crop before collecting stats.
+- Production build passed (`/tmp/reelchemy-framing-build.log`), with `/trash` correctly dynamic after moving the request-header read before auth initialization. Lint/type checking passed. No paid provider, SMTP delivery, public staging or full production service acceptance is implied.

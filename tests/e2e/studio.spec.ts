@@ -331,9 +331,10 @@ test("audio upload, timed mix and captions produce AAC and downloadable subtitle
   const image = await request.get(
     `/api/jobs/${job.id}/evidence/scene-1-middle.png`,
   );
-  const stats = await sharp(await image.body())
+  const captionArea = await sharp(await image.body())
     .extract({ left: 120, top: 590, width: 1040, height: 110 })
-    .stats();
+    .toBuffer();
+  const stats = await sharp(captionArea).stats();
   expect(stats.channels[0].max).toBeGreaterThan(230);
   await page.getByRole("link", { name: "SRT captions" }).click();
 });
