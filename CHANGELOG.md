@@ -117,3 +117,11 @@
 - Serialized additive ownership/Trash migrations across parallel service startup, with a real three-process legacy-database regression.
 - Bounded unit-test process concurrency to two after simultaneous build/browser/media runs caused resource starvation. The corrected bounded run passes all 64 unit tests; actual worker freshness checks remain unchanged.
 - Trash is reversible organization, not permanent deletion/privacy erasure, storage reclamation or automatic retention.
+
+## 0.12.0 — 2026-10-29
+
+- Added persisted workspace request windows with atomic SQLite admission across concurrent processes: 120 writes/minute, 30 media upload/import attempts/hour, 60 planning attempts/day and 30 export attempts/day by default. Server-only positive-integer settings tune these policies.
+- Ownership/origin checks precede consumption. Exhaustion returns private 429 responses with a machine-readable code and Retry-After; private reads and other workspaces remain available. Invalid operator settings fail closed and readiness reports the configuration failure.
+- Isolated tests exercise the real default policies; authentication abuse controls remain enabled. Added restart/concurrent-admission/HTTP/private-scope tests without real provider calls.
+- Allowed retrying the same project archive after a failed import by resetting its file chooser after each attempt.
+- Request caps are not storage quotas, provider token/dollar budgets, billing, global ingestion isolation or a substitute for public-service capacity controls.

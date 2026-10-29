@@ -72,6 +72,17 @@ test("real worker readiness follows its heartbeat and graceful shutdown cleans i
     }
     assert(ready, "Worker must publish a fresh heartbeat.");
     assert.equal((await readiness()).status, "ready");
+    const previousLimit = process.env.REELCHEMY_WRITES_PER_MINUTE;
+    try {
+      process.env.REELCHEMY_WRITES_PER_MINUTE = "invalid";
+      const unavailable = await readiness();
+      assert.equal(unavailable.status, "not-ready");
+      assert.equal(unavailable.checks.limits, false);
+    } finally {
+      if (previousLimit === undefined)
+        delete process.env.REELCHEMY_WRITES_PER_MINUTE;
+      else process.env.REELCHEMY_WRITES_PER_MINUTE = previousLimit;
+    }
     await stop(child);
     assert.equal((await readiness()).checks.worker, false);
     await assert.rejects(() => access(path.join(dir, "worker.lock")));

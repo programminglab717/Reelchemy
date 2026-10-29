@@ -12,4 +12,4 @@ async function POSTHandler(req: Request, _ctx: unknown, access: Access) {
   }
 }
 
-export const POST = secureRoute(POSTHandler, "user");
+export const POST = secureRoute(POSTHandler, "user", { rate: "media" });

@@ -37,5 +37,5 @@ async function GETHandler(
   return Response.json(listJobs(id));
 }
 
-export const POST = secureRoute(POSTHandler, "project");
+export const POST = secureRoute(POSTHandler, "project", { rate: "render" });
 export const GET = secureRoute(GETHandler, "project");

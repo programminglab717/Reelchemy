@@ -18,7 +18,8 @@ export function ImportProject({
           accept=".zip,application/zip"
           disabled={busy}
           onChange={async (e) => {
-            const file = e.target.files?.[0];
+            const input = e.currentTarget;
+            const file = input.files?.[0];
             if (!file) return;
             setBusy(true);
             setError("");
@@ -36,6 +37,7 @@ export function ImportProject({
             } catch (e) {
               setError(e instanceof Error ? e.message : "Import failed");
             } finally {
+              input.value = "";
               setBusy(false);
             }
           }}

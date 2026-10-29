@@ -175,3 +175,11 @@ Rendering and layout diagnostics use the same style function. Text that cannot f
 Trash works on desktop/mobile and offers retry for loading errors. It is not permanent deletion: files still consume storage, and no automatic retention deadline applies. Permanent project/account erasure remains a production release gate.
 
 Unit/media checks use at most two test processes to keep worker startup and Chromium layout checks reliable on a small host. Run builds and browser/media checks sequentially when sharing limited CPU resources; do not increase heartbeat freshness allowances to hide an unavailable worker.
+
+## Public request windows (0.12.0)
+
+Verified workspaces share persistent request counters across web-process restarts. Defaults are **120 writes per minute**, **30 media upload/import attempts per hour**, **60 planning attempts per 24 hours**, and **30 export attempts per 24 hours**. Windows start with the first request after expiry. The general write limit also applies to the specific operations. Ownership and origin are checked first; request attempts that later fail validation/provider/queue processing still count. Reading saved work/media is not charged to these write windows.
+
+Exhaustion returns HTTP 429, `RATE_LIMITED`, and a `Retry-After` value. Editing keeps local unsaved work when a save is limited; recording uploads retain the take for retry/download. Counters are scoped to the workspace and transactionally admitted. Invalid limit configuration disables mutations with 503 and makes readiness fail.
+
+Server settings in `.env.example` tune these positive-integer counts. Isolated functional tests use the real default policy and synthetic accounts. These are request abuse controls, not stored-byte quotas, actual token/spend accounting, paid credits, IP/WAF protection or distributed media-process isolation. Those remain public-production work.

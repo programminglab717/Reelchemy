@@ -4,13 +4,19 @@ import path from "node:path";
 import { dataDir, artifactDir, databaseHealthy } from "./db";
 import { getAuth } from "./auth";
 import { HEARTBEAT_NAME, recentHeartbeat } from "./worker-heartbeat";
+import { limitsPolicy } from "./limits-policy";
 export async function readiness() {
   const checks = {
     database: false,
     authentication: false,
     storage: false,
     worker: false,
+    limits: false,
   };
+  try {
+    limitsPolicy();
+    checks.limits = true;
+  } catch {}
   try {
     checks.database = databaseHealthy();
   } catch {}

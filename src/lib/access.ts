@@ -3,8 +3,15 @@ import {
   ensureWorkspace,
   projectInWorkspace,
   getJob,
+  takeRequestLimit,
   type Workspace,
 } from "./db";
+import { localMutation, failure } from "./http";
+import {
+  limitsPolicy,
+  RequestRateError,
+  type LimitedOperation,
+} from "./limits-policy";
 export type Access = {
   workspace: Workspace;
   user: { id: string; name: string; email: string };
@@ -17,7 +24,10 @@ export function secureRoute<P extends Params>(
     access: Access,
   ) => Response | Promise<Response>,
   resource: "user" | "project" | "job",
-  options: { includeTrashed?: boolean } = {},
+  options: {
+    includeTrashed?: boolean;
+    rate?: Exclude<LimitedOperation, "writes">;
+  } = {},
 ) {
   return async (req: Request, context: { params: Promise<P> }) => {
     let session;
@@ -47,6 +57,30 @@ export function secureRoute<P extends Params>(
         !projectInWorkspace(projectId, workspace.id, options.includeTrashed))
     )
       return Response.json({ error: "Resource not found." }, { status: 404 });
+    if (["POST", "PUT", "PATCH", "DELETE"].includes(req.method)) {
+      try {
+        // Ownership and origin checks precede quota consumption. Requests that
+        // fail validation still count; this is abuse control, not paid usage.
+        localMutation(req);
+        const policy = limitsPolicy();
+        for (const operation of [
+          "writes",
+          ...(options.rate ? [options.rate] : []),
+        ] as LimitedOperation[]) {
+          const limit = policy[operation];
+          const result = takeRequestLimit(
+            workspace.id,
+            operation,
+            limit.count,
+            limit.windowMs,
+          );
+          if (!result.allowed)
+            throw new RequestRateError(result.retryAfter, operation);
+        }
+      } catch (e) {
+        return failure(e);
+      }
+    }
     return handler(req, context, { workspace, user: session.user });
   };
 }

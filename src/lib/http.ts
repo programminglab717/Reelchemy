@@ -1,6 +1,27 @@
 import { ZodError } from "zod";
 import { RevisionConflict } from "./editor";
+import { RequestRateError, LimitConfigurationError } from "./limits-policy";
 export function failure(error: unknown) {
+  if (error instanceof RequestRateError)
+    return Response.json(
+      {
+        error: error.message,
+        code: "RATE_LIMITED",
+        retryAfter: error.retryAfter,
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(error.retryAfter),
+          "Cache-Control": "private, no-store",
+        },
+      },
+    );
+  if (error instanceof LimitConfigurationError)
+    return Response.json(
+      { error: error.message, code: "LIMIT_CONFIGURATION" },
+      { status: 503 },
+    );
   if (error instanceof RevisionConflict)
     return Response.json(
       { error: error.message, code: "REVISION_CONFLICT" },

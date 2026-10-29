@@ -168,3 +168,11 @@ The separate restored installation matched **48 projects and 31 jobs**, includin
 - No permanent data erasure, storage reclamation or retention automation is claimed. Existing backups preserve trashed records/media as part of the private snapshot.
 
 Final focused browser run: **6 passed**, none skipped, in 2.1 minutes (`/tmp/reelchemy-trash-final.log`, evidence `/tmp/reelchemy-e2e-weBNVs`). It covers editor autosave/undo/in-flight saves/stale tabs, library pagination/rename/mobile sign-out, Trash confirmation cancellation/acceptance, private route hiding and cross-account restore rejection, restored media/revisions, mobile Trash layout, failure/reload recovery and anonymous redirects. The real studio and render worker were restarted; anonymous projects returned 401, sign-in 200 and readiness 200 with all checks true. Formatting, lint and type checking passed.
+
+## Persistent public request windows — 29 October 2026 (0.12.0)
+
+- **67 unit tests passed**, none skipped, in 22 seconds (`/tmp/reelchemy-limits-unit.log`). New cases cover policy validation/fail-closed HTTP behavior, workspace/operation isolation, expiry, persisted counters in a fresh process and three-process atomic admission. Existing worker readiness also rejects invalid limit configuration.
+- **Four focused isolated browser/API cases passed**, none skipped, in 53.9 seconds (`/tmp/reelchemy-limits-browser.log`, evidence `/tmp/reelchemy-e2e-9cjWyX`): availability probes, actual default write-budget exhaustion with Retry-After/private reads/independent accounts, and both Trash security/recovery workflows under the new guard.
+- Live AI/provider usage and SMTP were not invoked. Request limits count attempts; this result does not establish monetary budgets, storage limits, public load capacity, decoder isolation or a public deployment.
+
+Production build passed with the development server confirmed stopped (`/tmp/reelchemy-limits-build-clean.log`); lint, type checking and formatting passed. The ordinary dev process was explicitly stopped before that final build after the earlier shutdown detector missed it.

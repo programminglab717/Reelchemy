@@ -36,6 +36,11 @@ const env: NodeJS.ProcessEnv = {
   BETTER_AUTH_SECRET: randomBytes(48).toString("base64url"),
   AI_PROVIDER: "mock",
   EMAIL_DELIVERY: "file",
+  // Exercise real default public limits, independently of host-specific tuning.
+  REELCHEMY_WRITES_PER_MINUTE: "120",
+  REELCHEMY_MEDIA_REQUESTS_PER_HOUR: "30",
+  REELCHEMY_PLANS_PER_DAY: "60",
+  REELCHEMY_EXPORT_REQUESTS_PER_DAY: "30",
   REELCHEMY_DATA_DIR: dir,
   REELCHEMY_ARTIFACT_DIR: path.join(dir, "artifacts"),
   REELCHEMY_RENDER_CACHE_DIR: path.join(dir, "cache"),

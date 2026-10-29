@@ -54,4 +54,4 @@ async function POSTHandler(
   }
 }
 
-export const POST = secureRoute(POSTHandler, "project");
+export const POST = secureRoute(POSTHandler, "project", { rate: "media" });

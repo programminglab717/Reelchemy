@@ -25,6 +25,9 @@ db.exec(
 );
 // Serialize additive column migrations across web/worker startup.
 db.transaction(() => {
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS request_limits(workspace_id TEXT NOT NULL,operation TEXT NOT NULL,hits INTEGER NOT NULL,expires_at INTEGER NOT NULL,PRIMARY KEY(workspace_id,operation))",
+  );
   if (
     !(db.pragma("table_info(projects)") as { name: string }[]).some(
       (c) => c.name === "workspace_id",
@@ -44,6 +47,39 @@ db.transaction(() => {
     "CREATE INDEX IF NOT EXISTS projects_trash_idx ON projects(workspace_id,trashed_at)",
   );
 }).immediate();
+export function takeRequestLimit(
+  workspaceId: string,
+  operation: string,
+  count: number,
+  windowMs: number,
+  now = Date.now(),
+) {
+  return db
+    .transaction(() => {
+      const row = db
+        .prepare(
+          "SELECT hits,expires_at FROM request_limits WHERE workspace_id=? AND operation=?",
+        )
+        .get(workspaceId, operation) as
+        { hits: number; expires_at: number } | undefined;
+      if (!row || row.expires_at <= now) {
+        db.prepare(
+          "INSERT INTO request_limits(workspace_id,operation,hits,expires_at) VALUES (?,?,1,?) ON CONFLICT(workspace_id,operation) DO UPDATE SET hits=1,expires_at=excluded.expires_at",
+        ).run(workspaceId, operation, now + windowMs);
+        return { allowed: true, retryAfter: 0 };
+      }
+      if (row.hits >= count)
+        return {
+          allowed: false,
+          retryAfter: Math.max(1, Math.ceil((row.expires_at - now) / 1000)),
+        };
+      db.prepare(
+        "UPDATE request_limits SET hits=hits+1 WHERE workspace_id=? AND operation=?",
+      ).run(workspaceId, operation);
+      return { allowed: true, retryAfter: 0 };
+    })
+    .immediate();
+}
 export function databaseHealthy() {
   return (db.prepare("SELECT 1 AS ok").get() as { ok: number }).ok === 1;
 }

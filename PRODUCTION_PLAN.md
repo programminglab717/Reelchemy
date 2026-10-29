@@ -108,3 +108,7 @@ Text can now be edited/styled directly from the selected canvas layer: system fa
 ## Project Trash progress (0.11.0)
 
 Recoverable project removal and restoration are implemented with save/take guards, active-job cancellation, owner-scoped search/pagination and resource hiding until restore. Additive migrations are serialized/tested across parallel starts. This advances deliberate delete/restore UX while retaining all files and versions; permanent privacy erasure, storage reclamation and retention policy remain open.
+
+## Request-budget progress (0.12.0)
+
+Persistent per-workspace windows now bound write/upload/planning/export attempts with atomic cross-process admission, origin/ownership-first enforcement and useful retry errors. Readiness detects invalid operator policy. This is an initial public abuse-control layer; byte quotas, actual provider token/spend accounting, global ingestion isolation, deletion/privacy, chosen hosting/storage and production load/abuse tests remain required.
