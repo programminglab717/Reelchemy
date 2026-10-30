@@ -34,6 +34,7 @@ test("Trash hides private routes/cancels jobs and restores the saved editor, med
   const job = await (await request.post(`/api/projects/${p.id}/render`)).json();
   await page.goto("/");
   await page
+    .locator(".project-list")
     .getByRole("button", { name: "Recoverable story", exact: false })
     .click();
   await page

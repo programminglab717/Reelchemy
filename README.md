@@ -246,3 +246,11 @@ Artwork and selection rotate around their center in actual composition pixels. T
 Rotated artwork can extend beyond the composition and be cropped. QC warns about that base-position crop without silently changing the angle; resize or reposition if it is unintended. Text-overlap checks use rotated rectangles. These are geometric checks, not glyph-level collision or complete motion/perceptual review.
 
 Portable archives containing rotated current or historical layers declare archive version 2 and require `layer-rotation-v1`. Older releases reject these archives instead of silently dropping the angle. Projects without rotation continue to use version 1; the current importer accepts both formats and rejects unknown required features before ingesting media.
+
+## Active Studio exports (0.22.0)
+
+The Studio exports panel shows queued/rendering videos across your private projects, their progress and actions to open a project or cancel its export. It refreshes automatically and offers explicit retry after a failed check. Finished exports remain in each project's history; moving a project to Trash cancels its active jobs.
+
+Public admission defaults to **two active exports per studio**, within the existing five-job shared queue. `REELCHEMY_ACTIVE_EXPORTS_PER_STUDIO` accepts whole values 1–5; invalid settings fail readiness/new admission. Capacity checks run inside the same immediate transaction as ownership/revision validation and snapshot/receipt creation. A retry receipt replays its existing job even at the studio/shared ceiling. Trusted offline `createJob` callers retain only the shared cap.
+
+A studio ceiling returns 429; a full shared queue returns 503. Both carry `EXPORT_CAPACITY`, a private no-store response and a 30-second Retry-After hint, which does not reserve a future slot. Retry attempts still consume the normal write/export request allowance. `GET /api/workspace/exports` returns only the caller's active metadata/current limit; it accepts no alternate workspace selector. Queue/project indexes avoid repeatedly scanning completed-job history. This is admission control for the single worker, not autoscaling, a load benchmark or a provider spending budget.

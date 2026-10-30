@@ -144,3 +144,7 @@ Studio/Trash listings now extract compact private metadata in SQLite; they do no
 ## Layer rotation checkpoint — 0.21.0, 30 October 2026
 
 The editor now exposes static layer angles, matching selection/resize geometry and preview/export transforms, with save/history/split/archive preservation. Canvas pointer rotation previews and commits one undo step; numeric/keyboard and quarter-turn controls remain available on mobile and respect locks. Geometric overlap checks account for rotated text, and base-position clipping is a warning rather than an automatic angle/size change. Animated rotation, masks/brand fonts, ripple editing, durable offline drafts, long-video benchmarks and the remaining public-service work are separate gaps.
+
+## Active export admission/visibility checkpoint — 0.22.0, 30 October 2026
+
+The public queue now limits a studio to two active jobs by default within the five shared slots, atomically across concurrent web processes, and exposes private cross-project progress/cancellation in the Studio. Receipts replay without allocating another slot; queued/rendering work counts together and terminal/Trash cancellation releases admission. Explicit capacity responses differ from daily request windows. This advances multi-user admission/UX; it does not implement globally budgeted ingestion/provider spending, a distributed worker system, strict round-robin scheduling or measured public-service capacity.

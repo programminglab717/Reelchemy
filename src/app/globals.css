@@ -1724,3 +1724,44 @@ main.account-page {
   font-size: 18px;
   margin: 0;
 }
+.workspace-exports {
+  margin: 20px clamp(16px, 4vw, 48px);
+  padding: 12px 16px;
+}
+.workspace-exports .panel-heading {
+  padding: 0;
+  border: 0;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.workspace-exports .panel-heading p {
+  margin: 0;
+}
+.workspace-exports ul {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+}
+.workspace-exports li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.workspace-exports li > div {
+  min-width: 0;
+}
+.workspace-exports strong {
+  overflow-wrap: anywhere;
+}
+.workspace-exports li p {
+  margin: 4px 0;
+}
+@media (max-width: 640px) {
+  .workspace-exports li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

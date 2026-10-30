@@ -332,6 +332,11 @@ export type RenderJob = {
   stage?: string;
   events?: { at: string; stage: string; message: string }[];
 };
+// Active exports expose only metadata needed by the workspace queue panel.
+export type ActiveStudioExport = Pick<
+  RenderJob,
+  "id" | "projectId" | "status" | "progress" | "stage" | "createdAt"
+> & { projectName: string };
 export const totalFrames = (t: Timeline) =>
   t.scenes.reduce((n, s) => n + s.durationFrames, 0);
 export function sceneAt(t: Timeline, frame: number) {

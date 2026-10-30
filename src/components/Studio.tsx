@@ -7,6 +7,7 @@ import { revisionId, RevisionConflict } from "@/lib/editor";
 import { AssetPanel } from "./AssetPanel";
 import { ProjectName } from "./ProjectName";
 import { LayerEditor } from "./LayerEditor";
+import { WorkspaceExports } from "./WorkspaceExports";
 import { ExportHistory, QualityEvidence } from "./ExportHistory";
 import { MediaEditor } from "./MediaEditor";
 import { ImportProject } from "./ProjectPortability";
@@ -436,6 +437,14 @@ export function Studio() {
             <span>◉</span> Private workspace
           </span>
         </header>
+        <WorkspaceExports
+          refreshKey={job ? `${job.id}:${job.status}` : ""}
+          disabled={busy || editor.saving}
+          onOpen={(id) => navigate({ id })}
+          onJob={(updated) => {
+            if (job?.id === updated.id) setJob(updated);
+          }}
+        />
         {!project ? (
           <div className="home">
             <div className="intro-label">

@@ -1,9 +1,25 @@
 import { ZodError } from "zod";
 import { RevisionConflict } from "./editor";
-import { ExportRequestConflict } from "./export-policy";
+import { ExportRequestConflict, ExportCapacityError } from "./export-policy";
 import { RequestRateError, LimitConfigurationError } from "./limits-policy";
 import { MediaStorageLimitError } from "./media-storage-policy";
 export function failure(error: unknown) {
+  if (error instanceof ExportCapacityError)
+    return Response.json(
+      {
+        error: error.message,
+        code: "EXPORT_CAPACITY",
+        scope: error.scope,
+        retryAfter: error.retryAfter,
+      },
+      {
+        status: error.scope === "studio" ? 429 : 503,
+        headers: {
+          "Cache-Control": "private, no-store",
+          "Retry-After": String(error.retryAfter),
+        },
+      },
+    );
   if (error instanceof ExportRequestConflict)
     return Response.json(
       { error: error.message, code: "EXPORT_REQUEST_CONFLICT" },

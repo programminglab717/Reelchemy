@@ -6,6 +6,7 @@ import { getAuth } from "./auth";
 import { HEARTBEAT_NAME, recentHeartbeat } from "./worker-heartbeat";
 import { limitsPolicy } from "./limits-policy";
 import { mediaStorageLimit } from "./media-storage-policy";
+import { activeExportLimit } from "./export-policy";
 export async function readiness() {
   const checks = {
     database: false,
@@ -17,6 +18,7 @@ export async function readiness() {
   try {
     limitsPolicy();
     mediaStorageLimit();
+    activeExportLimit();
     checks.limits = true;
   } catch {}
   try {

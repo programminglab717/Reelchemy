@@ -6,13 +6,18 @@ import type {
   Asset,
   Project,
   ProjectSummary,
+  ActiveStudioExport,
   RenderJob,
   Timeline,
   CreativeBrief,
 } from "./schema";
 import { revisionId, RevisionConflict } from "./editor";
 import { inspectTimeline } from "./qc";
-import { ExportRequestConflict } from "./export-policy";
+import {
+  ExportRequestConflict,
+  ExportCapacityError,
+  activeExportLimit,
+} from "./export-policy";
 import { validateProjectAssets, validAssetId } from "./project-assets";
 import {
   mediaStorageLimit,
@@ -39,6 +44,9 @@ db.exec(
 );
 // Serialize additive column migrations across web/worker startup.
 db.transaction(() => {
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS jobs_status_idx ON jobs(status); CREATE INDEX IF NOT EXISTS jobs_project_idx ON jobs(project_id)",
+  );
   db.exec(
     "CREATE TABLE IF NOT EXISTS request_limits(workspace_id TEXT NOT NULL,operation TEXT NOT NULL,hits INTEGER NOT NULL,expires_at INTEGER NOT NULL,PRIMARY KEY(workspace_id,operation))",
   );
@@ -408,14 +416,22 @@ export function reviseOwnedProject(
     })
     .immediate();
 }
-function enqueueJob(project: Project) {
+function enqueueJob(project: Project, workspaceId?: string) {
   if (!project.timeline)
     throw new Error("A storyboard is required before export.");
   const active = db
     .prepare("SELECT id FROM jobs WHERE status IN ('queued','rendering')")
     .all();
-  if (active.length >= 5)
-    throw new Error("Render queue is full. Wait for a job to finish.");
+  if (active.length >= 5) throw new ExportCapacityError("global");
+  if (workspaceId) {
+    const limit = activeExportLimit();
+    const own = db
+      .prepare(
+        "SELECT count(*) AS count FROM jobs j JOIN projects p ON p.id=j.project_id WHERE p.workspace_id=? AND j.status IN ('queued','rendering')",
+      )
+      .get(workspaceId) as { count: number };
+    if (own.count >= limit) throw new ExportCapacityError("studio");
+  }
   const job: RenderJob = {
     id: randomUUID(),
     projectId: project.id,
@@ -548,7 +564,7 @@ export function createOwnedJob(
       ).filter((i) => i.severity === "error" && i.code !== "bounds");
       if (blocking.length)
         throw new Error(blocking.map((i) => i.message).join(" "));
-      const job = enqueueJob(project);
+      const job = enqueueJob(project, workspaceId);
       if (request.key)
         db.prepare(
           "INSERT INTO export_requests(project_id,request_key,job_id,request_version) VALUES (?,?,?,?)",
@@ -556,6 +572,27 @@ export function createOwnedJob(
       return { job, replayed: false };
     })
     .immediate();
+}
+export function activeStudioExports(workspaceId: string): ActiveStudioExport[] {
+  const rows = db
+    .prepare(
+      "SELECT j.data,json_extract(p.data,'$.name') AS name FROM jobs j JOIN projects p ON p.id=j.project_id WHERE p.workspace_id=? AND p.trashed_at IS NULL AND j.status IN ('queued','rendering') ORDER BY j.rowid",
+    )
+    .all(workspaceId) as { data: string; name: string }[];
+  return rows.map((row) => {
+    const { id, projectId, status, progress, stage, createdAt } = JSON.parse(
+      row.data,
+    ) as RenderJob;
+    return {
+      id,
+      projectId,
+      status,
+      progress,
+      stage,
+      createdAt,
+      projectName: row.name,
+    };
+  });
 }
 export function recordJobStage(
   id: string,

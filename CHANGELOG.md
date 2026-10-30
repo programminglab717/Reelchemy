@@ -205,3 +205,9 @@
 - Rotate selection/resize handles correctly in composition pixels, and resize in local axes while holding the opposite corner. Preserve angles through versions, splits and portable projects.
 - Check rotated text rectangles for overlap and warn about intentional rotation clipping without silently changing artwork angles.
 - Declare a required rotation capability in version-2 portable archives, including rotated saved history, so older releases reject unsupported artwork instead of silently flattening its angle. Continue accepting/exporting version 1 for projects that do not need rotation.
+
+## 0.22.0 — 2026-10-30
+
+- Add an atomic default two-active-export limit per studio within the shared five-job queue, with bounded operator configuration, explicit capacity error contracts and safe receipt replay.
+- Add a compact private Studio exports panel/API for cross-project progress, open/cancel actions and failed-check recovery, including mobile layout.
+- Index job status/project lookups and validate the studio limit in readiness; preserve ordinary attempt quotas and offline shared-cap behavior.
