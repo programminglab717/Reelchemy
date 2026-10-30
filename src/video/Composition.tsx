@@ -78,7 +78,7 @@ function SceneView({
                   height: `${l.height * 100}%`,
                   color: l.color,
                   opacity: a.opacity,
-                  transform: `translate(${a.x * width}px, ${a.y * height + a.translateY}px) scale(${a.scale})`,
+                  transform: `translate(${a.x * width}px, ${a.y * height + a.translateY}px) rotate(${l.rotation || 0}deg) scale(${a.scale})`,
                   overflow: "hidden",
                   display: "flex",
                   alignItems: "center",

@@ -31,6 +31,7 @@ export const layerSchema = z.object({
   y: z.number().min(0).max(1),
   width: z.number().min(0.01).max(1),
   height: z.number().min(0.01).max(1),
+  rotation: z.number().min(-180).max(180).optional(),
   text: z.string().max(140).default(""),
   color: color,
   fontSize: z.number().min(12).max(120).default(48),
@@ -270,6 +271,7 @@ export type QCIssue = {
   layerId?: string;
   code:
     | "bounds"
+    | "rotation-bounds"
     | "overlap"
     | "readability"
     | "missing-asset"

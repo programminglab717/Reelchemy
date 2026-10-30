@@ -1,4 +1,5 @@
 import type { Layer } from "./schema";
+import { resizeRotatedLayer, type CanvasSize } from "./layer-geometry";
 const clamp = (v: number, min: number, max: number) =>
   Math.min(max, Math.max(min, v));
 const round = (v: number) => Math.round(v * 10000) / 10000;
@@ -8,8 +9,10 @@ export function placeLayer(
   dy: number,
   resize = false,
   snap = true,
+  size: CanvasSize = { width: 1, height: 1 },
 ): Layer {
   if (layer.locked) return layer;
+  if (resize && layer.rotation) return resizeRotatedLayer(layer, dx, dy, size);
   if (resize)
     return {
       ...layer,

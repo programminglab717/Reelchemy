@@ -4,6 +4,7 @@ import {
   type Timeline,
   type QCIssue,
 } from "./schema";
+import { layerCorners, polygonsOverlap } from "./layer-geometry";
 export function contrastRatio(a: string, b: string) {
   const luminance = (hex: string) => {
     const channels = [1, 3, 5]
@@ -88,6 +89,19 @@ export function inspectTimeline(
           message: `${l.id} extends outside the frame.`,
           severity: "error",
         });
+      if (
+        l.rotation &&
+        layerCorners(l, formats[t.format]).some(
+          (p) => p.x < -1e-9 || p.y < -1e-9 || p.x > 1 + 1e-9 || p.y > 1 + 1e-9,
+        )
+      )
+        issues.push({
+          sceneId: s.id,
+          layerId: l.id,
+          code: "rotation-bounds",
+          severity: "warning",
+          message: `Rotated layer ${l.id} is clipped at its base position. Reduce its size or reposition it if the crop is unintended.`,
+        });
       if (l.assetId && !assetIds.includes(l.assetId))
         issues.push({
           sceneId: s.id,
@@ -111,10 +125,10 @@ export function inspectTimeline(
         const a = text[i],
           b = text[j];
         if (
-          a.x < b.x + b.width &&
-          a.x + a.width > b.x &&
-          a.y < b.y + b.height &&
-          a.y + a.height > b.y
+          polygonsOverlap(
+            layerCorners(a, formats[t.format]),
+            layerCorners(b, formats[t.format]),
+          )
         )
           issues.push({
             sceneId: s.id,

@@ -236,3 +236,13 @@ Retry attempts still consume the normal write/export request allowances. A store
 Studio search/pagination and Trash request `GET /api/projects?view=summary`. Each result contains only `id`, `name`, `createdAt`, `revisionCount` and, for Trash, `trashedAt`. Existing filters, private scope and pagination headers apply; metadata is extracted in SQLite without hydrating full project histories in JavaScript or the browser. Opening a project fetches its full saved editor data. Omitting `view` (or choosing `full`) preserves the existing full-project API response for clients.
 
 This reduces listing payloads and browser memory. Histories still reside inside project JSON and are loaded when opening/saving a project; normalized/lazy history storage and realistic long-project benchmarks remain open.
+
+## Layer rotation (0.21.0)
+
+Select a canvas layer to rotate it from −180° to 180° with a slider, a typed angle, quarter-turn buttons or reset. Canvas slider drags preview without saving and commit as one undo step; Escape cancels. Numeric edits commit on blur/Enter, and invalid or cancelled values keep the previous layer. Locked layers disable the controls. The layer panel provides the same saved angle.
+
+Artwork and selection rotate around their center in actual composition pixels. The resize handle follows the rotated corner; dragging it changes local width/height while keeping the opposite corner fixed, within existing base-geometry limits. Moving/nudging still uses canvas axes. Rotation is retained in saves, versions, scene splits and portable projects. It is a static layer angle; animated rotation keys are not implemented.
+
+Rotated artwork can extend beyond the composition and be cropped. QC warns about that base-position crop without silently changing the angle; resize or reposition if it is unintended. Text-overlap checks use rotated rectangles. These are geometric checks, not glyph-level collision or complete motion/perceptual review.
+
+Portable archives containing rotated current or historical layers declare archive version 2 and require `layer-rotation-v1`. Older releases reject these archives instead of silently dropping the angle. Projects without rotation continue to use version 1; the current importer accepts both formats and rejects unknown required features before ingesting media.

@@ -72,10 +72,32 @@ const portableProject = z.object({
     )
     .max(1000),
 });
+const envelopeSchema = z.discriminatedUnion("version", [
+  z.object({
+    format: z.literal("reelchemy"),
+    version: z.literal(1),
+    project: portableProject,
+  }),
+  z.object({
+    format: z.literal("reelchemy"),
+    version: z.literal(2),
+    requiredFeatures: z.tuple([z.literal("layer-rotation-v1")]),
+    project: portableProject,
+  }),
+]);
 export async function exportArchive(project: Project) {
   const files: Record<string, Uint8Array> = {};
+  const needsRotation = [
+    project.timeline,
+    ...project.revisions.map((r) => r.timeline),
+  ].some((t) => t?.scenes.some((s) => s.layers.some((l) => !!l.rotation)));
   const manifest = strToU8(
-    JSON.stringify({ format: "reelchemy", version: 1, project }),
+    JSON.stringify({
+      format: "reelchemy",
+      version: needsRotation ? 2 : 1,
+      ...(needsRotation ? { requiredFeatures: ["layer-rotation-v1"] } : {}),
+      project,
+    }),
   );
   if (manifest.length > 10 * 1024 * 1024)
     throw new Error("Project history is too large for a portable archive.");
@@ -121,13 +143,9 @@ export async function importArchive(bytes: Uint8Array): Promise<Project> {
   });
   if (!files["project.json"] || files["project.json"].length > 10 * 1024 * 1024)
     throw new Error("Missing or oversized project manifest.");
-  const envelope = z
-    .object({
-      format: z.literal("reelchemy"),
-      version: z.literal(1),
-      project: portableProject,
-    })
-    .parse(JSON.parse(strFromU8(files["project.json"])));
+  const envelope = envelopeSchema.parse(
+    JSON.parse(strFromU8(files["project.json"])),
+  );
   const input = envelope.project;
   if (
     new Set(input.assets?.map((a) => a.id)).size !== (input.assets || []).length

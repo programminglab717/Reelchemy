@@ -6,6 +6,8 @@ import { formats, type Timeline, type Layer } from "@/lib/schema";
 import { placeLayer } from "@/lib/canvas";
 import { TypographyControls } from "./TypographyControls";
 import { MediaFitControls } from "./MediaFitControls";
+import { layerCorners } from "@/lib/layer-geometry";
+import { LayerRotation } from "./LayerRotation";
 
 export function CanvasEditor({
   timeline,
@@ -75,6 +77,7 @@ export function CanvasEditor({
           (e.clientY - g.y) / g.height,
           g.resize,
           g.snap && !e.altKey,
+          dimensions,
         )
       : null;
   }
@@ -151,6 +154,7 @@ export function CanvasEditor({
                   top: `${l.y * 100}%`,
                   width: `${l.width * 100}%`,
                   height: `${l.height * 100}%`,
+                  transform: `rotate(${l.rotation || 0}deg)`,
                 }}
                 onClick={() => setSelectedId(l.id)}
                 onFocus={() => setSelectedId(l.id)}
@@ -188,6 +192,7 @@ export function CanvasEditor({
                       (d[1] * step) / dimensions.height,
                       false,
                       false,
+                      dimensions,
                     ),
                   );
                 }}
@@ -198,8 +203,8 @@ export function CanvasEditor({
               aria-label={`Resize layer ${layer.id}`}
               className="canvas-resize"
               style={{
-                left: `${((draft || layer).x + (draft || layer).width) * 100}%`,
-                top: `${((draft || layer).y + (draft || layer).height) * 100}%`,
+                left: `${layerCorners(draft || layer, dimensions)[2].x * 100}%`,
+                top: `${layerCorners(draft || layer, dimensions)[2].y * 100}%`,
               }}
               onPointerDown={(e) => begin(e, layer, true)}
               onPointerMove={(e) => {
@@ -254,6 +259,15 @@ export function CanvasEditor({
               <strong>
                 {layer.kind} · {layer.id}
               </strong>
+              <fieldset className="editor-content" disabled={layer.locked}>
+                <LayerRotation
+                  key={layer.id}
+                  layer={layer}
+                  label={`Canvas rotation ${layer.id}`}
+                  onChange={update}
+                  onPreview={setDraft}
+                />
+              </fieldset>
               {(layer.kind === "image" || layer.kind === "video") && (
                 <fieldset className="editor-content" disabled={layer.locked}>
                   <MediaFitControls

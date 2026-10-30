@@ -198,3 +198,10 @@
 
 - Add private, compact project-list metadata for Studio and Trash. Search/pagination no longer transfer all project histories, asset catalogs, prompts and conversations into the browser.
 - Retain exact saved-version counts and Trash timestamps, load full data on project open, and preserve the existing full-project API for clients without the summary view.
+
+## 0.21.0 — 2026-10-30
+
+- Add saved static layer rotation shared by canvas layout, live preview and exports, with slider/numeric/quarter-turn/reset controls, locks and one-step gesture undo/cancel.
+- Rotate selection/resize handles correctly in composition pixels, and resize in local axes while holding the opposite corner. Preserve angles through versions, splits and portable projects.
+- Check rotated text rectangles for overlap and warn about intentional rotation clipping without silently changing artwork angles.
+- Declare a required rotation capability in version-2 portable archives, including rotated saved history, so older releases reject unsupported artwork instead of silently flattening its angle. Continue accepting/exporting version 1 for projects that do not need rotation.

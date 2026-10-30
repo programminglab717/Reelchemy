@@ -4,6 +4,7 @@ import { VideoClipEditor } from "./VideoClipEditor";
 import { KeyframeControls } from "./KeyframeControls";
 import { CameraEditor } from "./CameraEditor";
 import { TypographyControls } from "./TypographyControls";
+import { LayerRotation } from "./LayerRotation";
 import { useState } from "react";
 import {
   layerSchema,
@@ -173,6 +174,11 @@ export function LayerEditor({
             {layer.kind} · {layer.id}
           </summary>
           <fieldset className="editor-content" disabled={layer.locked}>
+            <LayerRotation
+              layer={layer}
+              label={`Layer rotation ${layer.id}`}
+              onChange={(l) => updateLayer(layer.id, l)}
+            />
             {layer.kind === "text" && (
               <TypographyControls
                 editContent={false}
