@@ -116,3 +116,9 @@ Persistent per-workspace windows now bound write/upload/planning/export attempts
 ## Media framing progress (0.13.0)
 
 Images/video now have canvas fit/fill/crop alignment controls, live gesture preview, one-step gesture undo and non-destructive source preservation. Actual downloaded MP4 frame pixels validate both image and footage framing. Caption/text export checks also decode MP4 frames directly. The production Trash page remains dynamic independently of build-time credentials. Rotation/masks, ripple editing, long-video benchmarks, private draft durability, public storage/spend/privacy/ingestion controls and deployment/creator acceptance remain open.
+
+## Runtime and planning progress (0.14.0–0.15.0)
+
+A reproducible container image, single-host service template, explicit production authentication migration, dynamic-page build guard and kernel-managed worker lifecycle are implemented. All 30 browser cases passed against the committed 0.14.0 production build over verified loopback HTTPS with secure cookies and no external runtime network; this is local disposable acceptance, not hosted staging or live mail/provider delivery.
+
+Planning now receives project-owned media metadata, rejects invalid/foreign references and ranges, respects the current edited format/duration and preserves unrelated scene/audio/caption work. Editor and planning commits recheck ownership, Trash, revisions and media under one write transaction. The 0.15.0 unit suite passes 84 cases with intercepted provider responses. Real planning quality, actual token/spend accounting, storage quotas/ingestion isolation, durable offline recovery, long-video benchmarks, deployment operations and creator acceptance remain open. Missing AI keys still do not block independent development.
