@@ -1,10 +1,10 @@
 {
   "name": "reelchemy",
-  "version": "0.15.1",
+  "version": "0.16.0",
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0",
-    "build": "next build && tsx scripts/check-build.ts",
+    "build": "next build && tsx scripts/check-build.ts && tsx scripts/check-render-bundle.ts",
     "start": "next start --hostname 0.0.0.0",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test --test-concurrency=2 tests/*.test.ts",
@@ -21,6 +21,7 @@
     "test:isolated": "tsx scripts/test-isolated.ts",
     "backup": "tsx scripts/backup.ts",
     "test:production": "tsx scripts/test-isolated.ts --production",
+    "test:runtime": "tsx scripts/check-runtime.ts",
     "container:build": "tsx scripts/container-build.ts"
   },
   "dependencies": {

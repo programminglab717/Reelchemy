@@ -4,7 +4,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { Project, RenderJob, Timeline, CreativeBrief } from "./schema";
 import { revisionId, RevisionConflict } from "./editor";
-import { validateProjectAssets } from "./assets";
+import { validateProjectAssets } from "./project-assets";
 // Runtime state lives on the mounted filesystem; do not embed it in server traces.
 export const dataDir = path.resolve(
   /* turbopackIgnore: true */ process.env.REELCHEMY_DATA_DIR || ".data",

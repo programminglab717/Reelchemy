@@ -154,3 +154,10 @@
 - Fixed SQLite read-to-write transaction upgrades that could fail a render with `database is locked` when another process committed a write. Queue admission/claim/progress/stages/retries, project revision/rename/Trash and first-workspace creation acquire their write lock before reading the state they change.
 - Existing workspace lookup remains read-only; ordinary private GET requests do not acquire a workspace-creation write lock.
 - Added a real three-process contention regression with 4,500 competing progress/stage/policy writes. It reproduced SQLITE_BUSY before the fix and passes afterward. The first restricted Compose export found the problem; a corrected image/restricted-service rerun is required before claiming that acceptance gate.
+
+## 0.16.0 — 2026-10-30
+
+- Reused one job-owned Remotion browser for composition selection, scene rendering and evidence stills, with cleanup on success/error/cancellation and a source fingerprint that includes browser configuration code.
+- Added real Chromium connection-lifecycle coverage and an API/browser case that cancels during frame rendering, then completes a follow-up export without resurrecting the cancelled job.
+- Fixed the 0.15.0 planning import regression found by an actual export: pure demo planning and asset validation now live separately from server/provider/native processing. The build explicitly compiles the independent Remotion browser bundle to catch this before deployment.
+- Added a disposable app-image service acceptance script for read-only/non-root/network restrictions, actual footage/caption/AAC encoding/full decode, duplicate-worker rejection, retained exports and one automatic recovery after a forced in-flight container crash. CI is configured to build the app target separately and preserve evidence. Executed service acceptance results are recorded in VALIDATION.md.

@@ -13,6 +13,7 @@ import { execFileSync } from "node:child_process";
 import { selectComposition, renderMedia } from "@remotion/renderer";
 import { formats, totalFrames, type Timeline } from "./schema";
 import { runCommand } from "./process";
+import type { RenderBrowser } from "./render-browser";
 export function localSceneTimeline(t: Timeline, index: number): Timeline {
   const start = t.scenes
       .slice(0, index)
@@ -77,6 +78,7 @@ async function fingerprint() {
   await walk("src/video");
   for (const f of [
     "src/lib/render-cache.ts",
+    "src/lib/render-browser.ts",
     "src/lib/schema.ts",
     "src/lib/text-style.ts",
     "src/lib/media-style.ts",
@@ -150,6 +152,7 @@ export async function renderCachedScenes(options: {
   assetSources: Record<string, string>;
   assetFingerprints?: Record<string, string>;
   browserExecutable: string;
+  puppeteerInstance: RenderBrowser;
   outputLocation: string;
   cancelSignal: Parameters<typeof renderMedia>[0]["cancelSignal"];
   isCancelled: () => boolean;
@@ -160,6 +163,7 @@ export async function renderCachedScenes(options: {
     serveUrl,
     assetSources,
     browserExecutable,
+    puppeteerInstance,
     outputLocation,
     cancelSignal,
     isCancelled,
@@ -198,12 +202,14 @@ export async function renderCachedScenes(options: {
           id: "Reelchemy",
           inputProps: { timeline: local, assetSources },
           browserExecutable,
+          puppeteerInstance,
         });
         await renderMedia({
           serveUrl,
           composition,
           inputProps: { timeline: local, assetSources },
           browserExecutable,
+          puppeteerInstance,
           codec: "h264",
           muted: true,
           pixelFormat: "yuv420p",

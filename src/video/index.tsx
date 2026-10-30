@@ -1,7 +1,7 @@
 import React from "react";
 import { Composition, registerRoot } from "remotion";
 import { Film } from "./Composition";
-import { mockPlan } from "../lib/provider";
+import { mockPlan } from "../lib/demo-plan";
 import { formats, totalFrames, type Timeline } from "../lib/schema";
 const timeline = mockPlan({
   prompt: "Ideas become motion.",
