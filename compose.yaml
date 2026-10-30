@@ -1,0 +1,99 @@
+name: reelchemy
+x-auth-environment: &auth
+  BETTER_AUTH_URL: ${BETTER_AUTH_URL:?Set an HTTPS authentication URL}
+  BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set a strong authentication signing secret}
+  EMAIL_DELIVERY: smtp
+  SMTP_HOST: ${SMTP_HOST:?Set an SMTP host}
+  EMAIL_FROM: ${EMAIL_FROM:?Set the account sender address}
+x-runtime: &runtime
+  image: reelchemy:local
+  build:
+    context: .
+    target: app
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  restart: unless-stopped
+  volumes:
+    - studio-data:/app/.data
+    - studio-artifacts:/app/artifacts
+  tmpfs:
+    - /tmp:rw,nosuid,noexec,size=2g,uid=1000,gid=1000,mode=1777
+    - /app/node_modules/.cache:rw,nosuid,noexec,size=256m,uid=1000,gid=1000
+    - /app/.next/cache:rw,nosuid,noexec,size=128m,uid=1000,gid=1000
+  environment: &paths
+    REELCHEMY_DATA_DIR: /app/.data
+    REELCHEMY_ARTIFACT_DIR: /app/artifacts
+    CHROMIUM_PATH: /usr/bin/chromium
+    RAYON_NUM_THREADS: "2"
+services:
+  migrate:
+    <<: *runtime
+    command: [npm, run, auth:migrate]
+    restart: "no"
+    network_mode: none
+    cpus: 0.5
+    mem_limit: 256m
+    pids_limit: 64
+    healthcheck:
+      disable: true
+    environment:
+      <<: [*paths, *auth]
+  web:
+    <<: *runtime
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    cpus: 2
+    mem_limit: 2g
+    pids_limit: 256
+    ports:
+      - "127.0.0.1:${REELCHEMY_HTTP_PORT:-3001}:3000"
+    environment:
+      <<: [*paths, *auth]
+      AI_PROVIDER: ${AI_PROVIDER:-mock}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      REELCHEMY_WRITES_PER_MINUTE: ${REELCHEMY_WRITES_PER_MINUTE:-120}
+      REELCHEMY_MEDIA_REQUESTS_PER_HOUR: ${REELCHEMY_MEDIA_REQUESTS_PER_HOUR:-30}
+      REELCHEMY_PLANS_PER_DAY: ${REELCHEMY_PLANS_PER_DAY:-60}
+      REELCHEMY_EXPORT_REQUESTS_PER_DAY: ${REELCHEMY_EXPORT_REQUESTS_PER_DAY:-30}
+  render:
+    <<: *runtime
+    command: [npm, run, worker]
+    cpus: 2
+    mem_limit: 4g
+    pids_limit: 256
+    network_mode: none
+    shm_size: 512m
+    healthcheck:
+      test: [CMD, node, --import, tsx, scripts/check-worker.ts]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    environment:
+      <<: *paths
+      RENDER_CONCURRENCY: ${RENDER_CONCURRENCY:-2}
+  mail:
+    <<: *runtime
+    profiles: [smtp]
+    command: [npm, run, mail:worker]
+    cpus: 0.5
+    mem_limit: 256m
+    pids_limit: 64
+    healthcheck:
+      disable: true
+    environment:
+      <<: *paths
+      EMAIL_DELIVERY: smtp
+      SMTP_HOST: ${SMTP_HOST:?Set an SMTP host}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM:?Set the account sender address}
+volumes:
+  studio-data:
+  studio-artifacts:

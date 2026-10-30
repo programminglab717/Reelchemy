@@ -44,3 +44,37 @@ jobs:
           path: |
             /tmp/reelchemy-e2e-*/app/test-results/
             /tmp/reelchemy-e2e-*/services.log
+  production:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Build the disposable production-check image
+        run: node scripts/container-build.ts --target test --tag reelchemy:checks
+      - name: Production HTTPS, private accounts and real media workflows
+        run: >-
+          docker run --name reelchemy-production-checks --network none
+          --cpus 4 --memory 6g --pids-limit 512 --shm-size 512m
+          -e E2E_EVIDENCE_DIR=/app/artifacts/test-evidence
+          reelchemy:checks
+      - name: Collect isolated evidence
+        if: always()
+        continue-on-error: true
+        run: |
+          docker logs reelchemy-production-checks > production-checks.log 2>&1
+          docker cp reelchemy-production-checks:/app/artifacts/test-evidence ./production-test-evidence
+      - name: Upload production evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-browser-evidence
+          retention-days: 7
+          path: |
+            production-checks.log
+            production-test-evidence/
+      - name: Remove the check container
+        if: always()
+        run: docker rm -f reelchemy-production-checks

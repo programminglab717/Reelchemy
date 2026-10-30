@@ -2,13 +2,40 @@
 
 This runbook covers the current single-host SQLite/filesystem adapter. It does not make the service ready for public production: managed storage, public quotas/abuse controls, staging, monitoring/alerts, retention, long-video benchmarks and creator acceptance still have open release gates. Live AI verification remains deferred.
 
+## Container build and production checks
+
+The Dockerfile pins Node to `.node-version`, installs Chromium/FFmpeg/system fonts, builds as the unprivileged `node` user and runs under `tini` to forward signals and reap child processes. Its context is an allowlist: environment files, Git metadata, host dependencies, private state and uploaded documents are excluded. The `app` target includes the dependencies needed by the TypeScript worker and Remotion bundler; it is not a minimal static-web image.
+
+```sh
+npm run container:build -- --target test --tag reelchemy:verification
+docker run --name reelchemy-production-checks --network none \
+  --cpus 4 --memory 6g --pids-limit 512 --shm-size 512m \
+  -e E2E_EVIDENCE_DIR=/app/artifacts/test-evidence reelchemy:verification
+docker cp reelchemy-production-checks:/app/artifacts/test-evidence ./production-test-evidence
+docker rm reelchemy-production-checks
+```
+
+The disposable test profile runs the built production server with fresh databases, an explicit authentication migration, production secure cookies, private test outbox and demo AI. A short-lived local CA signs its loopback HTTPS proxy; Node verifies that CA and Chromium trusts it only inside the disposable container user profile. An untrusted-client check must reject the same certificate chain. No TLS verification bypass is used. No mail worker or live provider is started, and runtime network access is disabled. Evidence copying excludes databases, pending verification mail, session secrets and TLS keys.
+
+`container:build` uses a writable `BUILDX_CONFIG` directory. If the build environment supplies `NODE_EXTRA_CA_CERTS`, the wrapper validates it as public PEM certificates and passes it as an optional BuildKit secret for `npm ci`; the CA is not copied into the image. Registry, package TLS and lockfile integrity verification remain enabled. Allow disk capacity for Docker layers and the isolated dependency mirror; the VFS storage driver makes full layer copies and can need substantially more space than the displayed image size.
+
+## Single-host service template
+
+`compose.yaml` is a single-host template, not an internet deployment. First build `npm run container:build -- --target app --tag reelchemy:local`. Supply an operator-managed private environment file with an HTTPS `BETTER_AUTH_URL`, a stable strong `BETTER_AUTH_SECRET`, `SMTP_HOST` and `EMAIL_FROM`. Do not commit that file. `docker compose --env-file /path/to/private.env up -d migrate web render` runs the explicit one-shot authentication migration before web startup. Keep a coordinated backup before changing application/database versions.
+
+Web binds only to host loopback. An external HTTPS reverse proxy, domain/certificate management, durable volumes, off-host backups and monitoring still need platform-specific configuration. Services use non-root users, read-only application filesystems, dropped capabilities, bounded resources and writable state volumes/tmpfs. The render worker has no external network and receives no authentication/provider/SMTP secrets. Never share its SQLite volumes across multiple hosts. Default request/render limits do not establish public load capacity.
+
+The separate `smtp` profile enables the mail worker only when deliberately activated by an operator with verified SMTP configuration. SMTP credentials belong to that worker; web only queues account messages. Do not activate SMTP for local acceptance or restore drills. Without a mail worker, new users cannot receive their verification/reset messages. Live email delivery and public hosting remain unverified release gates.
+
 ## Availability checks
 
 - `/api/health/live`: HTTP 200 means the web process answers requests.
 - `/api/health`: HTTP 200 requires the studio database, authentication initialization, writable data/export paths, the configured free-space floor and a render-worker heartbeat no older than 30 seconds. A failed check returns 503 and booleans only.
 - This probe does not send mail, call an AI provider, prove SMTP delivery, guarantee capacity for another export or inspect artistic quality. An external monitor/alert destination has not been configured.
 
-Keep one render worker per database. Stop it gracefully with SIGTERM/SIGINT and wait for exit; it records interrupted work for its bounded retry policy and removes its heartbeat/lock. If a crash leaves `worker.lock`, inspect its PID and confirm that process is gone before removing only the stale lock. Never delete the database to clear a lock.
+Keep one render worker per database. Start it with `npm run worker`. On Linux the entrypoint holds an exclusive kernel filesystem lock for the worker's lifetime; the kernel releases it even after a forced crash. `worker.lock` and the heartbeat contain instance diagnostics. Successful managed startup replaces stale managed diagnostics, and normal shutdown removes them. The coordination file `worker.lifecycle.lock` remains: never delete or replace that inode while any service could be running. It must be on the same local volume as the database; this is not a distributed/NFS lock design.
+
+Stop the worker gracefully with SIGTERM/SIGINT and wait for exit; it records interrupted work for its bounded retry policy. When upgrading from an older plain-PID worker, first stop that old worker. Managed startup refuses to steal a live legacy PID or accept malformed legacy diagnostics. Never delete the database to clear a lock. Production rendering requires the Linux entrypoint and `flock` (`util-linux` in the container).
 
 ## Create and verify a backup
 

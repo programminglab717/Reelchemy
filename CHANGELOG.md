@@ -133,3 +133,11 @@
 - Strengthened media/caption/typography browser verification by decoding the downloaded MP4 directly. Fixed a test that called Sharp statistics on an input rather than the intended cropped region.
 - Fixed production Trash classification by reading request headers before authentication initialization; the build now keeps Trash dynamic when production credentials are absent at build time.
 - Verified 69 unit tests and five focused browser cases including actual encoded image/video crop pixels, captions, text underline output and mobile typography. No source media is destructively cropped.
+
+## 0.14.0 — 2026-10-30
+
+- Added an allowlisted multi-stage container build with pinned Node, Chromium/FFmpeg, an unprivileged runtime and child-process reaping. Optional public build CAs use BuildKit secrets without disabling TLS or package integrity checks.
+- Added a single-host service template with explicit authentication migration, shared durable volumes, read-only application filesystems, bounded resources, a network-isolated render worker and separate optional SMTP worker credentials.
+- Added disposable production HTTPS browser checks using a short-lived locally trusted CA and secure cookies. The same certificate must fail an untrusted-client check; no TLS bypass is used. Tests force demo AI, retain mail privately and never start SMTP delivery.
+- Added kernel-managed render-worker lifecycle locking, atomic instance diagnostics, forced-crash recovery and duplicate-worker rejection. Legacy plain-PID workers must stop before upgrading; the permanent coordination inode is retained.
+- Added a production-build guard against prerendered authenticated studio/Trash pages, worker health command and production container CI configuration. Public deployment, hosted CI execution and live AI/email verification remain open.

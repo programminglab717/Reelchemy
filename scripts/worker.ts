@@ -1,5 +1,6 @@
-import { open, unlink, writeFile, rename } from "node:fs/promises";
+import { open, unlink, writeFile, rename, readFile } from "node:fs/promises";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import {
   artifactDir,
   dataDir,
@@ -17,14 +18,70 @@ import { transientRenderError } from "../src/lib/retry";
 import { renderFilm } from "../src/lib/render";
 const lock = path.join(dataDir, "worker.lock");
 async function main() {
-  try {
-    const handle = await open(lock, "wx");
-    await handle.writeFile(String(process.pid));
-    await handle.close();
-  } catch {
+  const instanceId = randomUUID();
+  const kernelManaged = process.env.REELCHEMY_WORKER_KERNEL_LOCK === "1";
+  if (process.env.NODE_ENV === "production" && !kernelManaged)
     throw new Error(
-      "Worker lock exists. Run only one worker; after a crash verify the old PID is gone before removing .data/worker.lock.",
+      "Start production rendering with npm run worker so the kernel lifecycle lock is held.",
     );
+  if (kernelManaged) {
+    try {
+      const previous = await readFile(lock, "utf8");
+      let managed = false;
+      try {
+        managed = JSON.parse(previous).kind === "reelchemy-worker-lock-v2";
+      } catch {}
+      if (!managed) {
+        const pid = Number(previous.trim());
+        if (!Number.isInteger(pid) || pid < 2)
+          throw new Error(
+            "Legacy worker lock is malformed. Stop old workers before upgrading.",
+          );
+        let alive = true;
+        try {
+          process.kill(pid, 0);
+        } catch (e) {
+          if ((e as NodeJS.ErrnoException).code === "ESRCH") alive = false;
+          else throw e;
+        }
+        if (alive)
+          throw new Error(
+            "A legacy worker PID is still running. Stop old workers before adopting the lifecycle entrypoint.",
+          );
+      }
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+    }
+    const temporary = path.join(dataDir, `.worker-lock-${randomUUID()}.tmp`);
+    try {
+      await writeFile(
+        temporary,
+        JSON.stringify({
+          kind: "reelchemy-worker-lock-v2",
+          pid: process.pid,
+          instanceId,
+          startedAt: new Date().toISOString(),
+        }),
+        { flag: "wx", mode: 0o600 },
+      );
+      await rename(temporary, lock);
+    } finally {
+      try {
+        await unlink(temporary);
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+      }
+    }
+  } else {
+    try {
+      const handle = await open(lock, "wx", 0o600);
+      await handle.writeFile(String(process.pid));
+      await handle.close();
+    } catch {
+      throw new Error(
+        "Worker lock exists. Run one worker; after a crash verify the old PID is gone before removing the legacy lock.",
+      );
+    }
   }
   let stopping = false;
   for (const signal of ["SIGTERM", "SIGINT"] as const)
@@ -40,7 +97,7 @@ async function main() {
     try {
       await writeFile(
         heartbeatTemp,
-        JSON.stringify({ at: new Date().toISOString() }),
+        JSON.stringify({ at: new Date().toISOString(), instanceId }),
         { mode: 0o600 },
       );
       await rename(heartbeatTemp, heartbeat);

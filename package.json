@@ -1,16 +1,16 @@
 {
   "name": "reelchemy",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0",
-    "build": "next build",
+    "build": "next build && tsx scripts/check-build.ts",
     "start": "next start --hostname 0.0.0.0",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test --test-concurrency=2 tests/*.test.ts",
     "render:sample": "tsx scripts/render-sample.ts",
     "test:e2e": "playwright test",
-    "worker": "tsx scripts/worker.ts",
+    "worker": "tsx scripts/worker-entrypoint.ts",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -19,7 +19,9 @@
     "workspace:claim": "tsx scripts/claim-legacy.ts",
     "mail:worker": "tsx scripts/mail-worker.ts",
     "test:isolated": "tsx scripts/test-isolated.ts",
-    "backup": "tsx scripts/backup.ts"
+    "backup": "tsx scripts/backup.ts",
+    "test:production": "tsx scripts/test-isolated.ts --production",
+    "container:build": "tsx scripts/container-build.ts"
   },
   "dependencies": {
     "@remotion/bundler": "4.0.539",

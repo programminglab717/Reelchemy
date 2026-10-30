@@ -189,3 +189,11 @@ Server settings in `.env.example` tune these positive-integer counts. Isolated f
 Select an image or video layer on the canvas to **Fit** the complete source or **Fill and crop** to the layer box. Horizontal/vertical framing selects which portion is visible. Drag previews update the canvas; release commits one undo step, and Escape cancels. **Center media** resets alignment while retaining the fit choice. Locked layers disable these controls.
 
 The source file stays intact. Autosave, versions, scene splitting, portable projects and exports preserve the fit/framing. Framing is constrained to normalized positions; generated scene data cannot inject arbitrary CSS or remote media sources. Rotation and more advanced masking remain separate work.
+
+## Production runtime checks (0.14.0)
+
+The Dockerfile supplies a non-root Node/Chromium/FFmpeg runtime and an isolated HTTPS test target. `npm run container:build -- --target test` builds the test image; its default command runs all browser/media workflows against the production build with secure cookies, a trusted disposable local CA, fresh migrated accounts and no external network. AI stays in demo mode and account mail stays in a private outbox. See [OPERATIONS.md](OPERATIONS.md) for commands, evidence collection and the single-host Compose template.
+
+`npm run worker` now holds a Linux kernel filesystem lock, so a forced crash releases ownership without trusting a potentially reused container PID. A second worker is rejected, and managed restart replaces stale diagnostics. Stop any old plain-PID worker before upgrading; retain the lifecycle lock inode. Production startup uses an explicit authentication migration. The build also checks that authenticated studio/Trash pages remain dynamic.
+
+These runtime checks do not constitute public deployment or launch acceptance. Hosting, public HTTPS/SMTP delivery, durable off-host operations, capacity/long-video benchmarks and the remaining product release gates still need completion. Hosted CI is configured; its execution is not claimed here.
