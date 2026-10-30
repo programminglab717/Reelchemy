@@ -175,18 +175,30 @@ async function completed(jobId: string) {
   );
 }
 const began = Date.now();
+let probe: unknown = { status: "not-probed" };
 try {
   console.log(
     "Starting disposable read-only production services; no mail worker or live AI.",
   );
   await run([
     ...compose,
-    "up",
-    "-d",
-    "--no-build",
+    "run",
+    "--rm",
+    "--no-deps",
     "--pull",
     "never",
     "migrate",
+  ]);
+  // Finish/remove the one-shot before creating the two application containers:
+  // VFS stores a full filesystem copy even for an exited migration service.
+  await run([
+    ...compose,
+    "up",
+    "-d",
+    "--no-build",
+    "--no-deps",
+    "--pull",
+    "never",
     "web",
     "render",
   ]);
@@ -219,14 +231,18 @@ try {
   }
   await waitFor(async () => {
     try {
-      return (
-        (
-          await fetch(`http://127.0.0.1:${port}/api/health`, {
-            signal: AbortSignal.timeout(5000),
-          })
-        ).status === 200
-      );
-    } catch {
+      const response = await fetch(`http://127.0.0.1:${port}/api/health`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      probe = { httpStatus: response.status, ...(await response.json()) };
+      return response.status === 200;
+    } catch (error) {
+      probe = {
+        status: "unreachable",
+        code:
+          (error as { cause?: { code?: string } }).cause?.code ||
+          "REQUEST_FAILED",
+      };
       return false;
     }
   }, "Read-only production services did not reach readiness.");
@@ -245,10 +261,14 @@ try {
     "Network-isolated worker encoded and fully decoded real footage, captions and AAC audio.",
   );
   const before = await execute("heartbeat");
-  const duplicate = await run(
-    [...compose, "run", "--rm", "--no-deps", "render", "npm", "run", "worker"],
-    true,
+  const restartsBefore = Number(
+    (
+      await run(["inspect", "--format", "{{.RestartCount}}", render])
+    ).output.trim(),
   );
+  // A different existing container provides another PID namespace without a
+  // third image filesystem copy or a transient full disk on VFS hosts.
+  const duplicate = await run(["exec", web, "npm", "run", "worker"], true);
   assert.notEqual(duplicate.code, 0);
   assert.match(duplicate.output + duplicate.errors, /Another render worker/);
   const retry = await execute("retry", {
@@ -262,7 +282,19 @@ try {
       );
     return job.status === "rendering";
   }, "The recovery fixture did not enter rendering.");
-  await run(["kill", "--signal", "KILL", render]);
+  // Docker's kill API marks an operator stop and suppresses restart policies.
+  // Kill the managed worker inside its PID namespace to simulate an unexpected
+  // crash; the entrypoint/container exits and Docker must restart it itself.
+  await run(
+    [
+      "exec",
+      render,
+      "node",
+      "-e",
+      "const fs=require('fs'),path=require('path');const lock=JSON.parse(fs.readFileSync(path.join(process.env.REELCHEMY_DATA_DIR,'worker.lock'),'utf8'));if(lock.kind!=='reelchemy-worker-lock-v2'||!Number.isInteger(lock.pid)||lock.pid<2)process.exit(2);process.kill(lock.pid,'SIGKILL');",
+    ],
+    true,
+  );
   await waitFor(async () => {
     try {
       const after = await execute("heartbeat");
@@ -274,6 +306,12 @@ try {
       return false;
     }
   }, "Worker did not recover a forced container crash.");
+  const restartsAfter = Number(
+    (
+      await run(["inspect", "--format", "{{.RestartCount}}", render])
+    ).output.trim(),
+  );
+  assert.equal(restartsAfter, restartsBefore + 1);
   await completed(seed.jobId); // Original completed export remains decodable.
   await completed(retry.jobId);
   assert.equal(
@@ -317,6 +355,28 @@ try {
   );
   console.log(`Runtime check evidence: ${directory}`);
 } catch (error) {
+  await writeFile(
+    path.join(directory, "readiness.json"),
+    JSON.stringify(probe, null, 2),
+    { mode: 0o600 },
+  );
+  if (web) {
+    const internal = await run(
+      [
+        "exec",
+        web,
+        "node",
+        "-e",
+        "fetch('http://127.0.0.1:3000/api/health').then(async r=>console.log(JSON.stringify({httpStatus:r.status,...await r.json()}))).catch(()=>process.exit(1))",
+      ],
+      true,
+    );
+    await writeFile(
+      path.join(directory, "internal-readiness.json"),
+      internal.output,
+      { mode: 0o600 },
+    );
+  }
   const logs = await run(
     [...compose, "logs", "--no-color", "--tail", "50"],
     true,

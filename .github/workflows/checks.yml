@@ -84,3 +84,5 @@ jobs:
             production-test-evidence/
             /tmp/reelchemy-runtime-*/report.json
             /tmp/reelchemy-runtime-*/services.log
+            /tmp/reelchemy-runtime-*/readiness.json
+            /tmp/reelchemy-runtime-*/internal-readiness.json
