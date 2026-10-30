@@ -170,6 +170,27 @@ test("body/key validation, legacy bodyless requests and failed admissions preser
   const legacy = await POST(request(p.id), context);
   assert.equal(legacy.status, 202);
   db.updateJob((await legacy.json()).id, { status: "cancelled" });
+  const emptyStream = new ReadableStream(
+    {
+      pull(controller) {
+        controller.close();
+      },
+    },
+    { highWaterMark: 0 },
+  );
+  const streamed = await POST(
+    new Request(request(p.id), {
+      body: emptyStream,
+      duplex: "half",
+    } as RequestInit),
+    context,
+  );
+  assert.equal(
+    streamed.status,
+    202,
+    "an empty readable stream is a bodyless request too",
+  );
+  db.updateJob((await streamed.json()).id, { status: "cancelled" });
   const key = crypto.randomUUID();
   const rejected = await POST(
     request(p.id, { baseRevisionId: "stale-version" }, key),
@@ -195,7 +216,7 @@ test("body/key validation, legacy bodyless requests and failed admissions preser
     context,
   );
   assert.equal((await replay.json()).status, "failed");
-  assert.equal(db.listJobs(p.id).length, 2);
+  assert.equal(db.listJobs(p.id).length, 3);
 });
 test("independent web processes atomically admit one snapshot and replay it even when the queue is full", async () => {
   const p = project(),

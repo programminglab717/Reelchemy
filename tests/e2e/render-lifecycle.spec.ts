@@ -17,9 +17,9 @@ test("cancelling an active frame render releases the worker for the next private
       await request.post(`/api/projects/${project.id}/plan`, { data: {} })
     ).status(),
   ).toBe(200);
-  const job = await (
-    await request.post(`/api/projects/${project.id}/render`)
-  ).json();
+  const admission = await request.post(`/api/projects/${project.id}/render`);
+  expect(admission.status(), await admission.text()).toBe(202);
+  const job = await admission.json();
   await expect
     .poll(
       async () => {
@@ -42,9 +42,9 @@ test("cancelling an active frame render releases the worker for the next private
       },
     })
   ).json();
-  const followup = await (
-    await request.post(`/api/projects/${next.id}/render`)
-  ).json();
+  const nextAdmission = await request.post(`/api/projects/${next.id}/render`);
+  expect(nextAdmission.status(), await nextAdmission.text()).toBe(202);
+  const followup = await nextAdmission.json();
   await expect
     .poll(
       async () => {

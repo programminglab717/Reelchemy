@@ -1,6 +1,6 @@
 import { secureRoute, type Access } from "@/lib/access";
 import { createOwnedJob, getProject, listJobs } from "@/lib/db";
-import { body, failure, localMutation } from "@/lib/http";
+import { readLimitedBody, failure, localMutation } from "@/lib/http";
 import { z } from "zod";
 async function POSTHandler(
   req: Request,
@@ -10,11 +10,14 @@ async function POSTHandler(
   try {
     localMutation(req);
     const { id } = await params;
+    // IncomingMessage-backed requests can expose an empty readable body rather
+    // than null. Both forms are the supported bodyless export API.
+    const bytes = await readLimitedBody(req, 100000);
     const input = z
       .object({
         baseRevisionId: z.string().min(1).max(80).nullable().optional(),
       })
-      .parse(req.body ? await body(req) : {});
+      .parse(bytes.length ? JSON.parse(new TextDecoder().decode(bytes)) : {});
     const key = z
       .string()
       .uuid()
