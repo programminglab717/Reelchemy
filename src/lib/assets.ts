@@ -69,7 +69,10 @@ export async function resolveAssetSources(t: Timeline) {
   return sources;
 }
 
-export function validateProjectAssets(project: Project, t: Timeline) {
+export function validateProjectAssets(
+  project: Pick<Project, "assets">,
+  t: Timeline,
+) {
   for (const scene of t.scenes)
     for (const layer of scene.layers)
       if (

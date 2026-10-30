@@ -4,6 +4,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { Project, RenderJob, Timeline, CreativeBrief } from "./schema";
 import { revisionId, RevisionConflict } from "./editor";
+import { validateProjectAssets } from "./assets";
 // Runtime state lives on the mounted filesystem; do not embed it in server traces.
 export const dataDir = path.resolve(
   /* turbopackIgnore: true */ process.env.REELCHEMY_DATA_DIR || ".data",
@@ -193,6 +194,25 @@ export function reviseProject(p: Project, timeline: Timeline, source: string) {
     });
     return saveProject(p);
   })();
+}
+// Recheck authorization, current media metadata and the revision under the same
+// write lock. Other web/worker processes cannot trash or change the project
+// between these checks and the final save.
+export function reviseOwnedProject(
+  p: Project,
+  timeline: Timeline,
+  source: string,
+  workspaceId: string,
+) {
+  return db
+    .transaction(() => {
+      if (!projectInWorkspace(p.id, workspaceId)) return undefined;
+      const latest = getProject(p.id)!;
+      if (revisionId(latest) !== revisionId(p)) throw new RevisionConflict();
+      validateProjectAssets(latest, timeline);
+      return reviseProject(p, timeline, source);
+    })
+    .immediate();
 }
 function enqueueJob(project: Project) {
   if (!project.timeline)

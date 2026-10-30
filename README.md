@@ -197,3 +197,9 @@ The Dockerfile supplies a non-root Node/Chromium/FFmpeg runtime and an isolated 
 `npm run worker` now holds a Linux kernel filesystem lock, so a forced crash releases ownership without trusting a potentially reused container PID. A second worker is rejected, and managed restart replaces stale diagnostics. Stop any old plain-PID worker before upgrading; retain the lifecycle lock inode. Production startup uses an explicit authentication migration. The build also checks that authenticated studio/Trash pages remain dynamic.
 
 These runtime checks do not constitute public deployment or launch acceptance. Hosting, public HTTPS/SMTP delivery, durable off-host operations, capacity/long-video benchmarks and the remaining product release gates still need completion. Hosted CI is configured; its execution is not claimed here.
+
+## Planning with project media (0.15.0)
+
+Configured provider requests include this project's image/video/audio IDs and descriptive media metadata, so a director can select uploaded media. Source files, local source paths, credentials and other customers' asset catalogs are not included. Returned timelines must reference media owned by this project, match its media types and source ranges, and retain the requested output format/duration. These contracts are tested with offline provider responses; live planning quality remains unverified.
+
+A whole-plan revision uses the current edited duration and format while retaining the original brief. A targeted scene revision sends that scene and preserves unrelated scenes, narration and captions. Editor/planning commits check current ownership, Trash status, revision and media metadata together under a database write lock. A late response cannot replace a newer saved revision or save into a project moved to Trash.

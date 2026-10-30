@@ -141,3 +141,10 @@
 - Added disposable production HTTPS browser checks using a short-lived locally trusted CA and secure cookies. The same certificate must fail an untrusted-client check; no TLS bypass is used. Tests force demo AI, retain mail privately and never start SMTP delivery.
 - Added kernel-managed render-worker lifecycle locking, atomic instance diagnostics, forced-crash recovery and duplicate-worker rejection. Legacy plain-PID workers must stop before upgrading; the permanent coordination inode is retained.
 - Added a production-build guard against prerendered authenticated studio/Trash pages, worker health command and production container CI configuration. Public deployment, hosted CI execution and live AI/email verification remain open.
+
+## 0.15.0 — 2026-10-30
+
+- Added a project-scoped media metadata catalog to compatible/Claude planning requests and validated returned ownership, media types, source ranges/audio availability, format and duration. Provider metadata excludes private source paths and unrelated customers' media.
+- Whole-plan revisions now use current manual timing/format instead of resetting to the original brief. Targeted revisions send only the selected scene's timeline and preserve global narration/captions and unrelated scenes.
+- Editor/planning saves atomically recheck active ownership, revision and latest media metadata under one SQLite write lock. Concurrent saves return a conflict; moving to Trash while a provider call or editor request body is in flight prevents the late save.
+- Added offline route/provider contract tests with real private test accounts, invalid/foreign media responses, concurrent edits, metadata changes and Trash races. Full unit suite: 84 passed. Live provider calls remain deferred.
