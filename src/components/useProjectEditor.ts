@@ -158,6 +158,11 @@ export function useProjectEditor() {
     mergeAssets,
     mergeName,
     save,
+    getCurrent: () => current.current,
+    markConflict: (message: string) => {
+      blocked.current = true;
+      setSaveError(message);
+    },
     dirty,
     saving,
     saveError,

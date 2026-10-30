@@ -10,6 +10,8 @@ import type {
   CreativeBrief,
 } from "./schema";
 import { revisionId, RevisionConflict } from "./editor";
+import { inspectTimeline } from "./qc";
+import { ExportRequestConflict } from "./export-policy";
 import { validateProjectAssets, validAssetId } from "./project-assets";
 import {
   mediaStorageLimit,
@@ -59,6 +61,9 @@ db.transaction(() => {
   );
   db.exec(
     "CREATE TABLE IF NOT EXISTS media_sizes(asset_id TEXT PRIMARY KEY,bytes INTEGER NOT NULL CHECK(bytes>=0)); CREATE TABLE IF NOT EXISTS schema_migrations(id TEXT PRIMARY KEY,applied_at TEXT NOT NULL)",
+  );
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS export_requests(project_id TEXT NOT NULL,request_key TEXT NOT NULL,job_id TEXT NOT NULL,request_version TEXT NOT NULL,PRIMARY KEY(project_id,request_key))",
   );
   if (
     !db
@@ -475,6 +480,59 @@ export function recoverJobs() {
 }
 export function createJob(project: Project) {
   return db.transaction(() => enqueueJob(project)).immediate();
+}
+// Public admission always re-reads the active owned project under the writer
+// lock. Ownership/Trash, revision, validation, queue capacity and receipt are
+// committed together; no asynchronous work can leave an unchecked snapshot.
+export function createOwnedJob(
+  projectId: string,
+  workspaceId: string,
+  request: { key?: string; baseRevisionId?: string | null } = {},
+) {
+  return db
+    .transaction(() => {
+      if (!projectInWorkspace(projectId, workspaceId)) return undefined;
+      const requestVersion = JSON.stringify({
+        baseRevisionId: request.baseRevisionId,
+      });
+      if (request.key) {
+        const receipt = db
+          .prepare(
+            "SELECT job_id,request_version FROM export_requests WHERE project_id=? AND request_key=?",
+          )
+          .get(projectId, request.key) as
+          { job_id: string; request_version: string } | undefined;
+        if (receipt) {
+          if (receipt.request_version !== requestVersion)
+            throw new ExportRequestConflict();
+          const job = getJob(receipt.job_id);
+          if (!job) throw new Error("The saved export request is unavailable.");
+          return { job, replayed: true };
+        }
+      }
+      const project = getProject(projectId)!;
+      if (
+        request.baseRevisionId !== undefined &&
+        revisionId(project) !== request.baseRevisionId
+      )
+        throw new RevisionConflict();
+      if (!project.timeline)
+        throw new Error("Generate and approve a storyboard first.");
+      validateProjectAssets(project, project.timeline);
+      const blocking = inspectTimeline(
+        project.timeline,
+        (project.assets || []).map((a) => a.id),
+      ).filter((i) => i.severity === "error" && i.code !== "bounds");
+      if (blocking.length)
+        throw new Error(blocking.map((i) => i.message).join(" "));
+      const job = enqueueJob(project);
+      if (request.key)
+        db.prepare(
+          "INSERT INTO export_requests(project_id,request_key,job_id,request_version) VALUES (?,?,?,?)",
+        ).run(projectId, request.key, job.id, requestVersion);
+      return { job, replayed: false };
+    })
+    .immediate();
 }
 export function recordJobStage(
   id: string,

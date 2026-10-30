@@ -174,3 +174,10 @@
 
 - Apply all eight EXIF orientations, including mirrored phone photos, to normalized image pixels before stripping private metadata. Retain accurate normalized width, height and byte size for planning/accounting.
 - Portable projects accept the dimensions of existing wide images allowed by the 16 MP ingestion bound; import still decodes, validates and measures the real file rather than trusting manifest dimensions.
+
+## 0.18.0 — 2026-10-30
+
+- Recheck active project ownership, saved revision, media references, QC and capacity inside the atomic queue-admission transaction, preventing late exports after a move to Trash.
+- Add private project-scoped UUID export receipts so concurrent/retried requests reuse their original immutable job, including terminal jobs. Reject changed requests that reuse a key.
+- Save before approval, send the exact saved revision, reuse the current editor's key after a lost response, and expose existing draft/open-latest conflict recovery when another tab changed the saved video.
+- Preserve receipts through verified backup/restore without resurrecting interrupted jobs. Existing bodyless API clients remain supported; normal request allowances still apply to retries.

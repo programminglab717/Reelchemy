@@ -1,8 +1,14 @@
 import { ZodError } from "zod";
 import { RevisionConflict } from "./editor";
+import { ExportRequestConflict } from "./export-policy";
 import { RequestRateError, LimitConfigurationError } from "./limits-policy";
 import { MediaStorageLimitError } from "./media-storage-policy";
 export function failure(error: unknown) {
+  if (error instanceof ExportRequestConflict)
+    return Response.json(
+      { error: error.message, code: "EXPORT_REQUEST_CONFLICT" },
+      { status: 409, headers: { "Cache-Control": "private, no-store" } },
+    );
   if (error instanceof MediaStorageLimitError)
     return Response.json(
       {

@@ -16,7 +16,7 @@ import { execFileSync } from "node:child_process";
 import Database from "better-sqlite3";
 import sharp from "sharp";
 import { createBackup, verifyBackup, restoreBackup } from "../src/lib/backup";
-import { blankTimeline } from "../src/lib/editor";
+import { blankTimeline, revisionId } from "../src/lib/editor";
 const root = await mkdtemp(path.join(tmpdir(), "reelchemy-backup-drill-"));
 process.env.REELCHEMY_DATA_DIR = path.join(root, "source/data");
 process.env.REELCHEMY_ARTIFACT_DIR = path.join(root, "source/artifacts");
@@ -89,7 +89,11 @@ test("backup/restore drill preserves accounts, private workspaces/media and expo
     progress: 1,
     report: { export: { path: path.join(exports, "video.mp4") } },
   });
-  const queued = db.createJob(p);
+  const requestKey = crypto.randomUUID();
+  const queued = db.createOwnedJob(p.id, workspace.id, {
+    key: requestKey,
+    baseRevisionId: revisionId(p),
+  })!.job;
   await writeFile(
     path.join(process.env.REELCHEMY_DATA_DIR!, "private-config"),
     "must not be copied",
@@ -176,6 +180,7 @@ test("backup/restore drill preserves accounts, private workspaces/media and expo
         `
       const {getAuth} = await import('./src/lib/auth.ts');
       const {secureRoute} = await import('./src/lib/access.ts');
+      const {createOwnedJob,listJobs} = await import('./src/lib/db.ts');
       const auth = await getAuth();
       const route = secureRoute(() => Response.json({ok:true}), 'project');
       const url = 'http://127.0.0.1:3001/api/projects/${p.id}';
@@ -184,7 +189,8 @@ test("backup/restore drill preserves accounts, private workspaces/media and expo
       const signed = await auth.api.signInEmail({body:{email:'${email}',password:'${password}'},asResponse:true});
       const cookie = signed.headers.getSetCookie().map(c=>c.split(';')[0]).join('; ');
       const fresh = await route(new Request(url,{headers:{cookie}}),ctx);
-      console.log(JSON.stringify({old:old.status,login:signed.status,fresh:fresh.status}));
+      const replay = createOwnedJob('${p.id}', '${workspace.id}', {key:'${requestKey}',baseRevisionId:'${revisionId(p)}'});
+      console.log(JSON.stringify({old:old.status,login:signed.status,fresh:fresh.status,replayed:replay.replayed,same:replay.job.id==='${queued.id}',status:replay.job.status,jobs:listJobs('${p.id}').length}));
     `,
       ],
       {
@@ -197,7 +203,15 @@ test("backup/restore drill preserves accounts, private workspaces/media and expo
         },
       },
     );
-    assert.deepEqual(JSON.parse(result), { old: 401, login: 200, fresh: 200 });
+    assert.deepEqual(JSON.parse(result), {
+      old: 401,
+      login: 200,
+      fresh: 200,
+      replayed: true,
+      same: true,
+      status: "failed",
+      jobs: 2,
+    });
     await assert.rejects(
       () => restoreBackup(output, path.join(root, "restored")),
       /EEXIST/,

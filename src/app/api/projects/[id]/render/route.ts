@@ -1,27 +1,35 @@
-import { secureRoute } from "@/lib/access";
-import { validateProjectAssets } from "@/lib/assets";
-import { createJob, getProject, listJobs } from "@/lib/db";
-import { inspectTimeline } from "@/lib/qc";
-import { failure, localMutation } from "@/lib/http";
+import { secureRoute, type Access } from "@/lib/access";
+import { createOwnedJob, getProject, listJobs } from "@/lib/db";
+import { body, failure, localMutation } from "@/lib/http";
+import { z } from "zod";
 async function POSTHandler(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
+  access: Access,
 ) {
   try {
     localMutation(req);
-    const p = getProject((await params).id);
-    if (!p)
+    const { id } = await params;
+    const input = z
+      .object({
+        baseRevisionId: z.string().min(1).max(80).nullable().optional(),
+      })
+      .parse(req.body ? await body(req) : {});
+    const key = z
+      .string()
+      .uuid()
+      .optional()
+      .parse(req.headers.get("idempotency-key") ?? undefined);
+    const result = createOwnedJob(id, access.workspace.id, { ...input, key });
+    if (!result)
       return Response.json({ error: "Project not found" }, { status: 404 });
-    if (!p.timeline)
-      throw new Error("Generate and approve a storyboard first.");
-    validateProjectAssets(p, p.timeline);
-    const blocking = inspectTimeline(
-      p.timeline,
-      (p.assets || []).map((a) => a.id),
-    ).filter((i) => i.severity === "error" && i.code !== "bounds");
-    if (blocking.length)
-      throw new Error(blocking.map((i) => i.message).join(" "));
-    return Response.json(createJob(p), { status: 202 });
+    return Response.json(result.job, {
+      status: 202,
+      headers: {
+        "Cache-Control": "private, no-store",
+        "Idempotency-Replayed": String(result.replayed),
+      },
+    });
   } catch (e) {
     return failure(e);
   }

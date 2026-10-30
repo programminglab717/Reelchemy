@@ -3,6 +3,7 @@ import { clipAudioTracks } from "@/lib/clip-audio";
 import { CanvasEditor } from "./CanvasEditor";
 import { TimelineEditor } from "./TimelineEditor";
 import { useProjectEditor } from "./useProjectEditor";
+import { revisionId, RevisionConflict } from "@/lib/editor";
 import { AssetPanel } from "./AssetPanel";
 import { ProjectName } from "./ProjectName";
 import { LayerEditor } from "./LayerEditor";
@@ -44,14 +45,25 @@ const ideas = [
     prompt: "A bold, minimal launch film for a new creative notebook.",
   },
 ];
-async function api<T>(url: string, method = "GET", data?: unknown): Promise<T> {
+async function api<T>(
+  url: string,
+  method = "GET",
+  data?: unknown,
+  headers?: Record<string, string>,
+): Promise<T> {
   const r = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : undefined,
+    headers: {
+      ...(data ? { "Content-Type": "application/json" } : {}),
+      ...headers,
+    },
     body: data ? JSON.stringify(data) : undefined,
   });
   const result = await r.json();
-  if (!r.ok) throw new Error(result.error || "Request failed");
+  if (!r.ok) {
+    if (result.code === "REVISION_CONFLICT") throw new RevisionConflict();
+    throw new Error(result.error || "Request failed");
+  }
   return result;
 }
 export function Studio() {
@@ -70,6 +82,11 @@ export function Studio() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [listRefresh, setListRefresh] = useState(0);
   const listVersion = useRef(0);
+  const pendingExport = useRef<{
+    projectId: string;
+    revisionId: string | null;
+    key: string;
+  } | null>(null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [job, setJob] = useState<RenderJob | null>(null),
@@ -165,6 +182,7 @@ export function Studio() {
     try {
       await fn();
     } catch (e) {
+      if (e instanceof RevisionConflict) editor.markConflict(e.message);
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
       setBusy(false);
@@ -1133,13 +1151,31 @@ export function Studio() {
                     disabled={busy || !!active}
                     onClick={() =>
                       void run(async () => {
-                        if (dirty) await save();
+                        await save();
+                        const saved = editor.getCurrent();
+                        if (!saved || saved.id !== project.id)
+                          throw new Error(
+                            "Open the project again before exporting.",
+                          );
+                        const version = revisionId(saved);
+                        if (
+                          pendingExport.current?.projectId !== saved.id ||
+                          pendingExport.current.revisionId !== version
+                        )
+                          pendingExport.current = {
+                            projectId: saved.id,
+                            revisionId: version,
+                            key: crypto.randomUUID(),
+                          };
                         setJob(
                           await api<RenderJob>(
                             `/api/projects/${project.id}/render`,
                             "POST",
+                            { baseRevisionId: version },
+                            { "Idempotency-Key": pendingExport.current.key },
                           ),
                         );
+                        pendingExport.current = null;
                       })
                     }
                   >
