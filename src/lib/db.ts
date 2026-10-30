@@ -170,30 +170,34 @@ export function createProject(brief: CreativeBrief, workspaceId?: string) {
   );
 }
 export function renameProject(id: string, name: string, baseName: string) {
-  return db.transaction(() => {
-    const p = getProject(id);
-    if (!p) throw new Error("Project not found.");
-    if (p.name !== baseName) return null;
-    p.name = name;
-    return saveProject(p);
-  })();
+  return db
+    .transaction(() => {
+      const p = getProject(id);
+      if (!p) throw new Error("Project not found.");
+      if (p.name !== baseName) return null;
+      p.name = name;
+      return saveProject(p);
+    })
+    .immediate();
 }
 export function reviseProject(p: Project, timeline: Timeline, source: string) {
-  return db.transaction(() => {
-    const latest = getProject(p.id);
-    if (!latest || revisionId(latest) !== revisionId(p))
-      throw new RevisionConflict();
-    p.timeline = timeline;
-    p.name = latest.name;
-    p.assets = latest.assets;
-    p.revisions.push({
-      id: randomUUID(),
-      createdAt: new Date().toISOString(),
-      timeline,
-      source,
-    });
-    return saveProject(p);
-  })();
+  return db
+    .transaction(() => {
+      const latest = getProject(p.id);
+      if (!latest || revisionId(latest) !== revisionId(p))
+        throw new RevisionConflict();
+      p.timeline = timeline;
+      p.name = latest.name;
+      p.assets = latest.assets;
+      p.revisions.push({
+        id: randomUUID(),
+        createdAt: new Date().toISOString(),
+        timeline,
+        source,
+      });
+      return saveProject(p);
+    })
+    .immediate();
 }
 // Recheck authorization, current media metadata and the revision under the same
 // write lock. Other web/worker processes cannot trash or change the project
@@ -257,38 +261,42 @@ export function getJob(id: string): RenderJob | undefined {
   return row ? JSON.parse(row.data) : undefined;
 }
 export function updateJob(id: string, patch: Partial<RenderJob>) {
-  return db.transaction(() => {
-    const job = getJob(id);
-    if (!job) return;
-    const updated = { ...job, ...patch };
-    if (
-      ["cancelled", "completed", "failed"].includes(job.status) &&
-      patch.status !== job.status
-    )
-      return job;
-    db.prepare("UPDATE jobs SET status=?,data=? WHERE id=?").run(
-      updated.status,
-      JSON.stringify(updated),
-      id,
-    );
-    return updated;
-  })();
+  return db
+    .transaction(() => {
+      const job = getJob(id);
+      if (!job) return;
+      const updated = { ...job, ...patch };
+      if (
+        ["cancelled", "completed", "failed"].includes(job.status) &&
+        patch.status !== job.status
+      )
+        return job;
+      db.prepare("UPDATE jobs SET status=?,data=? WHERE id=?").run(
+        updated.status,
+        JSON.stringify(updated),
+        id,
+      );
+      return updated;
+    })
+    .immediate();
 }
 export function claimJob(): { job: RenderJob; timeline: Timeline } | null {
-  return db.transaction(() => {
-    const row = db
-      .prepare(
-        "SELECT data,timeline FROM jobs WHERE status='queued' ORDER BY rowid LIMIT 1",
-      )
-      .get() as { data: string; timeline: string } | undefined;
-    if (!row) return null;
-    const job = JSON.parse(row.data) as RenderJob;
-    updateJob(job.id, { status: "rendering" });
-    return {
-      job: { ...job, status: "rendering" as const },
-      timeline: JSON.parse(row.timeline),
-    };
-  })();
+  return db
+    .transaction(() => {
+      const row = db
+        .prepare(
+          "SELECT data,timeline FROM jobs WHERE status='queued' ORDER BY rowid LIMIT 1",
+        )
+        .get() as { data: string; timeline: string } | undefined;
+      if (!row) return null;
+      const job = JSON.parse(row.data) as RenderJob;
+      updateJob(job.id, { status: "rendering" });
+      return {
+        job: { ...job, status: "rendering" as const },
+        timeline: JSON.parse(row.timeline),
+      };
+    })
+    .immediate();
 }
 export function recoverJobs() {
   for (const row of db
@@ -304,48 +312,56 @@ export function recoverJobs() {
   }
 }
 export function createJob(project: Project) {
-  return db.transaction(() => enqueueJob(project))();
+  return db.transaction(() => enqueueJob(project)).immediate();
 }
 export function recordJobStage(
   id: string,
   stage: string,
   message: string = stage,
 ) {
-  return db.transaction(() => {
-    const job = getJob(id);
-    if (!job || job.status === "cancelled") return;
-    return updateJob(id, {
-      status: job.status,
-      stage,
-      events: [
-        ...(job.events || []),
-        { at: new Date().toISOString(), stage, message: message.slice(0, 500) },
-      ].slice(-100),
-    });
-  })();
+  return db
+    .transaction(() => {
+      const job = getJob(id);
+      if (!job || job.status === "cancelled") return;
+      return updateJob(id, {
+        status: job.status,
+        stage,
+        events: [
+          ...(job.events || []),
+          {
+            at: new Date().toISOString(),
+            stage,
+            message: message.slice(0, 500),
+          },
+        ].slice(-100),
+      });
+    })
+    .immediate();
 }
 export function retryJob(id: string, reason: string) {
-  return db.transaction(() => {
-    const job = getJob(id);
-    if (!job || job.status !== "rendering" || (job.retryCount || 0) >= 1)
-      return false;
-    updateJob(id, {
-      status: "queued",
-      progress: 0,
-      error: null,
-      retryCount: (job.retryCount || 0) + 1,
-      stage: "Queued for retry",
-      events: [
-        ...(job.events || []),
-        {
-          at: new Date().toISOString(),
-          stage: "Retry",
-          message: reason.slice(0, 500),
-        },
-      ].slice(-100),
-    });
-    return true;
-  })();
+  return db
+    .transaction(() => {
+      const job = getJob(id);
+      if (!job || job.status !== "rendering" || (job.retryCount || 0) >= 1)
+        return false;
+      updateJob(id, {
+        status: "queued",
+        progress: 0,
+        error: null,
+        retryCount: (job.retryCount || 0) + 1,
+        stage: "Queued for retry",
+        events: [
+          ...(job.events || []),
+          {
+            at: new Date().toISOString(),
+            stage: "Retry",
+            message: reason.slice(0, 500),
+          },
+        ].slice(-100),
+      });
+      return true;
+    })
+    .immediate();
 }
 export function listJobs(projectId: string): RenderJob[] {
   return (
@@ -358,25 +374,30 @@ export function listJobs(projectId: string): RenderJob[] {
 }
 export type Workspace = { id: string; ownerId: string; name: string };
 export function ensureWorkspace(userId: string, name: string): Workspace {
-  return db.transaction(() => {
-    const existing = db
-      .prepare(
-        "SELECT id,owner_id AS ownerId,name FROM workspaces WHERE owner_id=?",
-      )
-      .get(userId) as Workspace | undefined;
-    if (existing) return existing;
-    const workspace = {
-      id: randomUUID(),
-      ownerId: userId,
-      name: `${name.slice(0, 60)}'s studio`,
-    };
-    db.prepare("INSERT INTO workspaces(id,owner_id,name) VALUES (?,?,?)").run(
-      workspace.id,
-      userId,
-      workspace.name,
-    );
-    return workspace;
-  })();
+  // Established accounts stay read-only on private GET requests. Only creation
+  // needs a write lock, with a second check after admission.
+  const lookup = db.prepare(
+    "SELECT id,owner_id AS ownerId,name FROM workspaces WHERE owner_id=?",
+  );
+  const saved = lookup.get(userId) as Workspace | undefined;
+  if (saved) return saved;
+  return db
+    .transaction(() => {
+      const existing = lookup.get(userId) as Workspace | undefined;
+      if (existing) return existing;
+      const workspace = {
+        id: randomUUID(),
+        ownerId: userId,
+        name: `${name.slice(0, 60)}'s studio`,
+      };
+      db.prepare("INSERT INTO workspaces(id,owner_id,name) VALUES (?,?,?)").run(
+        workspace.id,
+        userId,
+        workspace.name,
+      );
+      return workspace;
+    })
+    .immediate();
 }
 export function projectInWorkspace(
   id: string,
@@ -390,27 +411,29 @@ export function projectInWorkspace(
     .get(id, workspaceId);
 }
 export function setProjectTrashed(id: string, trashed: boolean) {
-  return db.transaction(() => {
-    const row = db
-      .prepare("SELECT trashed_at FROM projects WHERE id=?")
-      .get(id) as { trashed_at: string | null } | undefined;
-    if (!row) throw new Error("Project not found.");
-    if (trashed) {
-      const jobs = db
-        .prepare(
-          "SELECT id FROM jobs WHERE project_id=? AND status IN ('queued','rendering')",
-        )
-        .all(id) as { id: string }[];
-      for (const job of jobs)
-        updateJob(job.id, {
-          status: "cancelled",
-          stage: "Cancelled by moving project to Trash",
-        });
-    }
-    const at = trashed ? row.trashed_at || new Date().toISOString() : null;
-    db.prepare("UPDATE projects SET trashed_at=? WHERE id=?").run(at, id);
-    return { trashedAt: at };
-  })();
+  return db
+    .transaction(() => {
+      const row = db
+        .prepare("SELECT trashed_at FROM projects WHERE id=?")
+        .get(id) as { trashed_at: string | null } | undefined;
+      if (!row) throw new Error("Project not found.");
+      if (trashed) {
+        const jobs = db
+          .prepare(
+            "SELECT id FROM jobs WHERE project_id=? AND status IN ('queued','rendering')",
+          )
+          .all(id) as { id: string }[];
+        for (const job of jobs)
+          updateJob(job.id, {
+            status: "cancelled",
+            stage: "Cancelled by moving project to Trash",
+          });
+      }
+      const at = trashed ? row.trashed_at || new Date().toISOString() : null;
+      db.prepare("UPDATE projects SET trashed_at=? WHERE id=?").run(at, id);
+      return { trashedAt: at };
+    })
+    .immediate();
 }
 export function claimLegacyProjects(workspaceId: string, apply = false) {
   const count = (

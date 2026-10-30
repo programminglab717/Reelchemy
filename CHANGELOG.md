@@ -148,3 +148,9 @@
 - Whole-plan revisions now use current manual timing/format instead of resetting to the original brief. Targeted revisions send only the selected scene's timeline and preserve global narration/captions and unrelated scenes.
 - Editor/planning saves atomically recheck active ownership, revision and latest media metadata under one SQLite write lock. Concurrent saves return a conflict; moving to Trash while a provider call or editor request body is in flight prevents the late save.
 - Added offline route/provider contract tests with real private test accounts, invalid/foreign media responses, concurrent edits, metadata changes and Trash races. Full unit suite: 84 passed. Live provider calls remain deferred.
+
+## 0.15.1 — 2026-10-30
+
+- Fixed SQLite read-to-write transaction upgrades that could fail a render with `database is locked` when another process committed a write. Queue admission/claim/progress/stages/retries, project revision/rename/Trash and first-workspace creation acquire their write lock before reading the state they change.
+- Existing workspace lookup remains read-only; ordinary private GET requests do not acquire a workspace-creation write lock.
+- Added a real three-process contention regression with 4,500 competing progress/stage/policy writes. It reproduced SQLITE_BUSY before the fix and passes afterward. The first restricted Compose export found the problem; a corrected image/restricted-service rerun is required before claiming that acceptance gate.
