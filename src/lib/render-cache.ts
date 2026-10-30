@@ -85,7 +85,7 @@ async function fingerprint() {
     "src/lib/captions.ts",
     "src/lib/audio-math.ts",
     "src/lib/clip-audio.ts",
-    "src/lib/video-server.ts",
+    "src/lib/render-assets.ts",
     "node_modules/remotion/package.json",
   ])
     hash.update(await readFile(f));

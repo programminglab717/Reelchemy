@@ -1,9 +1,8 @@
-import { mkdir, readFile, writeFile, stat } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
-import type { Asset, Timeline } from "./schema";
-import { validAssetId } from "./project-assets";
+import type { Asset } from "./schema";
 export const assetDir = path.resolve(
   process.env.REELCHEMY_DATA_DIR || ".data",
   "assets",
@@ -47,32 +46,4 @@ export async function storeImage(
     createdAt: new Date().toISOString(),
   };
 }
-export async function resolveAssetSources(t: Timeline) {
-  const sources: Record<string, string> = {};
-  for (const s of t.scenes)
-    for (const l of s.layers) {
-      if (!l.assetId) continue;
-      if (sources[l.assetId]) continue;
-      if (!validAssetId(l.assetId))
-        throw new Error(`Missing or invalid asset: ${l.assetId}`);
-      try {
-        if (l.kind === "video") {
-          await stat(path.join(assetDir, l.assetId));
-          sources[l.assetId] = `local-video:${l.assetId}`;
-          continue;
-        }
-        sources[l.assetId] =
-          `data:image/png;base64,${(await readFile(path.join(assetDir, l.assetId))).toString("base64")}`;
-      } catch {
-        throw new Error(`Missing asset: ${l.assetId}`);
-      }
-    }
-  for (const track of t.audioTracks || []) {
-    if (!validAssetId(track.assetId)) throw new Error("Invalid audio asset.");
-    sources[track.assetId] =
-      `data:audio/wav;base64,${(await readFile(path.join(assetDir, track.assetId))).toString("base64")}`;
-  }
-  return sources;
-}
-
 export { validateProjectAssets, validAssetId } from "./project-assets";

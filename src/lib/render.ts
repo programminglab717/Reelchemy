@@ -1,4 +1,4 @@
-import { serveVideoAssets } from "./video-server";
+import { serveRenderAssets } from "./render-assets";
 import { withRenderBrowser } from "./render-browser";
 import { renderCachedScenes } from "./render-cache";
 import { runCommand } from "./process";
@@ -15,7 +15,6 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { type Timeline, type QCIssue, totalFrames, formats } from "./schema";
 import { checkLayout, RenderQCError } from "./layout-qc";
-import { resolveAssetSources } from "./assets";
 import { repairBounds } from "./qc";
 let bundled: Promise<string> | undefined;
 export async function renderFilm(
@@ -27,7 +26,7 @@ export async function renderFilm(
   cacheNamespace: string = "local",
 ) {
   onStage("Checking assets");
-  const media = await serveVideoAssets(input, await resolveAssetSources(input));
+  const media = await serveRenderAssets(input, isCancelled);
   try {
     return await renderResolved(
       input,

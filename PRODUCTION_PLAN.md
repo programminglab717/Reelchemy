@@ -132,3 +132,7 @@ This closes the initial retained-media byte-admission gap. Global decoder isolat
 ## Export admission checkpoint — 0.18.0, 30 October 2026
 
 Public exports now use an atomic active-owner/revision/media/QC/capacity check and an optional durable project-scoped idempotency receipt. The editor saves first and approves that revision; a stale tab uses draft/open-latest recovery, and a lost response can be retried within the open editor without a duplicate render. Receipts survive backup/restore, preserve terminal states and do not bypass request allowances. This closes the observed late-Trash admission race. Cross-reload offline recovery, lifecycle erasure of job/receipt/media history, broader capacity/spend controls and the longer-video production targets remain separate work.
+
+## Render media-memory checkpoint — 0.19.0, 30 October 2026
+
+Image/audio bytes no longer enter composition props; all render media uses job-scoped private loopback URLs, streamed fingerprints, bounded ranges and attempt-owned descriptors. Chromium still decodes full images and rendering still consumes CPU/memory; this change alone does not establish a five-minute/1080p guarantee or globally isolated ingestion. Unit checks also receive a fresh private fallback root rather than writing media-only fixture files into the actual studio. Longer mixed-media benchmarks, normalized revision storage, ingestion capacity controls and privacy erasure remain open.

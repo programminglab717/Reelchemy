@@ -7,7 +7,7 @@ import sharp from "sharp";
 const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-images-"));
 process.env.REELCHEMY_DATA_DIR = dir;
 after(() => rm(dir, { recursive: true, force: true }));
-const { storeImage, resolveAssetSources, validAssetId, assetDir } =
+const { storeImage, validAssetId, assetDir } =
   await import("../src/lib/assets");
 import { mockPlan } from "../src/lib/provider";
 test("image ingestion verifies bytes, sanitizes names and renderer resolves only local data", async () => {
@@ -26,10 +26,18 @@ test("image ingestion verifies bytes, sanitizes names and renderer resolves only
   const t = mockPlan({ prompt: "Test", duration: 5, format: "square" });
   t.scenes[0].layers[2].assetId = asset.id;
   t.scenes[0].layers[2].kind = "image";
-  const sources = await resolveAssetSources(t);
-  assert(sources[asset.id].startsWith("data:image/png;base64,"));
+  const { serveRenderAssets } = await import("../src/lib/render-assets");
+  const media = await serveRenderAssets(t);
+  try {
+    assert.deepEqual(
+      Buffer.from(await (await fetch(media.sources[asset.id])).arrayBuffer()),
+      data,
+    );
+  } finally {
+    await media.close();
+  }
   t.scenes[0].layers[2].assetId = "https://example.com/image.png";
-  await assert.rejects(() => resolveAssetSources(t));
+  await assert.rejects(() => serveRenderAssets(t));
 });
 test("all eight EXIF orientations become correct pixels and dimensions before private metadata is stripped", async (t) => {
   const colors = [

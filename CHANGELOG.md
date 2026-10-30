@@ -181,3 +181,10 @@
 - Add private project-scoped UUID export receipts so concurrent/retried requests reuse their original immutable job, including terminal jobs. Reject changed requests that reuse a key.
 - Save before approval, send the exact saved revision, reuse the current editor's key after a lost response, and expose existing draft/open-latest conflict recovery when another tab changed the saved video.
 - Preserve receipts through verified backup/restore without resurrecting interrupted jobs. Existing bodyless API clients remain supported; normal request allowances still apply to retries.
+
+## 0.19.0 — 2026-10-30
+
+- Stream render-time image/audio/video through a private per-attempt loopback capability and immutable media allowlist, replacing embedded image/audio byte strings in render props. Hash media in 64 KB chunks and retain bounded regular-file descriptors for the job.
+- Support concurrent byte ranges and correct normalized media types, reject symlinks/pipes/unknown IDs, cancel fingerprint preparation, and close active responses/descriptors on success, failure or cancellation. Content hashes keep cache keys independent of random capabilities.
+- Use Remotion's image component so frame capture waits for image loading/decoding.
+- Give unit checks private fallback storage and offline settings even for older tests that import media ingestion before configuring their own fixtures; real saved storage is preserved.

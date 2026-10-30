@@ -6,12 +6,13 @@ This is an actively developed local build toward the public product, with releas
 
 ## Run
 
-Requirements: Node.js 24 (see `.node-version`; minimum 22.13), npm, FFmpeg/ffprobe on PATH, and Chromium. This cloud machine already supplies all four. On Debian/Ubuntu, install system prerequisites with `sudo apt-get update && sudo apt-get install -y ffmpeg chromium`; installation may require host permission. Other platforms must provide a compatible Chromium and set `CHROMIUM_PATH`.
+Requirements: Node.js 24 (see `.node-version`; minimum 22.13), npm, FFmpeg/ffprobe on PATH, Chromium and Linux `flock` for the production worker. This cloud machine already supplies them. On Debian/Ubuntu, install system prerequisites with `sudo apt-get update && sudo apt-get install -y ffmpeg chromium util-linux`; installation may require host permission. Other platforms must provide a compatible Chromium and set `CHROMIUM_PATH`.
 
 ```sh
 cd /workspace/Reelchemy
 npm ci --cache /workspace/.npm
 npm run seed
+npm run db:migrate
 # Terminal 1: keep the render worker running
 npm run worker
 # Terminal 2: start the studio
@@ -108,7 +109,7 @@ All studio APIs now require a verified account. Create one at `/sign-in`, verify
 
 For local development, auth creates a random private signing key in `.data/auth-secret`; verification/reset mail is queued as private `.data/mail/*.json` files. These files contain credentials/links: never commit, log or expose them through an API. Automated tests consume only their own synthetic mail. Use configured SMTP for normal manual email delivery. Production refuses the file-mail fallback and requires `BETTER_AUTH_SECRET` (32+ random characters), an HTTPS `BETTER_AUTH_URL`, `EMAIL_DELIVERY=smtp`, `SMTP_HOST` and `EMAIL_FROM`. Configure SMTP credentials in the deployment secret manager; do not supply them in chat. Signing secrets must be raw server-side deployment secrets, not network-proxy credential placeholders.
 
-Run `npm run auth:migrate` before serving a production deployment, with the same environment settings as the web service. Keep `npm run mail:worker` running alongside the web and render workers for SMTP delivery. The private outbox persists messages, caps delivery attempts, backs off failures and moves stale/exhausted messages to its `failed` folder. Delivery is at least once; inspect failed-mail counts through operational tooling rather than printing message bodies or token URLs. A real mail service and HTTPS staging deployment have not been live-validated in this checkpoint.
+Run `npm run db:migrate` before serving a production deployment, with the same environment settings as the web service. Keep `npm run mail:worker` running alongside the web and render workers for SMTP delivery. The private outbox persists messages, caps delivery attempts, backs off failures and moves stale/exhausted messages to its `failed` folder. Delivery is at least once; inspect failed-mail counts through operational tooling rather than printing message bodies or token URLs. A real mail service and HTTPS staging deployment have not been live-validated in this checkpoint.
 
 Existing prototype projects remain on disk but are not assigned to an arbitrary new customer. After registering/verifying the intended owner, run `npm run workspace:claim -- --email=owner@example.com` to inspect the legacy project count. Add `--apply` to assign only still-unowned projects. Never expose that operation as a public route. `.data/backups/studio-before-tenant-migration.sqlite` preserves the pre-migration project database; uploaded files remain in `.data/assets`.
 
@@ -134,7 +135,7 @@ Upload **MP4 / MOV / WebM** with its source/usage rights, then choose **Add vide
 
 Input clips are capped at 25 MB, 120 seconds, 8.3 megapixels and 120 fps. H.264, HEVC, VP8, VP9 and AV1 in MP4/MOV/WebM containers are accepted by the validator. Normalization removes source metadata, limits picture size to fit within 1920×1080 without upscaling, converts to 30 fps H.264 and retains source audio as AAC. The normalized file must also fit 25 MB, preserve duration within three frames and fully decode. Normalization has a two-minute deadline; decoder support and performance remain platform-dependent. These limits do not raise the current sixty-second project/output-size caps or constitute an OS-level media sandbox.
 
-Private media GET supports single HTTP byte ranges for browser seeking, with authentication/resource authorization applied before range handling. Render-time video is served only on a random loopback port with a fresh capability token and an allowlist of that immutable job's video IDs. The server streams those files, serves no directory, and closes after the attempt. Video bytes are never embedded in renderer URL queries. Cache keys use file SHA-256 values, so temporary source ports/tokens do not defeat clip reuse. Keep worker ports private; they are internal services rather than public media endpoints.
+Private media GET supports single HTTP byte ranges for browser seeking, with authentication/resource authorization applied before range handling. Render-time images, video and audio are served by `render-assets.ts` only on a random loopback port with a fresh capability token and an allowlist of that immutable job's media IDs. The server streams bounded ranges from retained regular-file descriptors, serves no directory, rejects symlinks/pipes, and closes connections/files after the attempt. Media bytes are never embedded in renderer props or URL queries. Image rendering waits for decode before capturing a frame. Cache keys use streamed file SHA-256 values, so temporary source ports/tokens do not defeat clip reuse. Keep worker ports private; they are internal services rather than public media endpoints.
 
 Select a scene and move the playhead, then use **Split scene at playhead**. Both parts require at least one second and the project stays within 12 scenes. A split preserves total duration, global captions/audio, source frame ranges, preset phase, custom/camera keyframe poses, and the original outer fades; it introduces a cut between the two parts. Undo/redo includes the entire split. Background-only scenes are valid when a source clip ends before the cut.
 
@@ -225,3 +226,7 @@ The editor saves pending changes before export and approves that exact saved rev
 `POST /api/projects/:id/render` accepts an optional JSON `{baseRevisionId}` and an optional UUID `Idempotency-Key` header. Bodyless clients still export the latest saved project. Repeating the same project/key/requested revision returns the original job with `Idempotency-Replayed: true`, including a completed, failed or cancelled job; it never starts it again. Reusing that key for a different requested revision returns 409. Start a deliberate new export with a new key. Keys are scoped to a project and remain private behind its ownership/active-state checks. The current editor preserves a retry key while that editor remains open after an uncertain response; this is not cross-reload/offline request recovery.
 
 Retry attempts still consume the normal write/export request allowances. A stored receipt can replay even when the global queue is full, but cannot bypass authentication, Trash or those request limits. Receipts are retained alongside job history in the studio database, included in snapshots and preserved by restore; restored interrupted jobs remain failed when replayed and require a new key for a new export.
+
+## Isolated unit checks
+
+`npm test` gives media-only tests a fresh private fallback data/artifact/cache root, forces offline demo/file-mail settings, removes inherited provider/SMTP/signing credentials and cleans that fallback root when the suite exits. Individual database/account tests retain their own isolated fixtures. No application `.env` or saved user storage is needed. Use `npm test -- tests/assets.test.ts tests/archive.test.ts` to select files. Each file has a two-minute test timeout; run expensive browser/build/unit checks sequentially on this four-core host. For Chromium-heavy checks here, use the disposable tini verification container to reap browser descendants.

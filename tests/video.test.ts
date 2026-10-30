@@ -11,11 +11,10 @@ process.env.REELCHEMY_DATA_DIR = await mkdtemp(
   path.join(tmpdir(), "reelchemy-video-test-data-"),
 );
 const { storeVideo } = await import("../src/lib/video");
-const { assetDir, resolveAssetSources, validateProjectAssets } =
-  await import("../src/lib/assets");
+const { assetDir, validateProjectAssets } = await import("../src/lib/assets");
 const { probeMedia, muxAudio } = await import("../src/lib/audio");
 const { exportArchive, importArchive } = await import("../src/lib/archive");
-const { serveVideoAssets } = await import("../src/lib/video-server");
+const { serveRenderAssets } = await import("../src/lib/render-assets");
 const { sceneCacheKey } = await import("../src/lib/render-cache");
 test("a clip with a delayed source audio stream keeps its silence before the tone", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-delayed-audio-"));
@@ -232,10 +231,8 @@ test("real footage is normalized, bounded, resolved locally and round trips with
       createdAt: new Date().toISOString(),
     };
     validateProjectAssets(p, p.timeline!);
-    const sources = await resolveAssetSources(p.timeline!);
-    assert.equal(sources[asset.id], `local-video:${asset.id}`);
-    const serving = await serveVideoAssets(p.timeline!, sources);
-    const another = await serveVideoAssets(p.timeline!, sources);
+    const serving = await serveRenderAssets(p.timeline!);
+    const another = await serveRenderAssets(p.timeline!);
     const url = serving.sources[asset.id];
     try {
       assert.equal(new URL(url).hostname, "127.0.0.1");

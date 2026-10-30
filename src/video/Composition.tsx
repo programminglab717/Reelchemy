@@ -7,6 +7,7 @@ import {
   Sequence,
   useCurrentFrame,
   OffthreadVideo,
+  Img,
 } from "remotion";
 import {
   layerMotion,
@@ -159,7 +160,7 @@ function SceneView({
                     }}
                   />
                 ) : l.kind === "image" ? (
-                  <img
+                  <Img
                     alt=""
                     src={assetSources[l.assetId || ""]}
                     style={mediaStyle(l)}
