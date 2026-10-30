@@ -1,7 +1,20 @@
 import { ZodError } from "zod";
 import { RevisionConflict } from "./editor";
 import { RequestRateError, LimitConfigurationError } from "./limits-policy";
+import { MediaStorageLimitError } from "./media-storage-policy";
 export function failure(error: unknown) {
+  if (error instanceof MediaStorageLimitError)
+    return Response.json(
+      {
+        error: error.message,
+        code: error.code,
+        usedBytes: error.usedBytes,
+        limitBytes: error.limitBytes,
+        requiredBytes: error.requiredBytes,
+        remainingBytes: Math.max(0, error.limitBytes - error.usedBytes),
+      },
+      { status: 413, headers: { "Cache-Control": "private, no-store" } },
+    );
   if (error instanceof RequestRateError)
     return Response.json(
       {

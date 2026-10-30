@@ -1,4 +1,7 @@
 import type { Project, Timeline } from "./schema";
+export function validAssetId(id: string) {
+  return /^[a-f0-9-]{36}$/.test(id);
+}
 export function validateProjectAssets(
   project: Pick<Project, "assets">,
   t: Timeline,

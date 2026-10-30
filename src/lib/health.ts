@@ -5,6 +5,7 @@ import { dataDir, artifactDir, databaseHealthy } from "./db";
 import { getAuth } from "./auth";
 import { HEARTBEAT_NAME, recentHeartbeat } from "./worker-heartbeat";
 import { limitsPolicy } from "./limits-policy";
+import { mediaStorageLimit } from "./media-storage-policy";
 export async function readiness() {
   const checks = {
     database: false,
@@ -15,6 +16,7 @@ export async function readiness() {
   };
   try {
     limitsPolicy();
+    mediaStorageLimit();
     checks.limits = true;
   } catch {}
   try {

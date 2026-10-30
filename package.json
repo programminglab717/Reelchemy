@@ -1,6 +1,6 @@
 {
   "name": "reelchemy",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0",
@@ -16,6 +16,7 @@
     "format:check": "prettier --check .",
     "seed": "tsx scripts/seed.ts",
     "auth:migrate": "tsx scripts/auth-migrate.ts",
+    "db:migrate": "tsx scripts/migrate.ts",
     "workspace:claim": "tsx scripts/claim-legacy.ts",
     "mail:worker": "tsx scripts/mail-worker.ts",
     "test:isolated": "tsx scripts/test-isolated.ts",

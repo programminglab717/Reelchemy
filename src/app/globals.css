@@ -6,6 +6,32 @@
   --green: #daf39a;
   --dark: #283d2f;
 }
+.media-storage {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  margin: 12px 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  min-width: 0;
+}
+.media-storage-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.media-storage progress {
+  display: block;
+  width: 100%;
+  height: 10px;
+  accent-color: var(--dark);
+}
+.media-storage small {
+  color: var(--muted);
+  line-height: 1.5;
+}
 * {
   box-sizing: border-box;
 }

@@ -3,13 +3,11 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import type { Asset, Timeline } from "./schema";
+import { validAssetId } from "./project-assets";
 export const assetDir = path.resolve(
   process.env.REELCHEMY_DATA_DIR || ".data",
   "assets",
 );
-export function validAssetId(id: string) {
-  return /^[a-f0-9-]{36}$/.test(id);
-}
 export async function storeImage(
   bytes: Buffer,
   name: string,
@@ -38,6 +36,7 @@ export async function storeImage(
     source: "User upload",
     license,
     mime: "image/png",
+    bytes: clean.length,
     createdAt: new Date().toISOString(),
   };
 }
@@ -69,4 +68,4 @@ export async function resolveAssetSources(t: Timeline) {
   return sources;
 }
 
-export { validateProjectAssets } from "./project-assets";
+export { validateProjectAssets, validAssetId } from "./project-assets";

@@ -1,10 +1,20 @@
 import Database from "better-sqlite3";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, lstatSync } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import type { Project, RenderJob, Timeline, CreativeBrief } from "./schema";
+import type {
+  Asset,
+  Project,
+  RenderJob,
+  Timeline,
+  CreativeBrief,
+} from "./schema";
 import { revisionId, RevisionConflict } from "./editor";
-import { validateProjectAssets } from "./project-assets";
+import { validateProjectAssets, validAssetId } from "./project-assets";
+import {
+  mediaStorageLimit,
+  MediaStorageLimitError,
+} from "./media-storage-policy";
 // Runtime state lives on the mounted filesystem; do not embed it in server traces.
 export const dataDir = path.resolve(
   /* turbopackIgnore: true */ process.env.REELCHEMY_DATA_DIR || ".data",
@@ -47,7 +57,159 @@ db.transaction(() => {
   db.exec(
     "CREATE INDEX IF NOT EXISTS projects_trash_idx ON projects(workspace_id,trashed_at)",
   );
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS media_sizes(asset_id TEXT PRIMARY KEY,bytes INTEGER NOT NULL CHECK(bytes>=0)); CREATE TABLE IF NOT EXISTS schema_migrations(id TEXT PRIMARY KEY,applied_at TEXT NOT NULL)",
+  );
+  if (
+    !db
+      .prepare("SELECT id FROM schema_migrations WHERE id=?")
+      .get("media-size-census-v1")
+  ) {
+    rebuildMediaSizeIndex();
+  }
 }).immediate();
+function rebuildMediaSizeIndex() {
+  const rows = db
+    .prepare(
+      "SELECT DISTINCT json_extract(a.value,'$.id') AS id FROM projects p,json_each(p.data,'$.assets') a",
+    )
+    .all() as { id: string }[];
+  db.exec("DELETE FROM media_sizes");
+  let totalBytes = 0,
+    assetCount = 0;
+  for (const { id } of rows) {
+    if (typeof id !== "string" || !validAssetId(id)) continue;
+    const bytes = measuredMediaBytes(id);
+    db.prepare(
+      "INSERT OR IGNORE INTO media_sizes(asset_id,bytes) VALUES (?,?)",
+    ).run(id, bytes);
+    totalBytes += bytes;
+    assetCount++;
+  }
+  db.prepare(
+    "INSERT INTO schema_migrations(id,applied_at) VALUES (?,?) ON CONFLICT(id) DO UPDATE SET applied_at=excluded.applied_at",
+  ).run("media-size-census-v1", new Date().toISOString());
+  return { assetCount, totalBytes };
+}
+export function recountMediaStorage() {
+  return db.transaction(rebuildMediaSizeIndex).immediate();
+}
+function measuredMediaBytes(id: string) {
+  try {
+    const file = lstatSync(path.join(dataDir, "assets", id));
+    return file.isFile() ? file.size : 0;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return 0;
+    throw error;
+  }
+}
+function ownedMediaSizes(workspaceId: string) {
+  const query = () =>
+    (
+      db
+        .prepare(
+          "SELECT DISTINCT json_extract(a.value,'$.id') AS id,s.bytes FROM projects p,json_each(p.data,'$.assets') a LEFT JOIN media_sizes s ON s.asset_id=json_extract(a.value,'$.id') WHERE p.workspace_id=?",
+        )
+        .all(workspaceId) as { id: string | null; bytes: number | null }[]
+    ).filter(
+      (row): row is { id: string; bytes: number | null } =>
+        typeof row.id === "string" && validAssetId(row.id),
+    );
+  const found = query();
+  // Backfill newly referenced files from old snapshots/admin tools. Established
+  // studios keep a read-only path, and admissions hold the same writer lock.
+  if (found.some((row) => row.bytes === null))
+    return db
+      .transaction(() => {
+        for (const row of query())
+          if (row.bytes === null)
+            db.prepare(
+              "INSERT OR IGNORE INTO media_sizes(asset_id,bytes) VALUES (?,?)",
+            ).run(row.id, measuredMediaBytes(row.id));
+        return query().map((row) => ({ id: row.id, bytes: row.bytes || 0 }));
+      })
+      .immediate();
+  return found.map((row) => ({ id: row.id, bytes: row.bytes || 0 }));
+}
+export function mediaStorage(workspaceId: string) {
+  const owned = ownedMediaSizes(workspaceId);
+  const usedBytes = owned.reduce((sum, asset) => sum + asset.bytes, 0);
+  const limitBytes = mediaStorageLimit();
+  return {
+    usedBytes,
+    limitBytes,
+    remainingBytes: Math.max(0, limitBytes - usedBytes),
+    assetCount: owned.length,
+  };
+}
+function sizedMedia(assets: readonly Asset[]) {
+  return assets.map((asset) => {
+    if (!validAssetId(asset.id)) throw new Error("Invalid media asset.");
+    const bytes = measuredMediaBytes(asset.id);
+    if (bytes < 1) throw new Error("Normalized media is missing or invalid.");
+    return { ...asset, bytes };
+  });
+}
+function checkMediaStorage(
+  workspaceId: string,
+  assets: readonly (Asset & { bytes: number })[],
+) {
+  const owned = ownedMediaSizes(workspaceId),
+    known = new Map(owned.map((asset) => [asset.id, asset.bytes]));
+  const usedBytes = owned.reduce((sum, asset) => sum + asset.bytes, 0);
+  const added = new Map(assets.map((asset) => [asset.id, asset.bytes]));
+  for (const id of added.keys())
+    if (
+      !known.has(id) &&
+      db.prepare("SELECT asset_id FROM media_sizes WHERE asset_id=?").get(id)
+    )
+      throw new Error("Invalid media reference.");
+  const requiredBytes = Math.max(
+    0,
+    [...added].reduce(
+      (sum, [id, bytes]) => sum + bytes - (known.get(id) || 0),
+      0,
+    ),
+  );
+  const limitBytes = mediaStorageLimit();
+  if (requiredBytes > 0 && usedBytes + requiredBytes > limitBytes)
+    throw new MediaStorageLimitError(usedBytes, limitBytes, requiredBytes);
+  for (const [id, bytes] of added)
+    db.prepare(
+      "INSERT INTO media_sizes(asset_id,bytes) VALUES (?,?) ON CONFLICT(asset_id) DO UPDATE SET bytes=excluded.bytes",
+    ).run(id, bytes);
+}
+export function appendOwnedAsset(
+  projectId: string,
+  workspaceId: string,
+  asset: Asset,
+) {
+  const [normalized] = sizedMedia([asset]);
+  return db
+    .transaction(() => {
+      if (!projectInWorkspace(projectId, workspaceId)) return undefined;
+      const latest = getProject(projectId)!;
+      if (latest.assets?.some((existing) => existing.id === normalized.id))
+        return latest;
+      if ((latest.assets || []).length >= 30)
+        throw new Error("Project limit is 30 assets.");
+      checkMediaStorage(workspaceId, [normalized]);
+      latest.assets = [...(latest.assets || []), normalized];
+      return saveProject(latest);
+    })
+    .immediate();
+}
+export function saveImportedProject(project: Project, workspaceId: string) {
+  const assets = sizedMedia(project.assets || []);
+  return db
+    .transaction(() => {
+      if (getProject(project.id))
+        throw new Error("Imported project already exists.");
+      checkMediaStorage(workspaceId, assets);
+      return saveProject({ ...project, assets }, workspaceId);
+    })
+    .immediate();
+}
 export function takeRequestLimit(
   workspaceId: string,
   operation: string,

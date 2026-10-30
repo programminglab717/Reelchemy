@@ -87,7 +87,8 @@ export async function storeAudio(
     const normalized = probeMedia(output);
     const id = randomUUID();
     await mkdir(assetDir, { recursive: true });
-    await writeFile(path.join(assetDir, id), await readFile(output), {
+    const normalizedBytes = await readFile(output);
+    await writeFile(path.join(assetDir, id), normalizedBytes, {
       flag: "wx",
     });
     return {
@@ -97,6 +98,7 @@ export async function storeAudio(
         .replace(/[^a-zA-Z0-9._ -]/g, "_")
         .slice(0, 100),
       mime: "audio/wav",
+      bytes: normalizedBytes.length,
       durationFrames: Math.floor(Number(normalized.format.duration) * 30),
       source: "User upload",
       license,

@@ -30,7 +30,7 @@ x-runtime: &runtime
 services:
   migrate:
     <<: *runtime
-    command: [npm, run, auth:migrate]
+    command: [npm, run, db:migrate]
     restart: "no"
     network_mode: none
     cpus: 0.5
@@ -60,6 +60,7 @@ services:
       REELCHEMY_MEDIA_REQUESTS_PER_HOUR: ${REELCHEMY_MEDIA_REQUESTS_PER_HOUR:-30}
       REELCHEMY_PLANS_PER_DAY: ${REELCHEMY_PLANS_PER_DAY:-60}
       REELCHEMY_EXPORT_REQUESTS_PER_DAY: ${REELCHEMY_EXPORT_REQUESTS_PER_DAY:-30}
+      REELCHEMY_MEDIA_STORAGE_BYTES: ${REELCHEMY_MEDIA_STORAGE_BYTES:-536870912}
   render:
     <<: *runtime
     command: [npm, run, worker]

@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { Project } from "@/lib/schema";
 import { VideoUpload } from "./VideoUpload";
 import { NarrationRecorder } from "./NarrationRecorder";
+import { MediaStorage } from "./MediaStorage";
 export function AssetPanel({
   project,
   onProject,
@@ -21,6 +22,10 @@ export function AssetPanel({
   return (
     <section className="layer-editor">
       <h2>Project assets</h2>
+      <MediaStorage
+        projectId={project.id}
+        assetCount={project.assets?.length || 0}
+      />
       <NarrationRecorder
         projectId={project.id}
         onProject={onProject}

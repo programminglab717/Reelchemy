@@ -1,6 +1,6 @@
 # Reelchemy local storage operations
 
-This runbook covers the current single-host SQLite/filesystem adapter. It does not make the service ready for public production: managed storage, public quotas/abuse controls, staging, monitoring/alerts, retention, long-video benchmarks and creator acceptance still have open release gates. Live AI verification remains deferred.
+This runbook covers the current single-host SQLite/filesystem adapter. Managed storage, additional capacity/spend/abuse controls, staging, monitoring/alerts, retention, long-video benchmarks and creator acceptance still have open release gates. Live AI verification remains deferred.
 
 ## Container build and production checks
 
@@ -21,7 +21,7 @@ The disposable test profile runs the built production server with fresh database
 
 ## Single-host service template
 
-`compose.yaml` is a single-host template, not an internet deployment. First build `npm run container:build -- --target app --tag reelchemy:local`. Supply an operator-managed private environment file with an HTTPS `BETTER_AUTH_URL`, a stable strong `BETTER_AUTH_SECRET`, `SMTP_HOST` and `EMAIL_FROM`. Do not commit that file. `docker compose --env-file /path/to/private.env up -d migrate web render` runs the explicit one-shot authentication migration before web startup. Keep a coordinated backup before changing application/database versions.
+`compose.yaml` is a single-host template, not an internet deployment. First build `npm run container:build -- --target app --tag reelchemy:local`. Supply an operator-managed private environment file with an HTTPS `BETTER_AUTH_URL`, a stable strong `BETTER_AUTH_SECRET`, `SMTP_HOST` and `EMAIL_FROM`. Do not commit that file. Stop the previous version's writers and take a coordinated backup before upgrading. `docker compose --env-file /path/to/private.env up -d migrate web render` runs the explicit combined studio/account migration before web startup. On VFS hosts, run/remove the one-shot first (`docker compose --env-file /path/to/private.env run --rm --no-deps migrate`), then start `web render` with `up -d --no-deps`, avoiding three full image copies at once.
 
 Web binds only to host loopback. An external HTTPS reverse proxy, domain/certificate management, durable volumes, off-host backups and monitoring still need platform-specific configuration. Services use non-root users, read-only application filesystems, dropped capabilities, bounded resources and writable state volumes/tmpfs. The render worker has no external network and receives no authentication/provider/SMTP credentials through its environment. Never share its SQLite volumes across multiple hosts. Default request/render limits do not establish public load capacity.
 
@@ -103,3 +103,11 @@ The GitHub Actions workflow runs these tests and the isolated browser suite with
 `REELCHEMY_WRITES_PER_MINUTE` (120), `REELCHEMY_MEDIA_REQUESTS_PER_HOUR` (30), `REELCHEMY_PLANS_PER_DAY` (60) and `REELCHEMY_EXPORT_REQUESTS_PER_DAY` (30) accept positive integers. Counters are per workspace, persist in the studio database, and start a new window after expiry. A 429 includes Retry-After; a bad operator value returns 503 and sets the readiness `limits` check false. Authentication retains its separate signup/sign-in protections.
 
 Changing these numbers is not a capacity benchmark. Request caps do not enforce a stored-byte ceiling, actual provider token/dollar spending, global decoder isolation or IP-based public-abuse policy. Keep those release gates open until implemented/validated for the chosen hosting and budget. Restored studio snapshots include existing request-window counters; restore does not reset usage allowances.
+
+## Retained-media accounting
+
+`REELCHEMY_MEDIA_STORAGE_BYTES` defaults to 536870912 (512 MiB), accepts whole byte counts from 1 MiB through 1 TiB and applies independently to each verified studio. The derived `media_sizes` table indexes actual regular-file lengths, while project ownership/references determine the studio's total; Trash is included and repeated references to the same asset count once. Legacy/snapshot references are indexed without altering project content or deleting files. Newly referenced files missing from the index are backfilled before admission; incoming/archive byte claims are not trusted.
+
+Run `npm run db:migrate` with the service's data/artifact/auth environment while old writers are stopped, before starting web/render/mail. It initializes additive studio and auth migrations; `auth:migrate` remains available for auth-only maintenance. Keep the coordinated pre-upgrade snapshot. After an old-version rollback, restored legacy data or deliberate filesystem repair, `npm run db:migrate -- --recount-media` rebuilds the derived byte index from current references/files. Recounting is not media repair or deletion. Existing over-limit studios retain access to saved work; new bytes must fit. Quota is enforced transactionally across web processes, with cleanup of newly normalized files on rejected uploads/imports.
+
+The allowance covers retained normalized media, not completed exports, scene caches, backup copies, transient ingestion storage or physical disk reservation. It does not isolate global decoder processes or meter provider money. Keep separate disk monitoring, retention, processing-capacity and spending gates open. Production readiness continues to require the free-space floor independently of any studio allowance.

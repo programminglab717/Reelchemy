@@ -35,6 +35,12 @@ const portableProject = z.object({
         source: z.string().max(500),
         license: z.string().min(1).max(500),
         mime: z.enum(["image/png", "audio/wav", "video/mp4"]),
+        bytes: z
+          .number()
+          .int()
+          .min(1)
+          .max(25 * 1024 * 1024)
+          .optional(),
         width: z.number().int().min(1).max(4096).optional(),
         height: z.number().int().min(1).max(4096).optional(),
         hasAudio: z.boolean().optional(),

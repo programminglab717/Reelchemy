@@ -110,7 +110,8 @@ export async function storeVideo(
       ],
       { timeoutMs: 120000 },
     );
-    if ((await stat(output)).size > MAX_VIDEO_BYTES)
+    const outputBytes = (await stat(output)).size;
+    if (outputBytes > MAX_VIDEO_BYTES)
       throw new Error(
         "Normalized video exceeds 25 MB. Trim or compress the clip first.",
       );
@@ -155,6 +156,7 @@ export async function storeVideo(
     });
     return {
       id,
+      bytes: outputBytes,
       name:
         path
           .basename(name)

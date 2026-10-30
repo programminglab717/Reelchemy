@@ -161,3 +161,11 @@
 - Added real Chromium connection-lifecycle coverage and an API/browser case that cancels during frame rendering, then completes a follow-up export without resurrecting the cancelled job.
 - Fixed the 0.15.0 planning import regression found by an actual export: pure demo planning and asset validation now live separately from server/provider/native processing. The build explicitly compiles the independent Remotion browser bundle to catch this before deployment.
 - Added a disposable app-image service acceptance script for read-only/non-root/network restrictions, actual footage/caption/AAC encoding/full decode, duplicate-worker rejection, retained exports and one automatic recovery after a forced in-flight container crash. CI is configured to build the app target separately and preserve evidence. Executed service acceptance results are recorded in VALIDATION.md.
+
+## 0.17.0 — 2026-10-30
+
+- Added private, persistent per-studio normalized-media accounting and a configurable 512 MiB default allowance. Counts span all owned projects, including Trash, deduplicate shared asset references and measure actual files rather than trusting uploaded/archive metadata.
+- Upload/import commits atomically check current ownership/Trash, per-project asset count and remaining allowance. Rejected normalized files are removed; imports leave no partial project. Existing over-limit media and manual/data-only work remain available. Invalid operator values fail closed and affect readiness.
+- Added a private usage API and a responsive, refreshable studio media meter with failure recovery. New image/audio/video metadata includes measured stored bytes; portable import recalculates them.
+- Added additive legacy accounting/backfill, an explicit combined studio/account migration command and a recount option. A verified real-workspace backup was created before applying the new index.
+- Media allowance excludes exports, derived caches and backups. Global processing isolation, retention/permanent erasure and actual provider spend budgets remain separate public-production work.

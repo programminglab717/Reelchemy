@@ -256,6 +256,7 @@ export type Asset = {
   source: string;
   license: string;
   mime: "image/png" | "audio/wav" | "video/mp4";
+  bytes?: number;
   durationFrames?: number;
   width?: number;
   height?: number;

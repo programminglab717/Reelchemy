@@ -5,6 +5,7 @@ import { constants } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { tmpdir } from "node:os";
 import { testTls } from "./test-tls";
+import { DEFAULT_MEDIA_STORAGE_BYTES } from "../src/lib/media-storage-policy";
 const production = process.argv.includes("--production");
 if (production && process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0")
   throw new Error(
@@ -72,6 +73,7 @@ try {
     REELCHEMY_MEDIA_REQUESTS_PER_HOUR: "30",
     REELCHEMY_PLANS_PER_DAY: "60",
     REELCHEMY_EXPORT_REQUESTS_PER_DAY: "30",
+    REELCHEMY_MEDIA_STORAGE_BYTES: String(DEFAULT_MEDIA_STORAGE_BYTES),
     REELCHEMY_DATA_DIR: dir,
     REELCHEMY_ARTIFACT_DIR: path.join(dir, "artifacts"),
     REELCHEMY_RENDER_CACHE_DIR: path.join(dir, "cache"),
@@ -91,7 +93,7 @@ try {
     return child;
   };
   if (production) {
-    const migration = start(["--import", "tsx", "scripts/auth-migrate.ts"]);
+    const migration = start(["--import", "tsx", "scripts/migrate.ts"]);
     const code = await new Promise<number | null>((resolve, reject) => {
       migration.once("error", reject);
       migration.once("close", resolve);
