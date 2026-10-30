@@ -46,6 +46,8 @@ const environment = {
   REELCHEMY_MEDIA_REQUESTS_PER_HOUR: "30",
   REELCHEMY_PLANS_PER_DAY: "60",
   REELCHEMY_EXPORT_REQUESTS_PER_DAY: "30",
+  REELCHEMY_ACTIVE_EXPORTS_PER_STUDIO: "2",
+  REELCHEMY_MEDIA_STORAGE_BYTES: "536870912",
 };
 const override = path.join(directory, "compose.check.json");
 await writeFile(
@@ -205,6 +207,16 @@ try {
   web = (await run([...compose, "ps", "-q", "web"])).output.trim();
   render = (await run([...compose, "ps", "-q", "render"])).output.trim();
   assert(web && render);
+  const authMounts = JSON.parse(
+    (await run(["inspect", "--format", "{{json .Mounts}}", web])).output,
+  ) as { Destination: string; Name?: string }[];
+  const privateMount = authMounts.find(
+    (m) => m.Destination === "/app/private-auth",
+  );
+  assert(
+    privateMount?.Name,
+    "Web must have a distinct private authentication volume.",
+  );
   for (const id of [web, render]) {
     const config = JSON.parse(
       (await run(["inspect", "--format", "{{json .HostConfig}}", id])).output,
@@ -225,6 +237,16 @@ try {
       assert(
         !env.some((value) =>
           /^(BETTER_AUTH_SECRET|AI_API_KEY|SMTP_PASSWORD)=/.test(value),
+        ),
+      );
+      const mounts = JSON.parse(
+        (await run(["inspect", "--format", "{{json .Mounts}}", render])).output,
+      ) as { Destination: string; Name?: string }[];
+      assert(
+        !mounts.some(
+          (m) =>
+            m.Destination === "/app/private-auth" ||
+            m.Name === privateMount.Name,
         ),
       );
     }
@@ -252,8 +274,16 @@ try {
   );
   assert.equal((await execute("readonly", {}, web)).readonly, true);
   assert.equal((await execute("readonly")).readonly, true);
+  assert.equal(
+    (await execute("auth-owner", {}, web)).privateAccountStorage,
+    true,
+  );
+  assert.equal(
+    (await execute("auth-isolation")).authenticationFilesystemIsolated,
+    true,
+  );
   console.log(
-    "Migrations, private routes, health, environment credential separation and read-only restrictions passed.",
+    "Migrations, private routes, health, render credential/filesystem isolation and read-only restrictions passed.",
   );
   const seed = await execute("seed");
   await completed(seed.jobId);
@@ -340,6 +370,7 @@ try {
           "non-root-readonly",
           "render-network-none",
           "render-environment-credential-separation",
+          "render-authentication-filesystem-isolation",
           "real-footage-captions-aac",
           "full-decode",
           "duplicate-worker-rejected",

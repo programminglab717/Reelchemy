@@ -23,16 +23,16 @@ RUN --mount=type=secret,id=build_ca --mount=type=cache,target=/root/.npm \
 FROM base AS source
 COPY --from=dependencies --chown=node:node /app/node_modules ./node_modules
 COPY --chown=node:node . .
-RUN mkdir -p .data artifacts .next node_modules/.cache \
+RUN mkdir -p .data artifacts private-auth .next node_modules/.cache \
     && chown node:node /app \
-    && chown -R node:node .data artifacts .next node_modules/.cache \
-    && chmod 700 .data artifacts
+    && chown -R node:node .data artifacts private-auth .next node_modules/.cache \
+    && chmod 700 .data artifacts private-auth
 USER node
 
 FROM source AS build
 RUN npm run build
 # The image carries code/build output; live state only belongs on runtime volumes.
-RUN rm -rf .data artifacts && mkdir -m 700 .data artifacts
+RUN rm -rf .data artifacts private-auth && mkdir -m 700 .data artifacts private-auth
 
 FROM build AS test
 USER root

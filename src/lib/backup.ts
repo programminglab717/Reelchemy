@@ -178,15 +178,17 @@ function snapshotReferences(db: Database.Database) {
 // not copy live SQLite files/WAL bytes or claim cross-database transactionality.
 export async function createBackup(options: {
   data: string;
+  auth?: string;
   artifacts: string;
   output: string;
 }) {
   const output = path.resolve(options.output),
     data = path.resolve(options.data),
-    artifacts = path.resolve(options.artifacts);
+    artifacts = path.resolve(options.artifacts),
+    authDirectory = path.resolve(options.auth || options.data);
   outside(
     await canonicalCandidate(output),
-    await Promise.all([data, artifacts].map(canonicalCandidate)),
+    await Promise.all([data, artifacts, authDirectory].map(canonicalCandidate)),
   );
   if (await exists(path.join(data, "worker.lock")))
     throw new Error(
@@ -211,9 +213,9 @@ export async function createBackup(options: {
       throw new Error(
         "A render was active in this database snapshot. Stop services cleanly before backup.",
       );
-    if (await exists(path.join(data, "auth.sqlite"))) {
+    if (await exists(path.join(authDirectory, "auth.sqlite"))) {
       await snapshotDatabase(
-        path.join(data, "auth.sqlite"),
+        path.join(authDirectory, "auth.sqlite"),
         path.join(output, "data/auth.sqlite"),
       );
       const auth = openVerified(path.join(output, "data/auth.sqlite"));
@@ -228,9 +230,9 @@ export async function createBackup(options: {
       }
     } else if (refs.owners.length)
       throw new Error("Account database is required for owned workspaces.");
-    if (await exists(path.join(data, "auth-secret")))
+    if (await exists(path.join(authDirectory, "auth-secret")))
       await copyPrivate(
-        path.join(data, "auth-secret"),
+        path.join(authDirectory, "auth-secret"),
         path.join(output, "data/auth-secret"),
       );
     for (const id of refs.assets)
@@ -368,7 +370,17 @@ export async function restoreBackup(source: string, destination: string) {
       mode: 0o700,
     });
     await mkdir(path.join(root, "artifacts"), { recursive: true, mode: 0o700 });
-    const authFile = path.join(root, "data/auth.sqlite");
+    // Backups keep their existing portable v1 layout. Runtime restoration
+    // always separates account material, including legacy combined snapshots.
+    const authDirectory = path.join(root, "auth");
+    await mkdir(authDirectory, { mode: 0o700 });
+    for (const name of ["auth.sqlite", "auth-secret"])
+      if (await exists(path.join(root, "data", name)))
+        await rename(
+          path.join(root, "data", name),
+          path.join(authDirectory, name),
+        );
+    const authFile = path.join(authDirectory, "auth.sqlite");
     if (await exists(authFile)) {
       const auth = new Database(authFile);
       try {
@@ -424,11 +436,13 @@ export async function restoreBackup(source: string, destination: string) {
         snapshotAt: manifest.createdAt,
         sessionsRevoked: true,
         activeJobsFailed: true,
+        authenticationSeparated: true,
       }),
       { mode: 0o600, flag: "wx" },
     );
     return {
       data: path.join(root, "data"),
+      auth: authDirectory,
       artifacts: path.join(root, "artifacts"),
       files: manifest.entries.length,
     };

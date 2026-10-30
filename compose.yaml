@@ -5,6 +5,7 @@ x-auth-environment: &auth
   EMAIL_DELIVERY: smtp
   SMTP_HOST: ${SMTP_HOST:?Set an SMTP host}
   EMAIL_FROM: ${EMAIL_FROM:?Set the account sender address}
+  REELCHEMY_AUTH_DIR: /app/private-auth
 x-runtime: &runtime
   image: reelchemy:local
   build:
@@ -40,6 +41,10 @@ services:
       disable: true
     environment:
       <<: [*paths, *auth]
+    volumes:
+      - studio-data:/app/.data
+      - studio-artifacts:/app/artifacts
+      - studio-auth:/app/private-auth
   web:
     <<: *runtime
     depends_on:
@@ -50,6 +55,10 @@ services:
     pids_limit: 256
     ports:
       - "127.0.0.1:${REELCHEMY_HTTP_PORT:-3001}:3000"
+    volumes:
+      - studio-data:/app/.data
+      - studio-artifacts:/app/artifacts
+      - studio-auth:/app/private-auth
     environment:
       <<: [*paths, *auth]
       AI_PROVIDER: ${AI_PROVIDER:-mock}
@@ -88,9 +97,12 @@ services:
     pids_limit: 64
     healthcheck:
       disable: true
+    volumes:
+      - studio-auth:/app/private-auth
     environment:
       <<: *paths
       EMAIL_DELIVERY: smtp
+      REELCHEMY_AUTH_DIR: /app/private-auth
       SMTP_HOST: ${SMTP_HOST:?Set an SMTP host}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}
@@ -99,3 +111,4 @@ services:
 volumes:
   studio-data:
   studio-artifacts:
+  studio-auth:

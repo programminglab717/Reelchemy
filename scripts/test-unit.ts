@@ -44,6 +44,7 @@ for (const key of [
   "SMTP_USER",
   "SMTP_PASSWORD",
   "EMAIL_FROM",
+  "REELCHEMY_AUTH_DIR",
 ])
   delete env[key];
 try {

@@ -44,7 +44,10 @@ export async function account(request: APIRequestContext, label = "Creator") {
   return { email, password };
 }
 export async function mailLink(email: string, subject: string) {
-  const dir = path.resolve(process.env.REELCHEMY_DATA_DIR || ".data", "mail");
+  const dir = path.resolve(
+    process.env.REELCHEMY_AUTH_DIR || process.env.REELCHEMY_DATA_DIR || ".data",
+    "mail",
+  );
   for (let attempt = 0; attempt < 40; attempt++) {
     let files: string[] = [];
     try {

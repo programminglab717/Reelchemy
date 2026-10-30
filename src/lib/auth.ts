@@ -5,6 +5,7 @@ import { mkdirSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { deliverMail, mailConfig } from "./mail";
+import { authStorageDirectory } from "./auth-storage";
 function signingSecret(dir: string) {
   if (process.env.BETTER_AUTH_SECRET) {
     if (process.env.BETTER_AUTH_SECRET.length < 32)
@@ -38,10 +39,9 @@ function createAuth() {
     throw new Error(
       "Production authentication requires an HTTPS BETTER_AUTH_URL.",
     );
-  const dir = path.resolve(
-    /* turbopackIgnore: true */ process.env.REELCHEMY_DATA_DIR || ".data",
-  );
-  mkdirSync(dir, { recursive: true });
+  const dir = authStorageDirectory();
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  chmodSync(dir, 0o700);
   const authFile = path.join(dir, "auth.sqlite");
   const database = new Database(authFile);
   for (const file of [authFile, authFile + "-wal", authFile + "-shm"]) {

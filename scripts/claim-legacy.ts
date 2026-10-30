@@ -1,12 +1,13 @@
 import Database from "better-sqlite3";
 import path from "node:path";
-import { dataDir, ensureWorkspace, claimLegacyProjects } from "../src/lib/db";
+import { ensureWorkspace, claimLegacyProjects } from "../src/lib/db";
+import { authStorageDirectory } from "../src/lib/auth-storage";
 const email = process.argv.find((a) => a.startsWith("--email="))?.slice(8);
 if (!email)
   throw new Error(
     "Provide --email=<verified account>. Default is a dry run; add --apply to assign unowned legacy projects.",
   );
-const auth = new Database(path.join(dataDir, "auth.sqlite"), {
+const auth = new Database(path.join(authStorageDirectory(), "auth.sqlite"), {
   readonly: true,
 });
 const user = auth

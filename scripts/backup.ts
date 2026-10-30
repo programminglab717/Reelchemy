@@ -7,6 +7,11 @@ try {
       JSON.stringify(
         await createBackup({
           data: path.resolve(process.env.REELCHEMY_DATA_DIR || ".data"),
+          auth: path.resolve(
+            process.env.REELCHEMY_AUTH_DIR ||
+              process.env.REELCHEMY_DATA_DIR ||
+              ".data",
+          ),
           artifacts: path.resolve(
             process.env.REELCHEMY_ARTIFACT_DIR || "artifacts",
           ),

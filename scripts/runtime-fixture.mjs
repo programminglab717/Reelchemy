@@ -1,6 +1,14 @@
 // Synthetic, private runtime fixture. Invoked through docker exec by check-runtime.
 import { execFileSync } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+  mkdir,
+  access,
+  stat,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
@@ -160,6 +168,47 @@ if (operation === "seed") {
   timeline.captions[0].text = "Recovered container export";
   reviseProject(project, timeline, "Synthetic restart fixture");
   console.log(JSON.stringify({ jobId: createJob(project).id }));
+} else if (operation === "auth-owner") {
+  const { authStorageDirectory } = await import("../src/lib/auth-storage.ts");
+  const directory = authStorageDirectory();
+  if (directory !== "/app/private-auth")
+    throw new Error("Unexpected private authentication mount.");
+  const account = await stat(path.join(directory, "auth.sqlite"));
+  if (!account.isFile() || (account.mode & 0o777) !== 0o600)
+    throw new Error("Private account database is unavailable or not private.");
+  await writeFile(
+    path.join(directory, "auth-secret"),
+    "synthetic-isolation-canary",
+    { mode: 0o600, flag: "wx" },
+  );
+  await mkdir(path.join(directory, "mail"), { mode: 0o700 });
+  await writeFile(path.join(directory, "mail", "isolation-canary.json"), "{}", {
+    mode: 0o600,
+    flag: "wx",
+  });
+  console.log(JSON.stringify({ privateAccountStorage: true }));
+} else if (operation === "auth-isolation") {
+  const names = ["auth.sqlite", "auth-secret", "mail/isolation-canary.json"];
+  for (const root of ["/app/private-auth", process.env.REELCHEMY_DATA_DIR])
+    for (const name of names) {
+      try {
+        await access(path.join(root, name));
+        throw new Error(
+          "Render process can access private authentication material.",
+        );
+      } catch (error) {
+        if (!["ENOENT", "EACCES"].includes(error.code)) throw error;
+      }
+    }
+  try {
+    await writeFile("/app/private-auth/renderer-write-canary", "unexpected", {
+      flag: "wx",
+    });
+    throw new Error("Render process can write account storage.");
+  } catch (error) {
+    if (!["EROFS", "EACCES"].includes(error.code)) throw error;
+  }
+  console.log(JSON.stringify({ authenticationFilesystemIsolated: true }));
 } else if (operation === "readonly") {
   try {
     await writeFile("/app/runtime-must-be-readonly", "unexpected write");

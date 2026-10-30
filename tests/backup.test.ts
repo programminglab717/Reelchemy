@@ -159,7 +159,7 @@ test("backup/restore drill preserves accounts, private workspaces/media and expo
       path.join(restored.artifacts, job.id, "video.mp4"),
     );
     target.close();
-    const accounts = new Database(path.join(restored.data, "auth.sqlite"));
+    const accounts = new Database(path.join(restored.auth, "auth.sqlite"));
     assert.equal(
       (
         accounts.prepare('SELECT count(*) as n FROM "session"').get() as {
@@ -198,6 +198,7 @@ test("backup/restore drill preserves accounts, private workspaces/media and expo
         env: {
           ...process.env,
           REELCHEMY_DATA_DIR: restored.data,
+          REELCHEMY_AUTH_DIR: restored.auth,
           REELCHEMY_ARTIFACT_DIR: restored.artifacts,
           TEST_OLD_COOKIE: oldCookie,
         },

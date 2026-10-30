@@ -211,3 +211,10 @@
 - Add an atomic default two-active-export limit per studio within the shared five-job queue, with bounded operator configuration, explicit capacity error contracts and safe receipt replay.
 - Add a compact private Studio exports panel/API for cross-project progress, open/cancel actions and failed-check recovery, including mobile layout.
 - Index job status/project lookups and validate the studio limit in readiness; preserve ordinary attempt quotas and offline shared-cap behavior.
+
+## 0.23.0 — 2026-10-30
+
+- Separate production account databases, signing-file material and queued mail from media/export storage; give web/migration/mail the private authentication volume and omit it from render. Mail mounts no media/export volume.
+- Refuse overlapping account roots and legacy authentication files in production media storage. Preserve the development legacy fallback and provide non-destructive backup/restore cutover into new separate directories.
+- Keep v1 backup compatibility, return an explicit restored account path, revoke only restored sessions/tokens, and adapt offline owner assignment and synthetic mail fixtures.
+- Exclude private runtime/environment files from Next server traces and check both trace/required-file manifests; add actual app-image filesystem canaries to service acceptance.

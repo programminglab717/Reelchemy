@@ -23,11 +23,11 @@ The disposable test profile runs the built production server with fresh database
 
 `compose.yaml` is a single-host template, not an internet deployment. First build `npm run container:build -- --target app --tag reelchemy:local`. Supply an operator-managed private environment file with an HTTPS `BETTER_AUTH_URL`, a stable strong `BETTER_AUTH_SECRET`, `SMTP_HOST` and `EMAIL_FROM`. Do not commit that file. Stop the previous version's writers and take a coordinated backup before upgrading. `docker compose --env-file /path/to/private.env up -d migrate web render` runs the explicit combined studio/account migration before web startup. On VFS hosts, run/remove the one-shot first (`docker compose --env-file /path/to/private.env run --rm --no-deps migrate`), then start `web render` with `up -d --no-deps`, avoiding three full image copies at once.
 
-Web binds only to host loopback. An external HTTPS reverse proxy, domain/certificate management, durable volumes, off-host backups and monitoring still need platform-specific configuration. Services use non-root users, read-only application filesystems, dropped capabilities, bounded resources and writable state volumes/tmpfs. The render worker has no external network and receives no authentication/provider/SMTP credentials through its environment. Never share its SQLite volumes across multiple hosts. Default request/render limits do not establish public load capacity.
+Web binds only to host loopback. An external HTTPS reverse proxy, domain/certificate management, durable volumes, off-host backups and monitoring still need platform-specific configuration. Services use non-root users, read-only application filesystems, dropped capabilities, bounded resources and writable state volumes/tmpfs. The render worker has no external network and receives no authentication/provider/SMTP credentials through its environment. Accounts, signing-file material and queued mail use `studio-auth:/app/private-auth`, mounted by web/migration and mail services; the render worker mounts only studio data and exports. The mail service mounts only private authentication storage. Never share its SQLite volumes across multiple hosts. Default request/render limits do not establish public load capacity.
 
 The separate `smtp` profile enables the mail worker only when deliberately activated by an operator with verified SMTP configuration. SMTP credentials belong to that worker; web only queues account messages. Do not activate SMTP for local acceptance or restore drills. Without a mail worker, new users cannot receive their verification/reset messages. Live email delivery and public hosting remain unverified release gates.
 
-After building the `app` target, run `npm run test:runtime -- --image reelchemy:local` (or `node scripts/check-runtime.ts --image reelchemy:local` on the pinned Node runtime). This creates a unique Compose project with private synthetic storage, probes migration/readiness and read-only/non-root restrictions, verifies render network/environment credentials, encodes and fully decodes actual footage/captions/AAC, rejects a second worker, and kills/restarts the render container during another job. Exactly one automatic retry must complete while retaining the first export. The command removes only its disposable services/volumes and leaves a private report or failure log under `/tmp/reelchemy-runtime-*`. It does not start a mail worker. This environment-credential check does not establish separate storage/process isolation for the current shared SQLite/filesystem adapter.
+After building the `app` target, run `npm run test:runtime -- --image reelchemy:local` (or `node scripts/check-runtime.ts --image reelchemy:local` on the pinned Node runtime). This creates a unique Compose project with private synthetic storage, probes migration/readiness and read-only/non-root restrictions, verifies render network/environment credentials, encodes and fully decodes actual footage/captions/AAC, rejects a second worker, and kills/restarts the render container during another job. Exactly one automatic retry must complete while retaining the first export. The command removes only its disposable services/volumes and leaves a private report or failure log under `/tmp/reelchemy-runtime-*`. It does not start a mail worker. The check also verifies distinct account-volume mounts and probes that render cannot read account/key/mail canaries or write the private account directory. Executed outcomes are recorded in VALIDATION.md. Web-side ingestion and broader process isolation remain separate work.
 
 ## Availability checks
 
@@ -43,14 +43,14 @@ Stop the worker gracefully with SIGTERM/SIGINT and wait for exit; it records int
 
 Stop web, render and mail services before a coordinated backup. The command rejects an existing render-worker lock and snapshots containing an actively rendering job; it cannot prove that every web/mail writer has stopped. Pausing all writers is an operator precondition. The SQLite backup API produces a standalone snapshot of each database; copying live `.sqlite`/WAL files directly is not the backup procedure.
 
-From the repository directory, with the same `REELCHEMY_DATA_DIR` and `REELCHEMY_ARTIFACT_DIR` used by the services:
+From the repository directory, with the same `REELCHEMY_DATA_DIR`, `REELCHEMY_AUTH_DIR` and `REELCHEMY_ARTIFACT_DIR` used by the services:
 
 ```sh
 npm run backup -- create /path/to/new-private-backup
 npm run backup -- verify /path/to/new-private-backup
 ```
 
-The destination must not exist and must be outside both source directories, including symlink aliases. Creation uses a private directory (0700), private files (0600), checksummed entries and a manifest written after copying. Creation verifies its result. Failures clean up only the new destination created by that operation; existing backups are never overwritten.
+The destination must not exist and must be outside all data/account/export source directories, including symlink aliases. Creation uses a private directory (0700), private files (0600), checksummed entries and a manifest written after copying. Creation verifies its result. Failures clean up only the new destination created by that operation; existing backups are never overwritten.
 
 Included: standalone studio/auth databases, the development signing-secret file when present, media referenced by project asset metadata, and completed/failed export directories. Verification checks SHA-256 and file sizes, SQLite integrity, referenced-media/export presence and workspace-account references. Missing completed exports or referenced media fail the backup.
 
@@ -71,19 +71,22 @@ npm run backup -- restore /path/to/trusted-backup /path/to/new-restore
 
 The command verifies before creating the target, rejects traversal/symlinks/unexpected files, copies only listed entries and writes a private `RESTORE.json`. It revokes copied sessions and verification/reset tokens so users must sign in again. Queued/rendering jobs become failed with an explicit restore message; they do not silently restart. Saved projects and terminal exports remain. Export paths in saved job reports are rebased to the restored artifact directory; older evidence JSON can retain historical diagnostic paths.
 
-Use the returned data/artifact paths in an isolated test instance:
+Restore returns separate `data`, `auth` and `artifacts` paths, including for legacy combined snapshots. Account files are relocated only in the new restored copy; the original installation/snapshot is preserved. Supply the returned paths explicitly in an isolated test instance:
 
 ```sh
 REELCHEMY_DATA_DIR=/path/to/new-restore/data \
+REELCHEMY_AUTH_DIR=/path/to/new-restore/auth \
 REELCHEMY_ARTIFACT_DIR=/path/to/new-restore/artifacts \
-npm run auth:migrate
+npm run db:migrate
 
 # Separate terminals, same paths/environment:
 REELCHEMY_DATA_DIR=/path/to/new-restore/data \
+REELCHEMY_AUTH_DIR=/path/to/new-restore/auth \
 REELCHEMY_ARTIFACT_DIR=/path/to/new-restore/artifacts \
 npm run worker
 
 REELCHEMY_DATA_DIR=/path/to/new-restore/data \
+REELCHEMY_AUTH_DIR=/path/to/new-restore/auth \
 REELCHEMY_ARTIFACT_DIR=/path/to/new-restore/artifacts \
 npm run dev -- --port 3003
 ```
@@ -111,3 +114,13 @@ Changing these numbers is not a capacity benchmark. Request caps do not enforce 
 Run `npm run db:migrate` with the service's data/artifact/auth environment while old writers are stopped, before starting web/render/mail. It initializes additive studio and auth migrations; `auth:migrate` remains available for auth-only maintenance. Keep the coordinated pre-upgrade snapshot. After an old-version rollback, restored legacy data or deliberate filesystem repair, `npm run db:migrate -- --recount-media` rebuilds the derived byte index from current references/files. Recounting is not media repair or deletion. Existing over-limit studios retain access to saved work; new bytes must fit. Quota is enforced transactionally across web processes, with cleanup of newly normalized files on rejected uploads/imports.
 
 The allowance covers retained normalized media, not completed exports, scene caches, backup copies, transient ingestion storage or physical disk reservation. It does not isolate global decoder processes or meter provider money. Keep separate disk monitoring, retention, processing-capacity and spending gates open. Production readiness continues to require the free-space floor independently of any studio allowance.
+
+## Private authentication cutover (0.23.0)
+
+Fresh Compose volumes already use a separate private account volume. For native production, set `REELCHEMY_AUTH_DIR` explicitly outside both data and artifact roots; canonical path overlap is refused. The filesystem boundary comes from the container mounts. Merely using another directory in an unrestricted native process does not sandbox that process.
+
+For an existing combined installation, stop **all** web/render/mail writers, create/verify a coordinated snapshot with the correct legacy source settings, and restore it to a new private root. Use the returned `data`, `auth` and `artifacts` directories as separate runtime mounts/settings. Copy only the corresponding restored contents into fresh service volumes with ownership matching the application's `node` user (UID 1000), directories 0700 and private files 0600. Do not overlay an old combined media volume or copy credentials back into media storage. Keep the original installation stopped for rollback. New production initialization rejects known `auth.sqlite`, `auth-secret` or `mail` leftovers in its media root.
+
+Existing v1 snapshots remain supported; their offline private backup layout still contains `data/auth.sqlite`/`data/auth-secret`, while runtime restore relocates those files to the returned `auth` directory. Pending mail and environment secrets are excluded as before; request fresh verification/reset messages and retain the operator-managed raw signing secret/configuration separately. Restored sessions/tokens are revoked and pending jobs are failed, so users sign in and explicitly start a new export. Do not run an SMTP worker during a drill.
+
+The `workspace:claim` maintenance script reads the configured account directory; assignment remains offline, explicit and dry-run by default. The production build checks both NFT traces and required-server-file manifests for media/account/environment paths. Actual current-image filesystem/service acceptance and public deployment are separate gates recorded in VALIDATION.md.

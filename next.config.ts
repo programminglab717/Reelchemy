@@ -3,6 +3,9 @@ const config: NextConfig = {
   logging: { incomingRequests: false, serverFunctions: false },
   distDir: process.env.REELCHEMY_NEXT_DIST_DIR || ".next",
   allowedDevOrigins: ["127.0.0.1"],
+  outputFileTracingExcludes: {
+    "/*": [".data/**/*", "artifacts/**/*", "private-auth/**/*", ".env*"],
+  },
   serverExternalPackages: [
     "better-sqlite3",
     "better-auth",

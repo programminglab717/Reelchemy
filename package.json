@@ -1,10 +1,10 @@
 {
   "name": "reelchemy",
-  "version": "0.22.0",
+  "version": "0.23.0",
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0",
-    "build": "next build && tsx scripts/check-build.ts && tsx scripts/check-render-bundle.ts",
+    "build": "next build && tsx scripts/check-build.ts && tsx scripts/check-private-traces.ts && tsx scripts/check-render-bundle.ts",
     "start": "next start --hostname 0.0.0.0",
     "typecheck": "tsc --noEmit",
     "test": "tsx scripts/test-unit.ts",

@@ -9,6 +9,7 @@ import {
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import nodemailer from "nodemailer";
+import { authStorageDirectory } from "./auth-storage";
 export type Mail = { to: string; subject: string; text: string };
 export function mailConfig(
   env: Record<string, string | undefined> = process.env,
@@ -26,7 +27,7 @@ export function mailConfig(
   return delivery;
 }
 export function mailDir() {
-  return path.resolve(process.env.REELCHEMY_DATA_DIR || ".data", "mail");
+  return path.join(authStorageDirectory(), "mail");
 }
 export async function deliverMail(mail: Mail) {
   mailConfig();
