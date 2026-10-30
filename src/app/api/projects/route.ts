@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   createProject,
   listProjects,
+  listProjectSummaries,
   countProjects,
   reviseProject,
 } from "@/lib/db";
@@ -12,11 +13,12 @@ export const runtime = "nodejs";
 async function GETHandler(req: Request, _ctx: unknown, access: Access) {
   try {
     const search = new URL(req.url).searchParams;
-    const { query, offset, limit, trashed } = z
+    const { query, offset, limit, trashed, view } = z
       .object({
         query: z.string().trim().max(100),
         offset: z.coerce.number().int().min(0).max(100000),
         limit: z.coerce.number().int().min(1).max(50),
+        view: z.enum(["full", "summary"]),
         trashed: z
           .enum(["true", "false"])
           .transform((value) => value === "true"),
@@ -25,15 +27,19 @@ async function GETHandler(req: Request, _ctx: unknown, access: Access) {
         query: search.get("q") || "",
         offset: search.get("offset") || 0,
         limit: search.get("limit") || 50,
+        view: search.get("view") || "full",
         trashed: search.get("trashed") || "false",
       });
     const count = countProjects(access.workspace.id, query, trashed);
-    const projects = listProjects(access.workspace.id, {
-      query,
-      offset,
-      limit,
-      trashed,
-    });
+    const projects = (view === "summary" ? listProjectSummaries : listProjects)(
+      access.workspace.id,
+      {
+        query,
+        offset,
+        limit,
+        trashed,
+      },
+    );
     return Response.json(projects, {
       headers: {
         "Cache-Control": "private, no-store",

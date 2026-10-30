@@ -193,3 +193,8 @@
 
 - Bound layout-browser startup/review, close it when cancellation/deadline interrupts page creation, and release it if page setup fails.
 - Shut down complete owned test-service lineages, including Chromium that detaches or outlives its launcher; give worker cleanup its full grace period, remove completed migration processes from supervision, and handle runner interrupts. Private inherited markers distinguish each test lineage without logging environment contents or signaling unrelated services.
+
+## 0.20.0 — 2026-10-30
+
+- Add private, compact project-list metadata for Studio and Trash. Search/pagination no longer transfer all project histories, asset catalogs, prompts and conversations into the browser.
+- Retain exact saved-version counts and Trash timestamps, load full data on project open, and preserve the existing full-project API for clients without the summary view.

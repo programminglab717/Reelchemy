@@ -98,6 +98,16 @@ test("Trash hides private routes/cancels jobs and restores the saved editor, med
   await expect(
     page.getByRole("heading", { name: "Recoverable story", exact: true }),
   ).toBeVisible();
+  const summary = await (
+    await request.get("/api/projects?trashed=true&view=summary")
+  ).json();
+  expect(summary).toHaveLength(1);
+  expect(summary[0]).toMatchObject({ id: p.id, revisionCount: 2 });
+  expect(summary[0].revisions).toBeUndefined();
+  expect(summary[0].timeline).toBeUndefined();
+  await expect(
+    page.getByText("2 saved versions", { exact: true }),
+  ).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
   expect(
     await page.evaluate(

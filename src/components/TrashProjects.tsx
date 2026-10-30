@@ -1,12 +1,12 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import type { Project } from "@/lib/schema";
+import type { ProjectSummary } from "@/lib/schema";
 export function TrashProjects() {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState<{
     query: string;
-    projects: Project[];
+    projects: ProjectSummary[];
     next: number | null;
     count: number;
   } | null>(null);
@@ -20,7 +20,7 @@ export function TrashProjects() {
     const timer = setTimeout(
       () => {
         void fetch(
-          `/api/projects?trashed=true&limit=20&q=${encodeURIComponent(query)}`,
+          `/api/projects?trashed=true&limit=20&q=${encodeURIComponent(query)}&view=summary`,
           { signal: controller.signal },
         )
           .then(async (response) => {
@@ -93,7 +93,7 @@ export function TrashProjects() {
                         ? `Moved to Trash ${new Date(project.trashedAt).toLocaleString()}`
                         : ""}
                     </p>
-                    <small>{project.revisions.length} saved versions</small>
+                    <small>{project.revisionCount} saved versions</small>
                   </div>
                   <button
                     type="button"
@@ -141,7 +141,7 @@ export function TrashProjects() {
                 setError("");
                 try {
                   const response = await fetch(
-                    `/api/projects?trashed=true&limit=20&offset=${page.next}&q=${encodeURIComponent(query)}`,
+                    `/api/projects?trashed=true&limit=20&offset=${page.next}&q=${encodeURIComponent(query)}&view=summary`,
                   );
                   const projects = await response.json();
                   if (!response.ok)

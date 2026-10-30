@@ -230,3 +230,9 @@ Retry attempts still consume the normal write/export request allowances. A store
 ## Isolated unit checks
 
 `npm test` gives media-only tests a fresh private fallback data/artifact/cache root, forces offline demo/file-mail settings, removes inherited provider/SMTP/signing credentials and cleans that fallback root when the suite exits. Individual database/account tests retain their own isolated fixtures. No application `.env` or saved user storage is needed. Use `npm test -- tests/assets.test.ts tests/archive.test.ts` to select files. Each file has a two-minute test timeout; run expensive browser/build/unit checks sequentially on this four-core host. For Chromium-heavy checks here, use the disposable tini verification container to reap browser descendants.
+
+## Compact project libraries (0.20.0)
+
+Studio search/pagination and Trash request `GET /api/projects?view=summary`. Each result contains only `id`, `name`, `createdAt`, `revisionCount` and, for Trash, `trashedAt`. Existing filters, private scope and pagination headers apply; metadata is extracted in SQLite without hydrating full project histories in JavaScript or the browser. Opening a project fetches its full saved editor data. Omitting `view` (or choosing `full`) preserves the existing full-project API response for clients.
+
+This reduces listing payloads and browser memory. Histories still reside inside project JSON and are loaded when opening/saving a project; normalized/lazy history storage and realistic long-project benchmarks remain open.

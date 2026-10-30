@@ -136,3 +136,7 @@ Public exports now use an atomic active-owner/revision/media/QC/capacity check a
 ## Render media-memory checkpoint — 0.19.0, 30 October 2026
 
 Image/audio bytes no longer enter composition props; all render media uses job-scoped private loopback URLs, streamed fingerprints, bounded ranges and attempt-owned descriptors. Chromium still decodes full images and rendering still consumes CPU/memory; this change alone does not establish a five-minute/1080p guarantee or globally isolated ingestion. Unit checks also receive a fresh private fallback root rather than writing media-only fixture files into the actual studio. Longer mixed-media benchmarks, normalized revision storage, ingestion capacity controls and privacy erasure remain open.
+
+## Project library memory checkpoint — 0.20.0, 30 October 2026
+
+Studio/Trash listings now extract compact private metadata in SQLite; they do not hydrate/transfer complete histories on each search or navigation refresh. The existing full API remains compatible and editor opening still fetches the complete project. A 400-revision fixture retains its data while its summary stays under 250 bytes. This is a listing improvement; embedded histories still need normalization/lazy loading before larger-project performance can be claimed.

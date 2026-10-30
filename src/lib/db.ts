@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import type {
   Asset,
   Project,
+  ProjectSummary,
   RenderJob,
   Timeline,
   CreativeBrief,
@@ -315,6 +316,28 @@ export function getProject(id: string): Project | undefined {
   const row = db.prepare("SELECT data FROM projects WHERE id=?").get(id) as
     { data: string } | undefined;
   return row ? JSON.parse(row.data) : undefined;
+}
+// Listing UIs need metadata only. Extract it in SQLite rather than moving and
+// parsing every saved timeline/history/message/asset catalog into JS/browser
+// memory on each search or navigation refresh.
+export function listProjectSummaries(
+  workspaceId: string,
+  options: ProjectQuery = {},
+): ProjectSummary[] {
+  const filter = projectFilter(workspaceId, options.query, options.trashed);
+  const rows = db
+    .prepare(
+      `SELECT id,json_extract(data,'$.name') AS name,json_extract(data,'$.createdAt') AS createdAt,COALESCE(json_array_length(data,'$.revisions'),0) AS revisionCount,trashed_at AS trashedAt FROM projects${filter.where} ORDER BY rowid DESC LIMIT ? OFFSET ?`,
+    )
+    .all(
+      ...filter.values,
+      Math.min(50, Math.max(1, options.limit || 50)),
+      Math.max(0, options.offset || 0),
+    ) as (Omit<ProjectSummary, "trashedAt"> & { trashedAt: string | null })[];
+  return rows.map(({ trashedAt, ...summary }) => ({
+    ...summary,
+    ...(trashedAt ? { trashedAt } : {}),
+  }));
 }
 export function saveProject(p: Project, workspaceId?: string) {
   db.prepare(

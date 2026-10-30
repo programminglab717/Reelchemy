@@ -96,3 +96,60 @@ test("Trash cancels active exports and hides resources without losing saved work
   assert.equal(db.listProjects(workspace.id)[0].id, p.id);
   assert.equal(JSON.stringify(db.getProject(p.id)), original);
 });
+test("compact listings omit full history, prompts, messages and media while retaining private search/Trash metadata", () => {
+  const owner = db.ensureWorkspace("summary-owner", "Summary owner");
+  const foreign = db.ensureWorkspace("summary-foreign", "Other");
+  const p = db.createProject(
+    { prompt: "History 100%_name", duration: 5, format: "landscape" },
+    owner.id,
+  );
+  p.timeline = blankTimeline(p.brief);
+  p.messages.push({
+    role: "assistant",
+    content: "Private conversation ".repeat(100),
+  });
+  p.assets = [
+    {
+      id: crypto.randomUUID(),
+      name: "Private asset",
+      license: "Private rights",
+      source: "Private source",
+      mime: "image/png",
+      createdAt: p.createdAt,
+    },
+  ];
+  p.revisions = Array.from({ length: 400 }, () => ({
+    id: crypto.randomUUID(),
+    timeline: p.timeline!,
+    source: "Private saved work",
+    createdAt: p.createdAt,
+  }));
+  db.saveProject(p);
+  const [summary] = db.listProjectSummaries(owner.id, { query: "%_" });
+  assert.deepEqual(Object.keys(summary).sort(), [
+    "createdAt",
+    "id",
+    "name",
+    "revisionCount",
+  ]);
+  assert.equal(summary.id, p.id);
+  assert.equal(summary.revisionCount, 400);
+  assert.equal(summary.createdAt, p.createdAt);
+  assert(Buffer.byteLength(JSON.stringify(p)) > 100000);
+  assert(Buffer.byteLength(JSON.stringify(summary)) < 250);
+  assert.deepEqual(db.listProjectSummaries(foreign.id), []);
+  assert.deepEqual(db.listProjectSummaries(owner.id, { offset: 1 }), []);
+  assert.deepEqual(
+    db.getProject(p.id),
+    p,
+    "summary reads must not compact or mutate saved work",
+  );
+  const at = db.setProjectTrashed(p.id, true).trashedAt;
+  assert.deepEqual(db.listProjectSummaries(owner.id), []);
+  assert.deepEqual(
+    db.listProjectSummaries(owner.id, { trashed: true, query: "%_" }),
+    [{ ...summary, trashedAt: at }],
+  );
+  db.setProjectTrashed(p.id, false);
+  assert.deepEqual(db.listProjectSummaries(owner.id), [summary]);
+});

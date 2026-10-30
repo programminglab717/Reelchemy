@@ -20,6 +20,7 @@ import {
   formats,
   totalFrames,
   type Project,
+  type ProjectSummary,
   type RenderJob,
   type Timeline,
   type Layer,
@@ -70,7 +71,7 @@ export function Studio() {
   const router = useRouter();
   const editor = useProjectEditor();
   const { project, dirty, save, change: editorChange } = editor;
-  const [projects, setProjects] = useState<Project[]>([]),
+  const [projects, setProjects] = useState<ProjectSummary[]>([]),
     [prompt, setPrompt] = useState(""),
     [duration, setDuration] = useState(15),
     [format, setFormat] = useState<Timeline["format"]>("landscape");
@@ -106,7 +107,7 @@ export function Studio() {
     const timer = setTimeout(
       () => {
         void fetch(
-          `/api/projects?limit=20&q=${encodeURIComponent(projectQuery)}`,
+          `/api/projects?limit=20&q=${encodeURIComponent(projectQuery)}&view=summary`,
           { signal: controller.signal },
         )
           .then(async (response) => {
@@ -144,7 +145,7 @@ export function Studio() {
     setLoadingMore(true);
     try {
       const response = await fetch(
-        `/api/projects?limit=20&offset=${nextOffset}&q=${encodeURIComponent(projectQuery)}`,
+        `/api/projects?limit=20&offset=${nextOffset}&q=${encodeURIComponent(projectQuery)}&view=summary`,
       );
       const result = await response.json();
       if (!response.ok)
@@ -208,7 +209,7 @@ export function Studio() {
       setJob(null);
     });
   }
-  async function navigate(p: Project | null) {
+  async function navigate(p: Pick<Project, "id"> | null) {
     await run(async () => {
       if (recordingPending)
         throw new Error(

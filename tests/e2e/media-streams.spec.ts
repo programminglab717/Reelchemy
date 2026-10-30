@@ -71,7 +71,7 @@ test("large normalized images and narration export exact first-frame pixels/audi
     ...p.timeline.scenes[0],
     id: `photo-${index}`,
     durationFrames: 75,
-    transition: "none",
+    transition: "cut",
     layers: [
       {
         ...p.timeline.scenes[0].layers[0],
@@ -84,7 +84,7 @@ test("large normalized images and narration export exact first-frame pixels/audi
         width: 0.8,
         height: 0.8,
         animation: "none",
-        mediaFit: "cover",
+        imageFit: "cover",
       },
     ],
   }));

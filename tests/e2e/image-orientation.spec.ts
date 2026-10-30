@@ -61,7 +61,7 @@ test("phone JPEG orientation survives normalization, portable import, preview an
       width: 0.4,
       height: 0.8,
       animation: "none",
-      mediaFit: "contain",
+      imageFit: "contain",
     },
   ];
   expect(

@@ -33,7 +33,31 @@ test("project search/pages find older work and rename preserves history with pri
   expect(first.headers()["x-total-count"]).toBe("22");
   expect(first.headers()["x-next-offset"]).toBe("20");
   expect((await request.get("/api/projects?limit=51")).status()).toBe(400);
+  expect((await request.get("/api/projects?view=unknown")).status()).toBe(400);
+  const compact = await request.get("/api/projects?limit=20&view=summary");
+  expect(compact.status()).toBe(200);
+  expect(compact.headers()["cache-control"]).toBe("private, no-store");
+  expect(compact.headers()["x-total-count"]).toBe("22");
+  expect(compact.headers()["x-next-offset"]).toBe("20");
+  const summaries = await compact.json();
+  expect(summaries).toHaveLength(20);
+  expect(Object.keys(summaries[0]).sort()).toEqual([
+    "createdAt",
+    "id",
+    "name",
+    "revisionCount",
+  ]);
+  expect(summaries[0].revisionCount).toBe(1);
+  expect((await compact.body()).length).toBeLessThan(
+    (await first.body()).length / 3,
+  );
+  const listing = page.waitForResponse(
+    (r) =>
+      r.url().includes("/api/projects?") &&
+      new URL(r.url()).searchParams.get("view") === "summary",
+  );
   await page.goto("/");
+  expect((await (await listing).json())[0].revisions).toBeUndefined();
   await expect(
     page.getByRole("button", { name: "Old 100%_special", exact: false }),
   ).toHaveCount(0);
@@ -85,7 +109,13 @@ test("project search/pages find older work and rename preserves history with pri
     baseURL: process.env.PLAYWRIGHT_BASE_URL,
   });
   try {
+    expect(
+      (await outsider.request.get("/api/projects?view=summary")).status(),
+    ).toBe(401);
     await account(outsider.request, "Outside rename");
+    expect(
+      await (await outsider.request.get("/api/projects?view=summary")).json(),
+    ).toEqual([]);
     expect(
       (
         await outsider.request.patch(`/api/projects/${older.id}/name`, {

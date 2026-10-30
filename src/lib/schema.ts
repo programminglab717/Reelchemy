@@ -296,6 +296,13 @@ export type Project = {
   createdAt: string;
   trashedAt?: string;
 };
+export type ProjectSummary = {
+  id: string;
+  name: string;
+  createdAt: string;
+  revisionCount: number;
+  trashedAt?: string;
+};
 export type ProviderConfig = {
   provider: "mock" | "compatible";
   model?: string;
