@@ -20,3 +20,19 @@ test("Chromium detects clipped text and localized repair fits it without changin
   assert(r.changes.length > 0);
   assert.deepEqual(r.timeline.scenes[1], t.scenes[1]);
 });
+test("layout cancellation before and during browser startup is bounded and keeps the next review usable", async () => {
+  const t = mockPlan({
+    prompt: "Cancelable layout",
+    duration: 5,
+    format: "landscape",
+  });
+  const output = await mkdtemp(path.join(tmpdir(), "reelchemy-layout-cancel-"));
+  await assert.rejects(() => checkLayout(t, output, () => true), /cancelled/i);
+  let checks = 0;
+  await assert.rejects(
+    () => checkLayout(t, output, () => ++checks >= 2),
+    /cancelled/i,
+  );
+  assert(checks >= 2, "cancel after browser launch rather than only at entry");
+  assert.equal((await checkLayout(t, output)).after.length, 0);
+});

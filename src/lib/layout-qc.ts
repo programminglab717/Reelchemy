@@ -6,6 +6,7 @@ import path from "node:path";
 import { formats, type Timeline, type QCIssue } from "./schema";
 import { textStyle } from "./text-style";
 import { CaptionOverlay } from "../video/CaptionOverlay";
+import { CommandCancelledError, CommandTimeoutError } from "./process";
 export class RenderQCError extends Error {
   constructor(public issues: QCIssue[]) {
     super(issues.map((i) => i.message).join(" "));
@@ -18,14 +19,23 @@ export async function checkLayout(
   outputDir: string,
   cancelled: () => boolean = () => false,
 ) {
+  if (cancelled()) throw new CommandCancelledError();
+  const deadline = Date.now() + 60000;
   const timeline = structuredClone(input);
   await mkdir(outputDir, { recursive: true });
   const browser = await chromium.launch({
     executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
     args: ["--no-sandbox"],
+    timeout: 30000,
   });
-  const page = await browser.newPage({ viewport: formats[timeline.format] });
-  await page.route("**/*", (r) => r.abort());
+  let reason: Error | undefined, closing: Promise<void> | undefined;
+  const close = () => (closing ??= browser.close());
+  const stop = () => {
+    if (cancelled()) reason ??= new CommandCancelledError();
+    else if (Date.now() >= deadline) reason ??= new CommandTimeoutError();
+    if (reason) void close().catch(() => {});
+  };
+  const timer = setInterval(stop, 100);
   const before: QCIssue[] = [],
     after: QCIssue[] = [],
     changes: {
@@ -35,6 +45,12 @@ export async function checkLayout(
       after: number;
     }[] = [];
   try {
+    stop();
+    if (reason) throw reason;
+    const page = await browser.newPage({ viewport: formats[timeline.format] });
+    page.setDefaultTimeout(15000);
+    page.setDefaultNavigationTimeout(15000);
+    await page.route("**/*", (r) => r.abort());
     for (const [i, scene] of timeline.scenes.entries()) {
       if (cancelled()) throw new Error("Render cancelled.");
       for (let pass = 0; pass <= 2; pass++) {
@@ -174,8 +190,11 @@ export async function checkLayout(
         after.push(issue);
       }
     }
+  } catch (error) {
+    throw reason || error;
   } finally {
-    await browser.close();
+    clearInterval(timer);
+    await close();
   }
   return {
     timeline,

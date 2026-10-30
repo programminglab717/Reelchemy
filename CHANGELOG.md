@@ -188,3 +188,8 @@
 - Support concurrent byte ranges and correct normalized media types, reject symlinks/pipes/unknown IDs, cancel fingerprint preparation, and close active responses/descriptors on success, failure or cancellation. Content hashes keep cache keys independent of random capabilities.
 - Use Remotion's image component so frame capture waits for image loading/decoding.
 - Give unit checks private fallback storage and offline settings even for older tests that import media ingestion before configuring their own fixtures; real saved storage is preserved.
+
+## 0.19.1 — 2026-10-30
+
+- Bound layout-browser startup/review, close it when cancellation/deadline interrupts page creation, and release it if page setup fails.
+- Shut down complete owned test-service lineages, including Chromium that detaches or outlives its launcher; give worker cleanup its full grace period, remove completed migration processes from supervision, and handle runner interrupts. Private inherited markers distinguish each test lineage without logging environment contents or signaling unrelated services.

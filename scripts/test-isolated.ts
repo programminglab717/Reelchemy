@@ -1,4 +1,9 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
+import {
+  spawnTestProcess,
+  signalTestProcess,
+  shutdownTestProcesses,
+} from "./test-process";
 import { mkdtemp, open, mkdir, cp, rm, access } from "node:fs/promises";
 import path from "node:path";
 import { constants } from "node:fs";
@@ -50,6 +55,15 @@ if (production) {
 const log = await open(path.join(dir, "services.log"), "a");
 let tls: Awaited<ReturnType<typeof testTls>> | undefined;
 const services: ChildProcess[] = [];
+let tests: ChildProcess | undefined,
+  interrupted = false;
+const interrupt = () => {
+  interrupted = true;
+  if (tests) signalTestProcess(tests, "SIGINT");
+  for (const service of services) signalTestProcess(service, "SIGTERM");
+};
+process.on("SIGTERM", interrupt);
+process.on("SIGINT", interrupt);
 let result = 1;
 try {
   if (production) tls = await testTls(port, dir);
@@ -84,7 +98,7 @@ try {
   delete env.AI_API_KEY;
   delete env.SMTP_PASSWORD;
   const start = (arguments_: string[]) => {
-    const child = spawn(process.execPath, arguments_, {
+    const child = spawnTestProcess(process.execPath, arguments_, {
       env,
       cwd: app,
       stdio: ["ignore", log.fd, log.fd],
@@ -98,6 +112,7 @@ try {
       migration.once("error", reject);
       migration.once("close", resolve);
     });
+    services.splice(services.indexOf(migration), 1);
     if (code !== 0)
       throw new Error("Production authentication migration failed.");
   }
@@ -121,6 +136,7 @@ try {
           })
         ).status;
   while (Date.now() < deadline) {
+    if (interrupted) throw new Error("Isolated tests interrupted.");
     if (server.exitCode !== null || worker.exitCode !== null)
       throw new Error("Test services exited before readiness.");
     try {
@@ -138,38 +154,30 @@ try {
   console.log(
     `Isolated ${production ? "production HTTPS" : "development"} account and render services ready.`,
   );
-  const tests = spawn(
+  if (interrupted) throw new Error("Isolated tests interrupted.");
+  tests = spawnTestProcess(
     process.execPath,
     ["node_modules/@playwright/test/cli.js", "test", ...args],
     { env, cwd: app, stdio: "inherit" },
   );
   result = await new Promise<number>((resolve, reject) => {
-    tests.on("error", reject);
-    tests.on("close", (code) => resolve(code ?? 1));
+    tests!.on("error", reject);
+    tests!.on("close", (code) => resolve(code ?? 1));
   });
 } catch (e) {
   console.error(e instanceof Error ? e.message : "Isolated tests failed.");
 } finally {
-  for (const child of services) child.kill("SIGTERM");
-  await Promise.all(
-    services.map(
-      (child) =>
-        new Promise<void>((resolve) => {
-          if (child.exitCode !== null) {
-            resolve();
-            return;
-          }
-          const timer = setTimeout(() => {
-            child.kill("SIGKILL");
-            resolve();
-          }, 5000);
-          child.once("close", () => {
-            clearTimeout(timer);
-            resolve();
-          });
-        }),
-    ),
-  );
+  process.off("SIGTERM", interrupt);
+  process.off("SIGINT", interrupt);
+  if (interrupted) result = 1;
+  try {
+    await shutdownTestProcesses([...services, ...(tests ? [tests] : [])]);
+  } catch (error) {
+    result = 1;
+    console.error(
+      error instanceof Error ? error.message : "Test process cleanup failed.",
+    );
+  }
   await tls?.close();
   await log.close();
   if (process.env.E2E_EVIDENCE_DIR) {

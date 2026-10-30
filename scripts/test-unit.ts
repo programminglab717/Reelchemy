@@ -1,4 +1,8 @@
-import { spawn } from "node:child_process";
+import {
+  spawnTestProcess,
+  signalTestProcess,
+  shutdownTestProcesses,
+} from "./test-process";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -42,7 +46,7 @@ for (const key of [
 ])
   delete env[key];
 try {
-  const child = spawn(
+  const child = spawnTestProcess(
     process.execPath,
     [
       "--import",
@@ -54,7 +58,7 @@ try {
     ],
     { env, stdio: "inherit" },
   );
-  const stop = (signal: NodeJS.Signals) => child.kill(signal);
+  const stop = (signal: NodeJS.Signals) => signalTestProcess(child, signal);
   const term = () => stop("SIGTERM"),
     interrupt = () => stop("SIGINT");
   process.on("SIGTERM", term);
@@ -67,6 +71,7 @@ try {
   } finally {
     process.off("SIGTERM", term);
     process.off("SIGINT", interrupt);
+    await shutdownTestProcesses([child]);
   }
 } finally {
   await rm(dir, { recursive: true, force: true });
