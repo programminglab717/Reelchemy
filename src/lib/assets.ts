@@ -20,7 +20,12 @@ export async function storeImage(
   const meta = await image.metadata();
   if (!["png", "jpeg"].includes(meta.format || ""))
     throw new Error("Only PNG and JPEG images are supported.");
-  const clean = await image.png().toBuffer();
+  // Bake EXIF orientation into the pixels before stripping private metadata.
+  // Otherwise phone photos lose their intended rotation/mirroring on export.
+  const { data: clean, info } = await image
+    .autoOrient()
+    .png()
+    .toBuffer({ resolveWithObject: true });
   if (clean.length > 20 * 1024 * 1024)
     throw new Error("Decoded image is too large.");
   const id = randomUUID();
@@ -37,6 +42,8 @@ export async function storeImage(
     license,
     mime: "image/png",
     bytes: clean.length,
+    width: info.width,
+    height: info.height,
     createdAt: new Date().toISOString(),
   };
 }

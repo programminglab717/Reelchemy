@@ -21,6 +21,17 @@ test("editable archive round trip preserves content/history and remaps local ass
     duration: 5,
     format: "landscape" as const,
   };
+  // Existing image admission limits pixel count, allowing edges over 4096.
+  // Accurate new image dimensions must not make such projects unimportable.
+  const wide = await storeImage(
+    await sharp({
+      create: { width: 5000, height: 2, channels: 3, background: "#123456" },
+    })
+      .png()
+      .toBuffer(),
+    "panorama.png",
+    "Test-owned",
+  );
   const timeline = mockPlan(brief);
   timeline.scenes[0].layers[2].kind = "image";
   timeline.scenes[0].layers[2].assetId = asset.id;
@@ -29,7 +40,7 @@ test("editable archive round trip preserves content/history and remaps local ass
     name: "Test",
     brief,
     timeline,
-    assets: [asset],
+    assets: [asset, wide],
     messages: [{ role: "user", content: brief.prompt }],
     createdAt: new Date().toISOString(),
     revisions: [
@@ -44,6 +55,8 @@ test("editable archive round trip preserves content/history and remaps local ass
   const restored = await importArchive(await exportArchive(p));
   assert.notEqual(restored.id, p.id);
   assert.notEqual(restored.assets![0].id, asset.id);
+  assert.equal(restored.assets![1].width, 5000);
+  assert.equal(restored.assets![1].height, 2);
   assert.equal(
     restored.timeline!.scenes[0].layers[2].assetId,
     restored.assets![0].id,

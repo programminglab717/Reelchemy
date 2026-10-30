@@ -41,8 +41,10 @@ const portableProject = z.object({
           .min(1)
           .max(25 * 1024 * 1024)
           .optional(),
-        width: z.number().int().min(1).max(4096).optional(),
-        height: z.number().int().min(1).max(4096).optional(),
+        // Image admission bounds decoded pixels, not each edge. Dimensions
+        // are re-measured by normalization rather than trusted on import.
+        width: z.number().int().min(1).max(16000000).optional(),
+        height: z.number().int().min(1).max(16000000).optional(),
         hasAudio: z.boolean().optional(),
         durationFrames: z.number().int().min(0).max(3600).optional(),
         createdAt: z.string().datetime(),

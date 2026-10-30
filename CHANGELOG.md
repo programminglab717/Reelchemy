@@ -169,3 +169,8 @@
 - Added a private usage API and a responsive, refreshable studio media meter with failure recovery. New image/audio/video metadata includes measured stored bytes; portable import recalculates them.
 - Added additive legacy accounting/backfill, an explicit combined studio/account migration command and a recount option. A verified real-workspace backup was created before applying the new index.
 - Media allowance excludes exports, derived caches and backups. Global processing isolation, retention/permanent erasure and actual provider spend budgets remain separate public-production work.
+
+## 0.17.1 — 2026-10-30
+
+- Apply all eight EXIF orientations, including mirrored phone photos, to normalized image pixels before stripping private metadata. Retain accurate normalized width, height and byte size for planning/accounting.
+- Portable projects accept the dimensions of existing wide images allowed by the 16 MP ingestion bound; import still decodes, validates and measures the real file rather than trusting manifest dimensions.
