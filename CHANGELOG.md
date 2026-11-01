@@ -280,3 +280,9 @@
 ## 0.31.1 — 2026-11-01
 
 - Hide the decorative export arrow from assistive technology so the button's accessible name is exactly “Approve & export MP4”. The first library browser acceptance reached export after its reuse/deletion checks but timed out on that exact name; its failure remains recorded and the three library cases are rerun after rebuilding.
+
+## 0.32.0 — 2026-11-01
+
+- Replace missing font-symbol decorations with inline SVG across studio navigation, idea cards, scene tiles, editing controls, downloads, sign-in branding and error dismissal. Icons stay outside accessible names and keyboard focus; existing button labels remain meaningful.
+- Show the verified studio account's name/initial instead of the placeholder profile, with bounded desktop and mobile identity displays. Account changes still remount under the verified user and stop stale requests.
+- Keep the sign-in wordmark visible on narrow screens by scoping the collapsed wordmark rule to the sidebar. Remove the decorative profile glyph that implied an unavailable menu.

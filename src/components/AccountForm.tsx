@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { Icon } from "./Icon";
 export function AccountForm() {
   const search = useSearchParams();
   const router = useRouter();
@@ -18,7 +19,7 @@ export function AccountForm() {
     <main className="account-page">
       <section className="account-card">
         <Link href="/" className="wordmark">
-          ✳ reelchemy
+          <Icon name="sparkle" size={22} /> reelchemy
         </Link>
         <h1>
           {token

@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "./Icon";
 import { useEffect, useRef, useState } from "react";
 import type { Layer } from "@/lib/schema";
 export function LayerRotation({
@@ -142,7 +143,7 @@ export function LayerRotation({
             apply(((angle - 90 + 180 + 360) % 360) - 180);
           }}
         >
-          ↶ 90°
+          <Icon name="rotate-left" size={14} /> 90°
         </button>
         <button
           type="button"
@@ -152,7 +153,7 @@ export function LayerRotation({
             apply(((angle + 90 + 180) % 360) - 180);
           }}
         >
-          ↷ 90°
+          <Icon name="rotate-right" size={14} /> 90°
         </button>
         <button
           type="button"

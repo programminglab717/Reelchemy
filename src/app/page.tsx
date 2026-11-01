@@ -16,7 +16,11 @@ export default async function Page() {
   if (!session?.user.emailVerified) redirect("/sign-in");
   return (
     <AccountBoundary key={session.user.id} userId={session.user.id}>
-      <Studio key={session.user.id} userId={session.user.id} />
+      <Studio
+        key={session.user.id}
+        userId={session.user.id}
+        userName={session.user.name || "Creator"}
+      />
     </AccountBoundary>
   );
 }

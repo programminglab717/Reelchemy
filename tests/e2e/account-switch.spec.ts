@@ -26,6 +26,9 @@ test("switching accounts stops stale studio requests, preserves the original dra
     await request.get("/api/auth/get-session")
   ).json();
   await page.goto("/");
+  await expect(
+    page.getByRole("group", { name: "Signed-in account" }),
+  ).toContainText("Original creator");
   await page.getByRole("button", { name: "Start from a blank canvas" }).click();
   await holdDraft(page, "Only the original creator's draft");
   const [firstProject] = await (await request.get("/api/projects")).json();
@@ -83,6 +86,9 @@ test("switching accounts stops stale studio requests, preserves the original dra
   await expect(
     page.getByRole("button", { name: nextProject.name, exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("group", { name: "Signed-in account" }),
+  ).toContainText("Next creator");
   await page
     .getByRole("button", { name: nextProject.name, exact: true })
     .click();

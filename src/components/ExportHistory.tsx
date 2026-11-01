@@ -2,6 +2,7 @@
 import { useAccountFetch } from "./AccountBoundary";
 import { useEffect, useState } from "react";
 import type { RenderJob } from "@/lib/schema";
+import { Icon } from "./Icon";
 export function ExportHistory({
   projectId,
   current,
@@ -79,7 +80,7 @@ export function QualityEvidence({ job }: { job: RenderJob }) {
         target="_blank"
         rel="noreferrer"
       >
-        Open QC report ↗
+        Open QC report <Icon name="arrow-up-right" size={14} />
       </a>
       {job.issues.map((i, n) => (
         <p key={n}>

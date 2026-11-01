@@ -22,6 +22,7 @@ import { ExportHistory, QualityEvidence } from "./ExportHistory";
 import { MediaEditor } from "./MediaEditor";
 import { ImportProject } from "./ProjectPortability";
 import { useAccountFetch } from "./AccountBoundary";
+import { Icon, type IconName } from "./Icon";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -36,28 +37,36 @@ import {
   type Timeline,
   type Layer,
 } from "@/lib/schema";
-const ideas = [
-  {
-    icon: "↗",
-    tag: "EXPLAINER",
-    title: "Make the complex, clear.",
-    prompt: "Explain how a small idea grows into something extraordinary.",
-  },
-  {
-    icon: "☼",
-    tag: "STORY",
-    title: "Build a world worth watching.",
-    prompt:
-      "A quiet journey through an imaginary mountain landscape at sunrise.",
-  },
-  {
-    icon: "✳",
-    tag: "PROMO",
-    title: "Give your next launch a little magic.",
-    prompt: "A bold, minimal launch film for a new creative notebook.",
-  },
-];
-export function Studio({ userId }: { userId: string }) {
+const ideas: { icon: IconName; tag: string; title: string; prompt: string }[] =
+  [
+    {
+      icon: "arrow-up-right",
+      tag: "EXPLAINER",
+      title: "Make the complex, clear.",
+      prompt: "Explain how a small idea grows into something extraordinary.",
+    },
+    {
+      icon: "sun",
+      tag: "STORY",
+      title: "Build a world worth watching.",
+      prompt:
+        "A quiet journey through an imaginary mountain landscape at sunrise.",
+    },
+    {
+      icon: "sparkle",
+      tag: "PROMO",
+      title: "Give your next launch a little magic.",
+      prompt: "A bold, minimal launch film for a new creative notebook.",
+    },
+  ];
+export function Studio({
+  userId,
+  userName,
+}: {
+  userId: string;
+  userName: string;
+}) {
+  const displayName = userName.trim() || "Creator";
   const router = useRouter();
   const accountFetch = useAccountFetch();
   const api = useCallback(
@@ -355,7 +364,10 @@ export function Studio({ userId }: { userId: string }) {
           }}
         >
           <span className="brand-icon">
-            r<span>✳</span>
+            r
+            <span>
+              <Icon name="sparkle" size={14} />
+            </span>
           </span>
           reelchemy<span className="beta">BETA</span>
         </Link>
@@ -365,8 +377,10 @@ export function Studio({ userId }: { userId: string }) {
           onClick={() => void navigate(null)}
           disabled={busy || editor.saving}
         >
-          ＋ <span>New creation</span>
-          <kbd>↵</kbd>
+          <Icon name="plus" /> <span>New creation</span>
+          <kbd aria-hidden="true">
+            <Icon name="return-key" size={14} />
+          </kbd>
         </button>
         <div className="nav-label">YOUR WORKSPACE</div>
         <button
@@ -375,7 +389,7 @@ export function Studio({ userId }: { userId: string }) {
           onClick={() => void navigate(null)}
           disabled={busy || editor.saving}
         >
-          ▦ <span>Studio</span>
+          <Icon name="grid" /> <span>Studio</span>
           <span className="count">{projectCount}</span>
         </button>
         <div className="recent-label">RECENT PROJECTS</div>
@@ -386,7 +400,7 @@ export function Studio({ userId }: { userId: string }) {
           disabled={busy || editor.saving}
           onClick={() => void openTrash()}
         >
-          ♲ <span>Trash</span>
+          <Icon name="trash" /> <span>Trash</span>
         </button>
         <label className="project-search">
           Find a project
@@ -409,7 +423,7 @@ export function Studio({ userId }: { userId: string }) {
                 onClick={() => void navigate(p)}
                 disabled={busy || editor.saving}
               >
-                <span aria-hidden="true">▱</span>
+                <Icon name="document" size={14} />
                 <span>{p.name}</span>
               </button>
             ))
@@ -440,12 +454,16 @@ export function Studio({ userId }: { userId: string }) {
           >
             Sign out
           </button>
-          <div className="profile">
-            <span className="avatar">Y</span>
+          <div className="profile" role="group" aria-label="Signed-in account">
+            <span className="avatar" aria-hidden="true">
+              {(Array.from(displayName)[0] || "C").toUpperCase()}
+            </span>
             <div>
-              Your workspace<small>Personal studio</small>
+              <span className="profile-name" title={displayName}>
+                {displayName}
+              </span>
+              <small>Personal studio</small>
             </div>
-            <span>⌘</span>
           </div>
         </div>
       </aside>
@@ -463,9 +481,17 @@ export function Studio({ userId }: { userId: string }) {
             <strong>{project ? "Project studio" : "Studio"}</strong>
           </div>
           <span className="private">
-            <span>◉</span> Private workspace
+            <Icon name="lock" size={14} /> Private workspace
           </span>
         </header>
+        <div
+          className="mobile-account-identity"
+          role="group"
+          aria-label="Signed-in account"
+        >
+          <Icon name="lock" size={13} /> Studio for{" "}
+          <strong title={displayName}>{displayName}</strong>
+        </div>
         <WorkspaceExports
           refreshKey={job ? `${job.id}:${job.status}` : ""}
           disabled={busy || editor.saving}
@@ -497,7 +523,7 @@ export function Studio({ userId }: { userId: string }) {
               }}
             >
               <div className="composer-label">
-                <span>✳</span> What are we creating today?
+                <Icon name="sparkle" size={24} /> What are we creating today?
               </div>
               <textarea
                 aria-label="Video idea"
@@ -544,7 +570,8 @@ export function Studio({ userId }: { userId: string }) {
                   className="primary"
                   disabled={busy || prompt.trim().length < 3}
                 >
-                  {busy ? "Planning…" : "Create storyboard"} <span>↗</span>
+                  {busy ? "Planning…" : "Create storyboard"}{" "}
+                  <Icon name="arrow-up-right" />
                 </button>
               </div>
             </form>
@@ -573,13 +600,20 @@ export function Studio({ userId }: { userId: string }) {
                   <div className="idea-art">
                     <div className="art-ring ring-a" />
                     <div className="art-ring ring-b" />
-                    <span>{idea.icon}</span>
+                    <span>
+                      <Icon
+                        name={idea.icon}
+                        size={i === 1 ? 36 : i === 2 ? 84 : 62}
+                      />
+                    </span>
                     {i === 1 && <div className="hills" />}
                   </div>
                   <div className="idea-content">
                     <small>{idea.tag}</small>
                     <h3>{idea.title}</h3>
-                    <span className="idea-arrow">↗</span>
+                    <span className="idea-arrow">
+                      <Icon name="arrow-up-right" size={16} />
+                    </span>
                   </div>
                 </button>
               ))}
@@ -860,7 +894,9 @@ export function Studio({ userId }: { userId: string }) {
                       />
                     </div>
                     <div className="preview-caption">
-                      <span>◉ Procedural composition</span>
+                      <span>
+                        <Icon name="film" size={14} /> Live composition
+                      </span>
                       <span>
                         {(timeline.audioTracks?.length || 0) +
                         clipAudioTracks(timeline).length
@@ -872,7 +908,7 @@ export function Studio({ userId }: { userId: string }) {
                   <section className="director-panel">
                     <div className="panel-heading">
                       <h2>
-                        <span>✳</span> Creative director
+                        <Icon name="sparkle" /> Creative director
                       </h2>
                       <span>DEMO / CONFIGURABLE</span>
                     </div>
@@ -928,7 +964,7 @@ export function Studio({ userId }: { userId: string }) {
                         className="subtle"
                         disabled={busy || revision.trim().length < 3}
                       >
-                        Apply revision ↗
+                        Apply revision <Icon name="arrow-up-right" size={16} />
                       </button>
                     </form>
                   </section>
@@ -985,11 +1021,16 @@ export function Studio({ userId }: { userId: string }) {
                             s.title}
                         </strong>
                         <span className="scene-symbol">
-                          {s.strategy === "landscape"
-                            ? "△"
-                            : s.strategy === "diagram"
-                              ? "⌘"
-                              : "◉"}
+                          <Icon
+                            name={
+                              s.strategy === "landscape"
+                                ? "landscape"
+                                : s.strategy === "diagram"
+                                  ? "nodes"
+                                  : "typography"
+                            }
+                            size={82}
+                          />
                         </span>
                       </div>
                       <footer>
@@ -1293,7 +1334,7 @@ export function Studio({ userId }: { userId: string }) {
                     }
                   >
                     {active ? "Rendering…" : "Approve & export MP4"}{" "}
-                    <span aria-hidden="true">↗</span>
+                    <Icon name="arrow-up-right" size={18} />
                   </button>
                 </section>
                 <ExportHistory
@@ -1367,7 +1408,7 @@ export function Studio({ userId }: { userId: string }) {
                               className="primary download"
                               href={`/api/jobs/${job.id}/download`}
                             >
-                              Download MP4 ↓
+                              Download MP4 <Icon name="download" size={14} />
                             </a>
                             {((job.report as { timeline?: Timeline } | null)
                               ?.timeline?.captions?.length || 0) > 0 && (
@@ -1376,13 +1417,15 @@ export function Studio({ userId }: { userId: string }) {
                                   href={`/api/jobs/${job.id}/evidence/captions.srt`}
                                   download="captions.srt"
                                 >
-                                  SRT captions ↓
+                                  SRT captions{" "}
+                                  <Icon name="download" size={14} />
                                 </a>
                                 <a
                                   href={`/api/jobs/${job.id}/evidence/captions.vtt`}
                                   download="captions.vtt"
                                 >
-                                  VTT captions ↓
+                                  VTT captions{" "}
+                                  <Icon name="download" size={14} />
                                 </a>
                               </div>
                             )}
@@ -1407,12 +1450,14 @@ export function Studio({ userId }: { userId: string }) {
           <div className="error-banner" role="alert" aria-label="Studio error">
             <strong>Something needs attention.</strong> {error}
             <button aria-label="Dismiss error" onClick={() => setError("")}>
-              ×
+              <Icon name="close" size={16} />
             </button>
           </div>
         )}
         <footer className="main-footer">
-          <span>✳ Reelchemy</span>
+          <span>
+            <Icon name="sparkle" size={14} /> Reelchemy
+          </span>
           <span>Ideas deserve to move.</span>
         </footer>
       </main>

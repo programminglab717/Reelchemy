@@ -252,6 +252,7 @@ p {
   border-radius: 50%;
   width: 31px;
   height: 31px;
+  flex-shrink: 0;
   display: grid;
   place-items: center;
 }
@@ -265,9 +266,12 @@ p {
   font-size: 10px;
   padding-top: 4px;
 }
-.profile > span:last-child {
-  margin-left: auto;
-  color: #89917f;
+.profile-name {
+  display: block;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 main {
   margin-left: 250px;
@@ -760,7 +764,7 @@ main {
   position: absolute;
   right: 12px;
   bottom: -8px;
-  font-size: 90px;
+  line-height: 0;
   opacity: 0.35;
 }
 .scene-card footer {
@@ -953,7 +957,7 @@ main {
     width: 65px;
     padding: 22px 12px;
   }
-  .wordmark {
+  .sidebar .wordmark {
     font-size: 0;
     gap: 0;
   }
@@ -1881,4 +1885,31 @@ main.account-page {
 }
 .studio-media-items small {
   display: block;
+}
+
+.studio-icon {
+  display: inline-block;
+  vertical-align: -0.15em;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+.mobile-account-identity {
+  display: none;
+}
+@media (max-width: 720px) {
+  .mobile-account-identity {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 20px;
+    font-size: 11px;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .mobile-account-identity strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
