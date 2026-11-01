@@ -116,7 +116,7 @@ test("synthetic microphone take can be reviewed, recovered after failed upload, 
       .getByRole("button", { name: "Save recording to assets", exact: true })
       .click();
     await expect(
-      page.getByText(/Recording was not saved: Temporary test outage/),
+      page.getByText(/Your take is retained here\. Temporary test outage/),
     ).toBeVisible();
     await expect(
       page.getByLabel("Recorded narration preview", { exact: true }),

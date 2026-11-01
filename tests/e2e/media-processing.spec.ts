@@ -221,9 +221,13 @@ test("a failed archive response keeps the chosen file and Retry import recovers 
       .evaluate((input: HTMLInputElement) => input.files?.[0]?.name),
   ).toBe("Retained project.zip");
   await page.getByRole("button", { name: "Retry import", exact: true }).click();
-  await expect(page.getByLabel("Project name", { exact: true })).toHaveValue(
-    `${source.name} (imported)`,
-  );
+  await expect(
+    page.getByRole("heading", {
+      level: 1,
+      name: `${source.name} (imported)`,
+      exact: true,
+    }),
+  ).toBeVisible();
   expect(keys).toHaveLength(2);
   expect(keys[1]).toBe(keys[0]);
   const receipts = (
@@ -348,9 +352,9 @@ test("a background upload finishes after leaving its form and reopens its projec
   await row
     .getByRole("button", { name: "Open media project", exact: true })
     .click();
-  await expect(page.getByLabel("Project name", { exact: true })).toHaveValue(
-    target.name,
-  );
+  await expect(
+    page.getByRole("heading", { level: 1, name: target.name, exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByAltText("Background badge.png", { exact: true }),
   ).toBeVisible();
