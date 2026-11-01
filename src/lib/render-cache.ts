@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { createReadStream } from "node:fs";
 import {
   mkdir,
   readFile,
@@ -15,6 +16,19 @@ import { formats, totalFrames, type Timeline } from "./schema";
 import { runCommand } from "./process";
 import type { RenderBrowser } from "./render-browser";
 import { renderCacheWorkspaceDirectory } from "./render-cache-path";
+import { staticScenePlan } from "./static-scene";
+import { renderStaticScene } from "./render-static";
+export type SceneCacheResult = {
+  sceneId: string;
+  reused: boolean;
+  key: string;
+  frameReuse?: { captured: number; total: number };
+};
+async function fileDigest(file: string) {
+  const hash = createHash("sha256");
+  for await (const bytes of createReadStream(file)) hash.update(bytes);
+  return hash.digest("hex");
+}
 export function localSceneTimeline(t: Timeline, index: number): Timeline {
   const start = t.scenes
       .slice(0, index)
@@ -79,6 +93,8 @@ async function fingerprint() {
   await walk("src/video");
   for (const f of [
     "src/lib/render-cache.ts",
+    "src/lib/render-static.ts",
+    "src/lib/static-scene.ts",
     "src/lib/render-browser.ts",
     "src/lib/schema.ts",
     "src/lib/text-style.ts",
@@ -119,6 +135,7 @@ async function validClip(file: string, t: Timeline) {
       stream.width === dim.width &&
       stream.height === dim.height &&
       stream.r_frame_rate === "30/1" &&
+      Number(stream.nb_frames) === totalFrames(t) &&
       Math.abs(Number(meta.format.duration) - totalFrames(t) / 30) < 0.04
     );
   } catch {
@@ -136,9 +153,7 @@ export async function cacheEntryValid(dir: string, t: Timeline, key: string) {
       !manifest.sha256
     )
       return false;
-    const digest = createHash("sha256")
-      .update(await readFile(path.join(dir, "video.mp4")))
-      .digest("hex");
+    const digest = await fileDigest(path.join(dir, "video.mp4"));
     return (
       manifest.sha256 === digest &&
       (await validClip(path.join(dir, "video.mp4"), t))
@@ -176,7 +191,7 @@ export async function renderCachedScenes(options: {
   await mkdir(cacheRoot, { recursive: true });
   const source = await (sourceFingerprint ??= fingerprint());
   const clips: string[] = [],
-    cache: { sceneId: string; reused: boolean; key: string }[] = [];
+    cache: SceneCacheResult[] = [];
   let completed = 0;
   for (let i = 0; i < timeline.scenes.length; i++) {
     if (isCancelled()) throw new Error("Render cancelled.");
@@ -190,6 +205,7 @@ export async function renderCachedScenes(options: {
       target = path.join(cacheRoot, key),
       video = path.join(target, "video.mp4");
     let reused = await cacheEntryValid(target, local, key);
+    let frameReuse: SceneCacheResult["frameReuse"];
     if (!reused) {
       const staging = path.join(cacheRoot, `.partial-${randomUUID()}`);
       await mkdir(staging);
@@ -201,38 +217,55 @@ export async function renderCachedScenes(options: {
           browserExecutable,
           puppeteerInstance,
         });
-        await renderMedia({
+        const staticPlan = staticScenePlan(local);
+        const rendering = {
           serveUrl,
           composition,
-          inputProps: { timeline: local, assetSources },
           browserExecutable,
           puppeteerInstance,
-          codec: "h264",
-          muted: true,
-          pixelFormat: "yuv420p",
-          concurrency: Math.max(
-            1,
-            Math.min(4, Number(process.env.RENDER_CONCURRENCY) || 2),
-          ),
           outputLocation: path.join(staging, "video.mp4"),
           cancelSignal,
-          timeoutInMilliseconds: 60000,
-          onProgress: ({ progress }) =>
+          onProgress: (progress: number) =>
             onProgress(
               (0.88 * (completed + totalFrames(local) * progress)) /
                 totalFrames(timeline),
             ),
-        });
+        };
+        if (staticPlan) {
+          await renderStaticScene({
+            ...rendering,
+            timeline: local,
+            plan: staticPlan,
+            assetSources,
+            isCancelled,
+          });
+          frameReuse = {
+            captured: staticPlan.capturedFrames.length,
+            total: totalFrames(local),
+          };
+        } else
+          await renderMedia({
+            ...rendering,
+            inputProps: { timeline: local, assetSources },
+            codec: "h264",
+            muted: true,
+            pixelFormat: "yuv420p",
+            concurrency: Math.max(
+              1,
+              Math.min(4, Number(process.env.RENDER_CONCURRENCY) || 2),
+            ),
+            timeoutInMilliseconds: 60000,
+            onProgress: ({ progress }) => rendering.onProgress(progress),
+          });
         if (!(await validClip(path.join(staging, "video.mp4"), local)))
           throw new Error("Rendered scene failed verification.");
         await writeFile(
           path.join(staging, "manifest.json"),
           JSON.stringify({
             key,
-            sha256: createHash("sha256")
-              .update(await readFile(path.join(staging, "video.mp4")))
-              .digest("hex"),
+            sha256: await fileDigest(path.join(staging, "video.mp4")),
             frames: totalFrames(local),
+            ...(frameReuse ? { frameReuse } : {}),
             createdAt: new Date().toISOString(),
           }),
         );
@@ -249,7 +282,12 @@ export async function renderCachedScenes(options: {
       }
     }
     clips.push(video);
-    cache.push({ sceneId: local.scenes[0].id, reused, key });
+    cache.push({
+      sceneId: local.scenes[0].id,
+      reused,
+      key,
+      ...(frameReuse ? { frameReuse } : {}),
+    });
     completed += totalFrames(local);
     onProgress((0.88 * completed) / totalFrames(timeline));
   }

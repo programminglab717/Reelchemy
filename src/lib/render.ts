@@ -1,6 +1,6 @@
 import { serveRenderAssets } from "./render-assets";
 import { withRenderBrowser } from "./render-browser";
-import { renderCachedScenes } from "./render-cache";
+import { renderCachedScenes, type SceneCacheResult } from "./render-cache";
 import { runCommand } from "./process";
 import { muxAudio } from "./audio";
 import { subtitles } from "./captions";
@@ -92,7 +92,7 @@ async function renderResolved(
     };
     const composition = await selectComposition(options);
     const outputLocation = path.join(outputDir, "video.mp4");
-    let sceneCache: { sceneId: string; reused: boolean; key: string }[] = [];
+    let sceneCache: SceneCacheResult[] = [];
     const cancel = makeCancelSignal();
     const timer = setInterval(() => {
       if (isCancelled()) cancel.cancel();

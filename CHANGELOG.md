@@ -264,3 +264,9 @@
 - Bind private browser API requests to the verified account that opened Studio/Trash. A stale account header is rejected before workspace creation, quota consumption or handler execution; the verified cookie remains authoritative and existing API clients remain compatible.
 - Stop private browser requests after account change/session expiry, including late in-flight responses, while keeping unsaved edits downloadable and browser copies under the original account. Reload remounts the editor under the current verified account.
 - Check the account on the exact sign-out request, so a stale tab cannot revoke the newly signed-in account or clear original recovery copies after a refused sign-out. Apply the bound request helper to project lists/edits, uploads/recordings, exports, waveforms, archives, storage and permanent deletion.
+
+## 0.30.0 — 2026-11-01
+
+- Reuse browser captures within eligible static scenes while encoding every 30 fps output frame. Still text/images/rectangles/mountains/arrows/gradients with cuts and at most eight caption states use bounded immutable JPEG captures; motion, footage, camera/keyframes, fades, unknown primitives, short scenes and dense caption changes retain ordinary frame rendering.
+- Preserve exact caption starts/ends, rotations, geometry and current color/encoding metadata; reuse hard links rather than copying full-size image buffers, and clean capture directories on success/failure/cancellation. Native encoding remains cancellable and bounded.
+- Stream cached-video checksums, require the exact encoded frame count and include the new renderer sources in cache invalidation. Private QC/cache metadata records actual frame reuse. Add a separate cold static-minute benchmark; mixed-footage duration/output limits are unchanged.
