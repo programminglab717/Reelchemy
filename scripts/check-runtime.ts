@@ -65,7 +65,7 @@ await writeFile(
   override,
   JSON.stringify({
     services: Object.fromEntries(
-      ["migrate", "web", "render"].map((service) => [
+      ["migrate", "web", "render", "ingest"].map((service) => [
         service,
         {
           image,
@@ -129,7 +129,8 @@ async function run(arguments_: string[], allowFailure = false) {
   return { code, output, errors };
 }
 const fixture = await readFile("scripts/runtime-fixture.mjs", "utf8");
-let render = "",
+let ingest = "",
+  render = "",
   web = "";
 async function execute(
   operation: string,
@@ -237,7 +238,7 @@ try {
     "never",
     "migrate",
   ]);
-  // Finish/remove the one-shot before creating the two application containers:
+  // Finish/remove the one-shot before creating the application containers:
   // VFS stores a full filesystem copy even for an exited migration service.
   await run([
     ...compose,
@@ -249,10 +250,12 @@ try {
     "never",
     "web",
     "render",
+    "ingest",
   ]);
   web = (await run([...compose, "ps", "-q", "web"])).output.trim();
   render = (await run([...compose, "ps", "-q", "render"])).output.trim();
-  assert(web && render);
+  ingest = (await run([...compose, "ps", "-q", "ingest"])).output.trim();
+  assert(web && render && ingest);
   const authMounts = JSON.parse(
     (await run(["inspect", "--format", "{{json .Mounts}}", web])).output,
   ) as { Destination: string; Name?: string }[];
@@ -263,7 +266,7 @@ try {
     privateMount?.Name,
     "Web must have a distinct private authentication volume.",
   );
-  for (const id of [web, render]) {
+  for (const id of [web, render, ingest]) {
     const config = JSON.parse(
       (await run(["inspect", "--format", "{{json .HostConfig}}", id])).output,
     );
@@ -275,11 +278,11 @@ try {
       ).output.trim(),
       "node",
     );
-    if (id === render) {
+    if (id !== web) {
       assert.equal(config.NetworkMode, "none");
       if (benchmark) {
         assert.equal(config.NanoCpus, 2_000_000_000);
-        assert.equal(config.Memory, 4 * 1024 ** 3);
+        assert.equal(config.Memory, (id === ingest ? 2 : 4) * 1024 ** 3);
         assert.equal(config.PidsLimit, 256);
       }
       const env: string[] = JSON.parse(
@@ -291,7 +294,7 @@ try {
         ),
       );
       const mounts = JSON.parse(
-        (await run(["inspect", "--format", "{{json .Mounts}}", render])).output,
+        (await run(["inspect", "--format", "{{json .Mounts}}", id])).output,
       ) as { Destination: string; Name?: string }[];
       assert(
         !mounts.some(
@@ -300,6 +303,19 @@ try {
             m.Name === privateMount.Name,
         ),
       );
+      if (id === ingest) {
+        assert.equal(config.NanoCpus, 2_000_000_000);
+        assert.equal(config.Memory, 2 * 1024 ** 3);
+        assert.equal(config.PidsLimit, 256);
+        assert(!mounts.some((mount) => mount.Destination === "/app/artifacts"));
+        assert(
+          !env.some((value) =>
+            /^(REELCHEMY_AUTH_DIR|REELCHEMY_ARTIFACT_DIR|SMTP_HOST|SMTP_USER|EMAIL_FROM)=/.test(
+              value,
+            ),
+          ),
+        );
+      }
     }
   }
   await waitFor(async () => {
@@ -325,6 +341,7 @@ try {
   );
   assert.equal((await execute("readonly", {}, web)).readonly, true);
   assert.equal((await execute("readonly")).readonly, true);
+  assert.equal((await execute("readonly", {}, ingest)).readonly, true);
   assert.equal(
     (await execute("auth-owner", {}, web)).privateAccountStorage,
     true,
@@ -333,8 +350,26 @@ try {
     (await execute("auth-isolation")).authenticationFilesystemIsolated,
     true,
   );
+  assert.equal(
+    (await execute("auth-isolation", {}, ingest))
+      .authenticationFilesystemIsolated,
+    true,
+  );
+  assert.equal(
+    (await execute("artifact-isolation", {}, ingest))
+      .artifactFilesystemIsolated,
+    true,
+  );
+  if (!benchmark) {
+    const duplicate = await run(
+      ["exec", web, "npm", "run", "ingest:worker"],
+      true,
+    );
+    assert.notEqual(duplicate.code, 0);
+    assert.match(duplicate.output + duplicate.errors, /Another media worker/);
+  }
   console.log(
-    "Migrations, private routes, health, render credential/filesystem isolation and read-only restrictions passed.",
+    "Migrations, private routes, health, render/ingestion credential/filesystem isolation and read-only restrictions passed.",
   );
   const seed = await execute("seed");
   const firstExport = await completed(seed.jobId);
@@ -520,6 +555,11 @@ try {
           "render-network-none",
           "render-environment-credential-separation",
           "render-authentication-filesystem-isolation",
+          "ingestion-network-none",
+          "ingestion-environment-credential-separation",
+          "ingestion-authentication-and-artifact-filesystem-isolation",
+          "standard-ingestion-resource-budget",
+          "real-footage-and-waveform-through-ingestion-worker",
           benchmark === "static-minute"
             ? "static-cards-captions-aac"
             : "real-footage-captions-aac",
@@ -533,6 +573,7 @@ try {
               ]
             : [
                 "duplicate-worker-rejected",
+                "duplicate-ingestion-worker-rejected",
                 "forced-container-crash-recovery",
                 "retained-export",
                 "second-export",

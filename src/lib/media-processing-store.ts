@@ -77,6 +77,7 @@ type Row = {
   outputs: string;
   result_id: string | null;
   error: MediaFailure | null;
+  failure_details: string | null;
   created_at: number;
   updated_at: number;
   receive_until: number;
@@ -92,7 +93,24 @@ export type MediaReceipt = {
   error: MediaFailure | null;
   createdAt: string;
   updatedAt: string;
+  cleanupPending: boolean;
+  storage?: { usedBytes: number; limitBytes: number; requiredBytes: number };
 };
+const storageDetails = z
+  .object({
+    usedBytes: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+    limitBytes: z
+      .number()
+      .int()
+      .min(1)
+      .max(1024 ** 4),
+    requiredBytes: z
+      .number()
+      .int()
+      .min(1)
+      .max(1024 ** 4),
+  })
+  .strict();
 export type MediaTask = {
   id: string;
   workspaceId: string;
@@ -116,6 +134,12 @@ function receipt(row: Row): MediaReceipt {
     error: row.error,
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString(),
+    cleanupPending:
+      ["completed", "failed", "cancelled"].includes(row.state) &&
+      (row.reserved_bytes > 0 || row.outputs !== "[]"),
+    ...(row.error === "STORAGE_LIMIT" && row.failure_details
+      ? { storage: storageDetails.parse(JSON.parse(row.failure_details)) }
+      : {}),
   };
 }
 function task(row: Row): MediaTask {
@@ -146,10 +170,17 @@ export function migrateMediaProcessing(db: Database.Database) {
     outputs TEXT NOT NULL DEFAULT '[]', result_id TEXT, error TEXT,
     created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, receive_until INTEGER NOT NULL,
     token TEXT, attempts INTEGER NOT NULL DEFAULT 0,
+    failure_details TEXT,
     UNIQUE(workspace_id,request_key));
     CREATE INDEX IF NOT EXISTS media_requests_queue_idx ON media_requests(state,created_at);
     CREATE INDEX IF NOT EXISTS media_requests_owner_idx ON media_requests(workspace_id,state);
     CREATE INDEX IF NOT EXISTS media_requests_project_idx ON media_requests(project_id,state);`);
+  if (
+    !(db.pragma("table_info(media_requests)") as { name: string }[]).some(
+      (column) => column.name === "failure_details",
+    )
+  )
+    db.exec("ALTER TABLE media_requests ADD COLUMN failure_details TEXT");
 }
 
 // Private snapshot/restore copies only. Raw inputs are intentionally excluded
@@ -214,6 +245,15 @@ export class MediaProcessingStore {
       requests: rows.slice(0, 20).map(receipt),
       nextOffset: rows.length > 20 ? offset + 20 : null,
     };
+  }
+  waveform(workspace: string, project: string, asset: string) {
+    uuid.parse(asset);
+    const row = this.db
+      .prepare(
+        "SELECT * FROM media_requests WHERE workspace_id=? AND project_id=? AND operation='waveform' AND (json_extract(input,'$.assetId')=? OR result_id=?) ORDER BY created_at DESC,id DESC LIMIT 1",
+      )
+      .get(workspace, project, asset, asset) as Row | undefined;
+    return row ? receipt(row) : undefined;
   }
   reserve(input: {
     workspaceId: string;
@@ -487,8 +527,16 @@ export class MediaProcessingStore {
       })
       .immediate();
   }
-  fail(job: MediaTask, code: MediaFailure) {
+  fail(
+    job: MediaTask,
+    code: MediaFailure,
+    storage?: z.infer<typeof storageDetails>,
+  ) {
     if (!failures.includes(code)) throw new MediaProcessingUnavailable();
+    const details =
+      code === "STORAGE_LIMIT" && storage
+        ? JSON.stringify(storageDetails.parse(storage))
+        : null;
     this.db
       .transaction(() => {
         const row = this.row(job.id);
@@ -500,11 +548,12 @@ export class MediaProcessingStore {
           throw new MediaProcessingUnavailable();
         this.db
           .prepare(
-            "UPDATE media_requests SET state=?,error=?,token=NULL,updated_at=? WHERE id=?",
+            "UPDATE media_requests SET state=?,error=?,failure_details=?,token=NULL,updated_at=? WHERE id=?",
           )
           .run(
             row.state === "cancelling" ? "cancelled" : "failed",
             row.state === "cancelling" ? null : code,
+            row.state === "cancelling" ? null : details,
             this.now(),
             job.id,
           );

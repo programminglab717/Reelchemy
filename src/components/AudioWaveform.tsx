@@ -3,6 +3,7 @@ import { useAccountFetch } from "./AccountBoundary";
 import { useEffect, useState } from "react";
 import { waveformBars, type Waveform } from "@/lib/waveform-math";
 import type { TrackRange } from "@/lib/track-edit";
+import { clientWait } from "@/lib/client-wait";
 export function AudioWaveform({
   src,
   range,
@@ -22,18 +23,35 @@ export function AudioWaveform({
   const [retry, setRetry] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
-    void accountFetch(src, { signal: controller.signal })
-      .then(async (r) => {
+    void (async () => {
+      const deadline = Date.now() + 120000;
+      while (!controller.signal.aborted && Date.now() < deadline) {
+        const r = await accountFetch(src, { signal: controller.signal });
         const result = await r.json();
+        const retryAfter = Number(r.headers.get("Retry-After"));
+        if (
+          r.status === 202 ||
+          ([429, 503].includes(r.status) && retryAfter > 0 && retryAfter <= 5)
+        ) {
+          await clientWait(
+            Math.max(1000, Math.min(5000, retryAfter * 1000 || 1000)),
+            controller.signal,
+          );
+          continue;
+        }
         if (!r.ok) throw new Error(result.error || "Waveform unavailable");
         if (!controller.signal.aborted) {
           setData({ src, waveform: result });
           setError(null);
         }
-      })
-      .catch((e) => {
-        if (!controller.signal.aborted) setError({ src, message: e.message });
-      });
+        return;
+      }
+      throw new Error(
+        "Waveform preparation is still pending. Try again shortly.",
+      );
+    })().catch((e) => {
+      if (!controller.signal.aborted) setError({ src, message: e.message });
+    });
     return () => controller.abort();
   }, [src, retry, accountFetch]);
   if (error?.src === src)

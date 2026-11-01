@@ -100,9 +100,9 @@ try {
   delete env.AI_API_KEY;
   delete env.SMTP_PASSWORD;
   await mkdir(env.REELCHEMY_ARTIFACT_DIR!, { recursive: true, mode: 0o700 });
-  const start = (arguments_: string[]) => {
+  const start = (arguments_: string[], serviceEnv = env) => {
     const child = spawnTestProcess(process.execPath, arguments_, {
-      env,
+      env: serviceEnv,
       cwd: app,
       stdio: ["ignore", log.fd, log.fd],
     });
@@ -128,6 +128,27 @@ try {
     String(port),
   ]);
   const worker = start(["--import", "tsx", "scripts/worker-entrypoint.ts"]);
+  const ingestEnv: NodeJS.ProcessEnv = {
+    NODE_ENV: env.NODE_ENV,
+    ...Object.fromEntries(
+      Object.entries(env).filter(
+        ([key]) =>
+          [
+            "NODE_ENV",
+            "PATH",
+            "LANG",
+            "LC_ALL",
+            "TZ",
+            "RAYON_NUM_THREADS",
+            "REELCHEMY_DATA_DIR",
+          ].includes(key) || key.startsWith("REELCHEMY_MEDIA_"),
+      ),
+    ),
+  };
+  const ingestion = start(
+    ["--import", "tsx", "scripts/ingest-entrypoint.ts"],
+    ingestEnv,
+  );
   const deadline = Date.now() + 60000;
   let ready = false;
   const status = async (pathname: string) =>
@@ -140,7 +161,11 @@ try {
         ).status;
   while (Date.now() < deadline) {
     if (interrupted) throw new Error("Isolated tests interrupted.");
-    if (server.exitCode !== null || worker.exitCode !== null)
+    if (
+      server.exitCode !== null ||
+      worker.exitCode !== null ||
+      ingestion.exitCode !== null
+    )
       throw new Error("Test services exited before readiness.");
     try {
       if (

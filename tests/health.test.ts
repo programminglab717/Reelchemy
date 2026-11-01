@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, readFile, rm, access, chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
+import { startMediaWorker } from "./helpers/media-worker";
 
 test("worker heartbeat rejects stale, missing, malformed and implausible future timestamps", () => {
   const now = Date.now();
@@ -29,6 +30,7 @@ test("real worker readiness follows its heartbeat and graceful shutdown cleans i
   process.env.REELCHEMY_AUTH_DIR = accounts;
   process.env.EMAIL_DELIVERY = "file";
   const children: ChildProcess[] = [];
+  let ingestion: Awaited<ReturnType<typeof startMediaWorker>> | undefined;
   async function stop(child: ChildProcess) {
     if (child.exitCode !== null) return;
     const closed = new Promise<void>((resolve) =>
@@ -45,6 +47,7 @@ test("real worker readiness follows its heartbeat and graceful shutdown cleans i
   try {
     const { readiness } = await import("../src/lib/health");
     assert.equal((await readiness()).status, "not-ready");
+    ingestion = await startMediaWorker();
     const child = spawn(
       process.execPath,
       ["--import", "tsx", "scripts/worker.ts"],
@@ -105,9 +108,12 @@ test("real worker readiness follows its heartbeat and graceful shutdown cleans i
     }
     await stop(child);
     assert.equal((await readiness()).checks.worker, false);
+    await ingestion.stop();
+    assert.equal((await readiness()).checks.ingestion, false);
     await assert.rejects(() => access(path.join(dir, "worker.lock")));
     await assert.rejects(() => access(path.join(dir, HEARTBEAT_NAME)));
   } finally {
+    await ingestion?.stop();
     await Promise.all(children.map(stop));
     await rm(dir, { recursive: true, force: true });
   }

@@ -134,7 +134,17 @@ export async function processMediaTask(
           : mediaProcessing.isCancelled(task)
             ? "PROJECT_UNAVAILABLE"
             : "INVALID_MEDIA";
-    mediaProcessing.fail(task, code);
+    mediaProcessing.fail(
+      task,
+      code,
+      error instanceof MediaStorageLimitError
+        ? {
+            usedBytes: error.usedBytes,
+            limitBytes: error.limitBytes,
+            requiredBytes: error.requiredBytes,
+          }
+        : undefined,
+    );
     console.error(
       JSON.stringify({ event: "media.failed", requestId: task.id, code }),
     );

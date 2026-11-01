@@ -290,3 +290,9 @@
 ## 0.32.1 — 2026-11-01
 
 - Finish the composer aspect/time/demo indicators with SVG after visual review found three remaining unsupported symbols. Scene-order and saved-state decorations now use the same accessible icon component.
+
+## 0.33.0 — 2026-11-01
+
+- Move upload/import and uncached waveform decoding to a separate durable ingestion consumer. Bound receiving/queued/active inputs, raw byte reservations and per-studio analysis; retain existing cached waveforms and legacy 201 upload clients.
+- Add private asynchronous receipts/status/list/cancellation, intent-bound request replay, timed/abortable bodies, crash-identifiable outputs and one bounded restart retry. Coordinate fresh quota/ownership attachment with Trash/erasure and physical cleanup; normalize only backup/restore copies.
+- Add the data-only, network-isolated, non-root/read-only ingestion Compose role and separate kernel lock/heartbeat. Readiness now requires both workers. Keep codec errors fixed/private and expose only bounded quota diagnostics. Production browser/image acceptance and the richer upload progress UI are tracked separately.

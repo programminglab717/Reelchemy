@@ -49,6 +49,10 @@ import { MediaProcessingStore } from "./media-processing-store";
 import { MediaInputFiles } from "./media-input-files";
 import { withPrivateDirectory } from "./private-directory";
 import { removeCachedWaveform } from "./waveform-cache";
+import {
+  mediaProcessingPolicy,
+  MediaAnalysisLimit,
+} from "./media-processing-policy";
 // Runtime state lives on the mounted filesystem; do not embed it in server traces.
 export const dataDir = path.resolve(
   /* turbopackIgnore: true */ process.env.REELCHEMY_DATA_DIR || ".data",
@@ -145,6 +149,56 @@ export function cleanupMediaRequest(id: string) {
     cleanupUnreferencedMediaOutputs(outputs);
     mediaInputs.remove(id);
   });
+}
+export function requestOwnedWaveform(
+  projectId: string,
+  workspaceId: string,
+  assetId: string,
+) {
+  return db
+    .transaction(() => {
+      if (!projectInWorkspace(projectId, workspaceId)) return undefined;
+      const asset = getProject(projectId)?.assets?.find(
+        (asset) => asset.id === assetId,
+      );
+      if (
+        !asset ||
+        (asset.mime !== "audio/wav" &&
+          !(asset.mime === "video/mp4" && asset.hasAudio))
+      )
+        return undefined;
+      const existing = mediaProcessing.waveform(
+        workspaceId,
+        projectId,
+        assetId,
+      );
+      if (
+        existing &&
+        (!["failed", "cancelled", "completed"].includes(existing.state) ||
+          (["failed", "cancelled"].includes(existing.state) &&
+            Date.now() - Date.parse(existing.createdAt) < 300000))
+      )
+        return existing;
+      const quota = takeRequestLimit(
+        workspaceId,
+        "waveform",
+        mediaProcessingPolicy().analysesPerHour,
+        3600000,
+      );
+      if (!quota.allowed) throw new MediaAnalysisLimit(quota.retryAfter);
+      const reserved = mediaProcessing.reserve({
+        workspaceId,
+        projectId,
+        operation: "waveform",
+        requestKey: randomUUID(),
+      });
+      if (!reserved.created) throw new Error("Waveform request unavailable.");
+      return mediaProcessing.enqueue(reserved.receipt.id, reserved.token, {
+        operation: "waveform",
+        assetId,
+      });
+    })
+    .immediate();
 }
 function rebuildMediaSizeIndex() {
   const rows = db

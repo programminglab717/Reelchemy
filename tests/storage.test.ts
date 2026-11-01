@@ -24,6 +24,7 @@ import {
 } from "../src/lib/media-storage-policy";
 import { LimitConfigurationError } from "../src/lib/limits-policy";
 import type { Asset, Project } from "../src/lib/schema";
+import { startMediaWorker } from "./helpers/media-worker";
 const MiB = 1024 * 1024;
 const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-storage-"));
 process.env.REELCHEMY_DATA_DIR = dir;
@@ -70,7 +71,9 @@ raw.prepare("INSERT INTO projects VALUES (?,?)").run(
 );
 raw.close();
 const db = await import("../src/lib/db");
+let ingest: Awaited<ReturnType<typeof startMediaWorker>> | undefined;
 after(async () => {
+  await ingest?.stop();
   await rm(dir, { recursive: true, force: true });
 });
 async function asset(bytes: number) {
@@ -177,6 +180,7 @@ test("legacy file census, private totals, Trash and concurrent quota admission u
   assert.equal(db.mediaStorage(owner.id).usedBytes, 320 * 1024 + MiB);
 });
 test("guarded upload/import routes reject excess processed bytes, clean new files and preserve private/manual work", async () => {
+  ingest = await startMediaWorker();
   const { getAuth } = await import("../src/lib/auth");
   const auth = await getAuth();
   const email = "storage-creator@example.test",

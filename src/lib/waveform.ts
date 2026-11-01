@@ -36,7 +36,7 @@ export function readWaveform(
       descriptor = withPrivateDirectory(root, "assets", (anchor) =>
         openSync(
           path.join(anchor, id),
-          constants.O_RDONLY | constants.O_NOFOLLOW,
+          constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
         ),
       );
       if (!fstatSync(descriptor).isFile())

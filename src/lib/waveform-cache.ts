@@ -35,7 +35,10 @@ export function cachedWaveform(id: string): Waveform | undefined {
   return directory(id, (_anchor, file) => {
     let descriptor: number;
     try {
-      descriptor = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+      descriptor = openSync(
+        file,
+        constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+      );
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
       throw error;

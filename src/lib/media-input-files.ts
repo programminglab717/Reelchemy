@@ -60,7 +60,7 @@ export class MediaInputFiles {
     return this.file(id, (file) => {
       const descriptor = openSync(
         file,
-        constants.O_RDONLY | constants.O_NOFOLLOW,
+        constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
       );
       try {
         const stat = fstatSync(descriptor);

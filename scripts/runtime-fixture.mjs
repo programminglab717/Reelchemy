@@ -1,6 +1,6 @@
 // Synthetic, private runtime fixture. Invoked through docker exec by check-runtime.
 import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
 import {
   mkdtemp,
@@ -28,9 +28,11 @@ import {
   requestOwnedProjectDeletion,
   ownedProjectDeletion,
   projectInWorkspace,
+  mediaProcessing,
+  mediaInputs,
 } from "../src/lib/db.ts";
 import { blankTimeline } from "../src/lib/editor.ts";
-import { storeVideo } from "../src/lib/video.ts";
+import { cachedWaveform } from "../src/lib/waveform-cache.ts";
 import { storeImage } from "../src/lib/assets.ts";
 import { storeAudio } from "../src/lib/audio.ts";
 import sharp from "sharp";
@@ -79,11 +81,6 @@ if (operation === "seed") {
       ],
       { timeout: 30000 },
     );
-    const asset = await storeVideo(
-      await readFile(file),
-      "Synthetic blue footage.mp4",
-      "Generated acceptance fixture",
-    );
     const brief = {
       prompt: "Private container runtime check",
       duration: benchmark ? 60 : 5,
@@ -94,6 +91,56 @@ if (operation === "seed") {
       "Synthetic runtime",
     );
     const project = createProject(brief, workspace.id);
+    const bytes = await readFile(file);
+    const input = {
+      operation: "upload",
+      kind: "video",
+      name: "Synthetic blue footage.mp4",
+      license: "Generated acceptance fixture",
+      bytes: bytes.length,
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+    };
+    const reservation = mediaProcessing.reserve({
+      workspaceId: workspace.id,
+      projectId: project.id,
+      operation: "upload",
+      requestKey: randomUUID(),
+    });
+    if (!reservation.created)
+      throw new Error("Synthetic ingestion reservation was not created.");
+    mediaProcessing.enqueue(
+      reservation.receipt.id,
+      reservation.token,
+      input,
+      () =>
+        mediaInputs.write(
+          reservation.receipt.id,
+          bytes,
+          26 * 1024 * 1024,
+          input.sha256,
+        ),
+    );
+    const deadline = Date.now() + 180000;
+    let complete = false;
+    while (Date.now() < deadline) {
+      const receipt = mediaProcessing.get(reservation.receipt.id, workspace.id);
+      if (["failed", "cancelled"].includes(receipt?.state))
+        throw new Error("Isolated media ingestion did not finish.");
+      if (receipt?.state === "completed") {
+        complete = true;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    if (!complete)
+      throw new Error(
+        "Isolated media ingestion exceeded the fixture deadline.",
+      );
+    const asset = getProject(project.id)?.assets?.[0];
+    if (!asset || !cachedWaveform(asset.id))
+      throw new Error(
+        "Isolated media ingestion did not publish footage and its waveform.",
+      );
     project.assets = [asset];
     const timeline = blankTimeline(brief);
     timeline.scenes[0].layers = [
@@ -490,6 +537,11 @@ if (operation === "seed") {
     mode: 0o600,
     flag: "wx",
   });
+  await writeFile(
+    path.join(process.env.REELCHEMY_ARTIFACT_DIR, "ingest-artifact-canary"),
+    "private-render-output",
+    { mode: 0o600, flag: "wx" },
+  );
   console.log(JSON.stringify({ privateAccountStorage: true }));
 } else if (operation === "auth-isolation") {
   const names = ["auth.sqlite", "auth-secret", "mail/isolation-canary.json"];
@@ -513,6 +565,22 @@ if (operation === "seed") {
     if (!["EROFS", "EACCES"].includes(error.code)) throw error;
   }
   console.log(JSON.stringify({ authenticationFilesystemIsolated: true }));
+} else if (operation === "artifact-isolation") {
+  try {
+    await access("/app/artifacts/ingest-artifact-canary");
+    throw new Error("Ingestion process can access render artifacts.");
+  } catch (error) {
+    if (!["ENOENT", "EACCES"].includes(error.code)) throw error;
+  }
+  try {
+    await writeFile("/app/artifacts/ingest-write-canary", "unexpected", {
+      flag: "wx",
+    });
+    throw new Error("Ingestion process can write render artifacts.");
+  } catch (error) {
+    if (!["EROFS", "EACCES"].includes(error.code)) throw error;
+  }
+  console.log(JSON.stringify({ artifactFilesystemIsolated: true }));
 } else if (operation === "readonly") {
   try {
     await writeFile("/app/runtime-must-be-readonly", "unexpected write");

@@ -45,6 +45,7 @@ export function mediaProcessingPolicy(
     perStudioInputs,
     analyses,
     perStudioAnalyses,
+    analysesPerHour: integer("REELCHEMY_WAVEFORMS_PER_HOUR", 120, 1, 1000),
     rawBytes: integer(
       "REELCHEMY_MEDIA_RAW_BYTES",
       256 * 1024 * 1024,
@@ -85,6 +86,14 @@ export class MediaProcessingUnavailable extends Error {
   constructor() {
     super(
       "This media request is no longer available. Refresh its status before retrying.",
+    );
+  }
+}
+export class MediaAnalysisLimit extends Error {
+  readonly code = "MEDIA_ANALYSIS_LIMIT";
+  constructor(readonly retryAfter: number) {
+    super(
+      "Your studio's waveform preparation allowance has been reached. Existing waveforms remain available. Try again later.",
     );
   }
 }

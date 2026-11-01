@@ -4,7 +4,12 @@ import path from "node:path";
 import { dataDir, artifactDir, databaseHealthy } from "./db";
 import { getAuth } from "./auth";
 import { authStorageDirectory } from "./auth-storage";
-import { HEARTBEAT_NAME, recentHeartbeat } from "./worker-heartbeat";
+import {
+  HEARTBEAT_NAME,
+  INGEST_HEARTBEAT_NAME,
+  recentHeartbeat,
+} from "./worker-heartbeat";
+import { mediaProcessingPolicy } from "./media-processing-policy";
 import { limitsPolicy } from "./limits-policy";
 import { mediaStorageLimit } from "./media-storage-policy";
 import { activeExportLimit } from "./export-policy";
@@ -14,12 +19,14 @@ export async function readiness() {
     authentication: false,
     storage: false,
     worker: false,
+    ingestion: false,
     limits: false,
   };
   try {
     limitsPolicy();
     mediaStorageLimit();
     activeExportLimit();
+    mediaProcessingPolicy();
     checks.limits = true;
   } catch {}
   try {
@@ -49,6 +56,13 @@ export async function readiness() {
   try {
     checks.worker = recentHeartbeat(
       JSON.parse(await readFile(path.join(dataDir, HEARTBEAT_NAME), "utf8")),
+    );
+  } catch {}
+  try {
+    checks.ingestion = recentHeartbeat(
+      JSON.parse(
+        await readFile(path.join(dataDir, INGEST_HEARTBEAT_NAME), "utf8"),
+      ),
     );
   } catch {}
   return {

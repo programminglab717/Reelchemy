@@ -6,7 +6,7 @@ This is an actively developed local build toward the public product, with releas
 
 ## Run
 
-Requirements: Node.js 24 (see `.node-version`; minimum 22.13), npm, FFmpeg/ffprobe on PATH, Chromium and Linux `flock` for the production worker. This cloud machine already supplies them. On Debian/Ubuntu, install system prerequisites with `sudo apt-get update && sudo apt-get install -y ffmpeg chromium util-linux`; installation may require host permission. Other platforms must provide a compatible Chromium and set `CHROMIUM_PATH`.
+Requirements: Node.js 24 (see `.node-version`; minimum 22.13), npm, FFmpeg/ffprobe on PATH, Chromium and Linux `flock` for the render and ingestion workers. This cloud machine already supplies them. On Debian/Ubuntu, install system prerequisites with `sudo apt-get update && sudo apt-get install -y ffmpeg chromium util-linux`; installation may require host permission. Other platforms must provide a compatible Chromium and set `CHROMIUM_PATH`.
 
 ```sh
 cd /workspace/Reelchemy
@@ -15,7 +15,9 @@ npm run seed
 npm run db:migrate
 # Terminal 1: keep the render worker running
 npm run worker
-# Terminal 2: start the studio
+# Terminal 2: keep the media worker running
+npm run ingest:worker
+# Terminal 3: start the studio
 npm run dev -- --port 3001
 ```
 
@@ -27,7 +29,7 @@ For a real model, set `AI_PROVIDER=compatible`, `AI_BASE_URL` to an HTTPS OpenAI
 
 ## Verify
 
-Run the web server and worker before E2E tests:
+Run the web server, render worker and ingestion worker before E2E tests:
 
 ```sh
 npm run lint
@@ -292,3 +294,11 @@ Exports can reuse captures within static cut scenes containing still text, image
 Open **Reuse media from your studio** in Project assets to search images, footage and audio from your other active projects. Filter by type or load more results, then reuse an upload and add it to a scene or audio track. The original normalized file and usage rights stay shared, so it counts once toward the studio's storage. Permanently deleting its source project keeps the file while another project or retained export needs it. Reuse preserves unsaved timeline edits; an uncertain response can be retried. Trash uploads require restoring the source before a new reuse, and the per-project 30-upload limit still applies. Asset insertion respects the selected scene's layer limit, so a full scene does not block another scene.
 
 Studio navigation and controls use inline SVG icons, so a minimal system-font installation can render them. The current account's name appears in the desktop profile and mobile studio identity row. Long names are visually bounded; account-switch recovery still belongs to the account that opened the editor.
+
+## Durable media processing
+
+Uploads/imports and uncached waveforms are processed by `npm run ingest:worker`. The web process reserves a bounded slot before reading a body; by default four input requests share a 256 MiB raw-file reservation budget, with one outstanding input per studio. Waveforms have separate analysis admission and a 120-per-hour preparation allowance; existing cached waveforms remain readable. Image/audio/video format, duration, pixel, retained-byte and project limits still apply.
+
+Clients may send `Prefer: respond-async`, a UUID `Idempotency-Key` and an optional canonical `X-Reelchemy-Media-Intent` SHA-256 to upload/import endpoints. A 202 response contains a private request receipt and Location. `GET /api/media-requests/:id`, `GET /api/workspace/media-requests?offset=0` and `POST /api/media-requests/:id/cancel` require the verified owner and preserve account binding. Unfinished work survives a browser disconnect; completed attachments cannot be removed by cancelling the receipt. Existing clients receive their 201 project response after completion. Retries remain subject to normal request windows.
+
+Receipts are retained for seven days after terminal cleanup, so idempotent replay is bounded to that period. Processing uses one kernel-locked consumer and at most one automatic crash retry, preallocated output IDs, fresh target/rights/quota checks, and atomic attachment/completion. Trash cancels pending input; permanent removal waits for its cleanup acknowledgment. A receipt never releases raw capacity before physical cleanup. Configure native worker media paths/allowances in its environment to match the web process; Next's `.env.local` is not loaded by the codec worker. The production Compose role supplies the shared settings and mounts only studio data, with no network or auth/artifact volume. This is separate from the public staging/load and live-provider release gates.
