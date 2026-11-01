@@ -18,6 +18,7 @@ import { MediaInputFiles } from "../src/lib/media-input-files";
 import { withPrivateDirectory } from "../src/lib/private-directory";
 import { writeNormalizedMedia } from "../src/lib/media-normalization";
 import { CommandCancelledError } from "../src/lib/process";
+import { execFileSync } from "node:child_process";
 
 test("private input files validate size/digest/identity, persist and refuse replacement", () => {
   const root = mkdtempSync(path.join(tmpdir(), "reelchemy-input-files-"));
@@ -149,6 +150,46 @@ test("preallocated normalized outputs are exclusive, private and removed if canc
   } finally {
     if (previous === undefined) delete process.env.REELCHEMY_DATA_DIR;
     else process.env.REELCHEMY_DATA_DIR = previous;
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("raw-input and waveform-cache readers refuse named pipes without waiting for a writer", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "reelchemy-private-fifo-")),
+    id = randomUUID();
+  try {
+    mkdirSync(path.join(root, "media-inputs"));
+    mkdirSync(path.join(root, "waveforms"));
+    execFileSync("mkfifo", [
+      "--mode=600",
+      path.join(root, "media-inputs", `${id}.input`),
+      path.join(root, "waveforms", `${id}.json`),
+    ]);
+    const output = execFileSync(
+      process.execPath,
+      [
+        "--import",
+        "tsx",
+        "--input-type=module",
+        "-e",
+        `
+      import assert from 'node:assert/strict';
+      import {MediaInputFiles} from './src/lib/media-input-files.ts';
+      import {cachedWaveform} from './src/lib/waveform-cache.ts';
+      assert.throws(()=>new MediaInputFiles(process.env.REELCHEMY_DATA_DIR).read(${JSON.stringify(id)},4096,1,'a'.repeat(64)),/Invalid private media input/);
+      assert.throws(()=>cachedWaveform(${JSON.stringify(id)}),/Invalid waveform cache/);
+      console.log('Named pipes refused');
+    `,
+      ],
+      {
+        env: { ...process.env, REELCHEMY_DATA_DIR: root },
+        timeout: 5000,
+        killSignal: "SIGKILL",
+        encoding: "utf8",
+      },
+    );
+    assert.match(output, /Named pipes refused/);
+  } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });

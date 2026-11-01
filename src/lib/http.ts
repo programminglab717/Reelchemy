@@ -154,7 +154,7 @@ export function localMutation(req: Request) {
 export async function readLimitedBody(
   req: Request,
   maxBytes: number,
-  options: { timeoutMs?: number } = {},
+  options: { timeoutMs?: number; cancelled?: () => boolean } = {},
 ) {
   if (Number(req.headers.get("content-length") || 0) > maxBytes)
     throw new RequestBodyError("Request too large.");
@@ -186,8 +186,30 @@ export async function readLimitedBody(
         ),
       options.timeoutMs,
     );
+  const checkCancellation = () => {
+    try {
+      if (options.cancelled?.())
+        rejectRead(
+          new RequestBodyError(
+            "Upload cancelled. Your file has not been added.",
+            409,
+          ),
+        );
+    } catch {
+      rejectRead(
+        new RequestBodyError(
+          "Upload status is unavailable. Keep your file and retry.",
+          503,
+        ),
+      );
+    }
+  };
+  const poll = options.cancelled
+    ? setInterval(checkCancellation, 100)
+    : undefined;
   try {
     if (req.signal.aborted) abort();
+    checkCancellation();
     while (true) {
       const { done, value } = await Promise.race([reader.read(), interrupted]);
       if (done) break;
@@ -202,6 +224,7 @@ export async function readLimitedBody(
     throw error;
   } finally {
     clearTimeout(timer);
+    clearInterval(poll);
     req.signal.removeEventListener("abort", abort);
     reader.releaseLock();
   }
@@ -221,7 +244,7 @@ export async function body(req: Request) {
 export async function multipart(
   req: Request,
   maxBytes = 11 * 1024 * 1024,
-  options: { timeoutMs?: number } = {},
+  options: { timeoutMs?: number; cancelled?: () => boolean } = {},
 ) {
   const bytes = await readLimitedBody(req, maxBytes, options);
   return new Request(req.url, {

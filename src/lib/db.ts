@@ -296,6 +296,7 @@ function sizedMedia(assets: readonly Asset[]) {
 function checkMediaStorage(
   workspaceId: string,
   assets: readonly (Asset & { bytes: number })[],
+  admittedLimitBytes?: number,
 ) {
   const owned = ownedMediaSizes(workspaceId),
     known = new Map(owned.map((asset) => [asset.id, asset.bytes]));
@@ -314,7 +315,14 @@ function checkMediaStorage(
       0,
     ),
   );
-  const limitBytes = mediaStorageLimit();
+  const limitBytes = Math.min(
+    mediaStorageLimit(),
+    admittedLimitBytes === undefined
+      ? Infinity
+      : mediaStorageLimit({
+          REELCHEMY_MEDIA_STORAGE_BYTES: String(admittedLimitBytes),
+        }),
+  );
   if (requiredBytes > 0 && usedBytes + requiredBytes > limitBytes)
     throw new MediaStorageLimitError(usedBytes, limitBytes, requiredBytes);
   for (const [id, bytes] of added)
@@ -326,6 +334,7 @@ export function appendOwnedAsset(
   projectId: string,
   workspaceId: string,
   asset: Asset,
+  admittedLimitBytes?: number,
 ) {
   const [normalized] = sizedMedia([asset]);
   return db
@@ -336,19 +345,23 @@ export function appendOwnedAsset(
         return latest;
       if ((latest.assets || []).length >= 30)
         throw new Error("Project limit is 30 assets.");
-      checkMediaStorage(workspaceId, [normalized]);
+      checkMediaStorage(workspaceId, [normalized], admittedLimitBytes);
       latest.assets = [...(latest.assets || []), normalized];
       return saveProject(latest);
     })
     .immediate();
 }
-export function saveImportedProject(project: Project, workspaceId: string) {
+export function saveImportedProject(
+  project: Project,
+  workspaceId: string,
+  admittedLimitBytes?: number,
+) {
   const assets = sizedMedia(project.assets || []);
   return db
     .transaction(() => {
       if (getProject(project.id))
         throw new Error("Imported project already exists.");
-      checkMediaStorage(workspaceId, assets);
+      checkMediaStorage(workspaceId, assets, admittedLimitBytes);
       return saveProject({ ...project, assets }, workspaceId);
     })
     .immediate();

@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
+import { mediaStorageLimit } from "./media-storage-policy";
 import {
   MEDIA_INPUT_BYTES,
   mediaProcessingPolicy,
@@ -78,6 +79,7 @@ type Row = {
   result_id: string | null;
   error: MediaFailure | null;
   failure_details: string | null;
+  storage_limit_bytes: number | null;
   created_at: number;
   updated_at: number;
   receive_until: number;
@@ -121,6 +123,7 @@ export type MediaTask = {
   input: MediaInput | null;
   outputIds: string[];
   attempts: number;
+  storageLimitBytes: number | null;
 };
 const active = "state IN ('receiving','queued','working','cancelling')";
 const terminal = "state IN ('completed','failed','cancelled')";
@@ -155,6 +158,12 @@ function task(row: Row): MediaTask {
     input: row.input ? inputSchema.parse(JSON.parse(row.input)) : null,
     outputIds: z.array(uuid).max(30).parse(JSON.parse(row.outputs)),
     attempts: row.attempts,
+    storageLimitBytes:
+      row.storage_limit_bytes === null
+        ? null
+        : mediaStorageLimit({
+            REELCHEMY_MEDIA_STORAGE_BYTES: String(row.storage_limit_bytes),
+          }),
   };
 }
 
@@ -170,7 +179,7 @@ export function migrateMediaProcessing(db: Database.Database) {
     outputs TEXT NOT NULL DEFAULT '[]', result_id TEXT, error TEXT,
     created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, receive_until INTEGER NOT NULL,
     token TEXT, attempts INTEGER NOT NULL DEFAULT 0,
-    failure_details TEXT,
+    failure_details TEXT, storage_limit_bytes INTEGER,
     UNIQUE(workspace_id,request_key));
     CREATE INDEX IF NOT EXISTS media_requests_queue_idx ON media_requests(state,created_at);
     CREATE INDEX IF NOT EXISTS media_requests_owner_idx ON media_requests(workspace_id,state);
@@ -181,6 +190,14 @@ export function migrateMediaProcessing(db: Database.Database) {
     )
   )
     db.exec("ALTER TABLE media_requests ADD COLUMN failure_details TEXT");
+  if (
+    !(db.pragma("table_info(media_requests)") as { name: string }[]).some(
+      (column) => column.name === "storage_limit_bytes",
+    )
+  )
+    db.exec(
+      "ALTER TABLE media_requests ADD COLUMN storage_limit_bytes INTEGER",
+    );
 }
 
 // Private snapshot/restore copies only. Raw inputs are intentionally excluded
@@ -243,6 +260,13 @@ export class MediaProcessingStore {
       .all(workspace, offset) as Row[];
     return {
       requests: rows.slice(0, 20).map(receipt),
+      activeCount: (
+        this.db
+          .prepare(
+            `SELECT count(*) AS count FROM media_requests WHERE workspace_id=? AND ${active}`,
+          )
+          .get(workspace) as { count: number }
+      ).count,
       nextOffset: rows.length > 20 ? offset + 20 : null,
     };
   }
@@ -261,9 +285,16 @@ export class MediaProcessingStore {
     operation: MediaOperation;
     requestKey: string;
     fingerprint?: string;
+    storageLimitBytes?: number;
   }) {
     uuid.parse(input.requestKey);
     if (input.fingerprint !== undefined) hash.parse(input.fingerprint);
+    const storageLimitBytes =
+      input.storageLimitBytes === undefined
+        ? null
+        : mediaStorageLimit({
+            REELCHEMY_MEDIA_STORAGE_BYTES: String(input.storageLimitBytes),
+          });
     if (
       !Object.hasOwn(MEDIA_INPUT_BYTES, input.operation) ||
       (input.operation !== "import" && input.projectId === null) ||
@@ -324,7 +355,7 @@ export class MediaProcessingStore {
           now = this.now();
         this.db
           .prepare(
-            "INSERT INTO media_requests(id,workspace_id,project_id,operation,request_key,fingerprint,state,reserved_bytes,created_at,updated_at,receive_until,token) VALUES (?,?,?,?,?,?,'receiving',?,?,?,?,?)",
+            "INSERT INTO media_requests(id,workspace_id,project_id,operation,request_key,fingerprint,state,reserved_bytes,created_at,updated_at,receive_until,token,storage_limit_bytes) VALUES (?,?,?,?,?,?,'receiving',?,?,?,?,?,?)",
           )
           .run(
             id,
@@ -338,6 +369,7 @@ export class MediaProcessingStore {
             now,
             now + this.policy.receiveCleanupMs,
             token,
+            storageLimitBytes,
           );
         return {
           receipt: receipt(this.row(id)!),

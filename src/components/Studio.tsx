@@ -21,6 +21,7 @@ import { WorkspaceExports } from "./WorkspaceExports";
 import { ExportHistory, QualityEvidence } from "./ExportHistory";
 import { MediaEditor } from "./MediaEditor";
 import { ImportProject } from "./ProjectPortability";
+import { MediaProcessing } from "./MediaProcessing";
 import { useAccountFetch } from "./AccountBoundary";
 import { Icon, type IconName } from "./Icon";
 import { useRouter } from "next/navigation";
@@ -499,6 +500,10 @@ export function Studio({
           onJob={(updated) => {
             if (job?.id === updated.id) setJob(updated);
           }}
+        />
+        <MediaProcessing
+          onOpen={(id) => navigate({ id })}
+          disabled={busy || editor.saving}
         />
         {!project ? (
           <div className="home">
@@ -1241,6 +1246,7 @@ export function Studio({
                   </small>
                 </section>
                 <AssetPanel
+                  key={project.id}
                   canAddVisual={!!scene && scene.layers.length < 20}
                   onRecordingPending={setRecordingPending}
                   onRecordStart={() => player.current?.pause()}

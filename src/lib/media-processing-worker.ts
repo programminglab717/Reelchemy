@@ -77,7 +77,14 @@ export async function processMediaTask(
             );
       await waveform(asset, cancelled);
       mediaProcessing.finish(task, () => {
-        if (!appendOwnedAsset(task.projectId!, task.workspaceId, asset))
+        if (
+          !appendOwnedAsset(
+            task.projectId!,
+            task.workspaceId,
+            asset,
+            task.storageLimitBytes ?? undefined,
+          )
+        )
           throw new Error("Media target unavailable.");
         return asset.id;
       });
@@ -96,7 +103,12 @@ export async function processMediaTask(
         await waveform(asset, cancelled);
       mediaProcessing.finish(
         task,
-        () => saveImportedProject(project, task.workspaceId).id,
+        () =>
+          saveImportedProject(
+            project,
+            task.workspaceId,
+            task.storageLimitBytes ?? undefined,
+          ).id,
       );
     } else {
       if (!projectInWorkspace(task.projectId!, task.workspaceId))

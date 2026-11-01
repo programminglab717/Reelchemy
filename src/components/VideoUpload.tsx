@@ -1,5 +1,5 @@
 "use client";
-import { useAccountFetch } from "./AccountBoundary";
+import { useMediaSubmission } from "./useMediaSubmission";
 import { useState } from "react";
 import type { Project } from "@/lib/schema";
 export function VideoUpload({
@@ -9,7 +9,7 @@ export function VideoUpload({
   projectId: string;
   onProject: (p: Project) => void;
 }) {
-  const accountFetch = useAccountFetch();
+  const upload = useMediaSubmission(`/api/projects/${projectId}/assets`);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   return (
@@ -25,12 +25,7 @@ export function VideoUpload({
           const file = body.get("file");
           if (!(file instanceof File) || file.size > 25 * 1024 * 1024)
             throw new Error("Choose a video up to 25 MB.");
-          const r = await accountFetch(`/api/projects/${projectId}/assets`, {
-            method: "POST",
-            body,
-          });
-          const data = await r.json();
-          if (!r.ok) throw new Error(data.error || "Video upload failed.");
+          const data = await upload.submit(body);
           onProject(data);
           form.reset();
         } catch (e) {
@@ -64,7 +59,7 @@ export function VideoUpload({
           />
         </label>
         <button className="subtle" disabled={busy}>
-          {busy ? "Preparing video…" : "Upload video asset"}
+          {busy ? upload.message || "Preparing video…" : "Upload video asset"}
         </button>
       </div>
       <p>

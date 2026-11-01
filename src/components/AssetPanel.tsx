@@ -1,5 +1,5 @@
 "use client";
-import { useAccountFetch } from "./AccountBoundary";
+import { useMediaSubmission } from "./useMediaSubmission";
 import { useState } from "react";
 import type { Project } from "@/lib/schema";
 import { VideoUpload } from "./VideoUpload";
@@ -21,7 +21,8 @@ export function AssetPanel({
   onRecordStart: () => void;
   canAddVisual: boolean;
 }) {
-  const accountFetch = useAccountFetch();
+  const imageUpload = useMediaSubmission(`/api/projects/${project.id}/assets`);
+  const audioUpload = useMediaSubmission(`/api/projects/${project.id}/assets`);
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   return (
@@ -50,16 +51,8 @@ export function AssetPanel({
           setError("");
           const form = e.currentTarget;
           try {
-            const response = await accountFetch(
-              `/api/projects/${project.id}/assets`,
-              {
-                method: "POST",
-                body: new FormData(form),
-              },
-            );
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error);
-            onProject({ ...project, assets: data.assets });
+            const data = await imageUpload.submit(new FormData(form));
+            onProject(data);
             form.reset();
           } catch (e) {
             setError(e instanceof Error ? e.message : "Upload failed");
@@ -73,6 +66,7 @@ export function AssetPanel({
             PNG / JPEG image
             <input
               aria-label="Upload image"
+              disabled={busy}
               type="file"
               name="file"
               accept="image/png,image/jpeg"
@@ -84,13 +78,14 @@ export function AssetPanel({
             <input
               name="license"
               placeholder="I own this image"
+              disabled={busy}
               minLength={3}
               maxLength={500}
               required
             />
           </label>
           <button className="subtle" disabled={busy}>
-            {busy ? "Uploading…" : "Upload asset"}
+            {busy ? imageUpload.message || "Preparing media…" : "Upload asset"}
           </button>
         </div>
       </form>
@@ -103,13 +98,8 @@ export function AssetPanel({
           try {
             const body = new FormData(form);
             body.set("kind", "audio");
-            const r = await accountFetch(`/api/projects/${project.id}/assets`, {
-              method: "POST",
-              body,
-            });
-            const data = await r.json();
-            if (!r.ok) throw new Error(data.error);
-            onProject({ ...project, assets: data.assets });
+            const data = await audioUpload.submit(body);
+            onProject(data);
             form.reset();
           } catch (e) {
             setError(e instanceof Error ? e.message : "Audio upload failed");
@@ -123,6 +113,7 @@ export function AssetPanel({
             Audio file
             <input
               aria-label="Upload audio"
+              disabled={busy}
               type="file"
               name="file"
               accept="audio/wav,audio/mpeg,audio/ogg,audio/flac,audio/aac"
@@ -134,13 +125,16 @@ export function AssetPanel({
             <input
               name="license"
               placeholder="I own this audio"
+              disabled={busy}
               minLength={3}
               maxLength={500}
               required
             />
           </label>
           <button className="subtle" disabled={busy}>
-            Upload audio asset
+            {busy
+              ? audioUpload.message || "Preparing media…"
+              : "Upload audio asset"}
           </button>
         </div>
       </form>

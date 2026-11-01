@@ -1764,6 +1764,20 @@ main.account-page {
 .workspace-exports li p {
   margin: 4px 0;
 }
+.workspace-media ul {
+  max-height: 260px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.workspace-media time {
+  color: var(--muted);
+  font-size: 11px;
+}
+.workspace-media .subtle {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 @media (max-width: 640px) {
   .workspace-exports li {
     align-items: stretch;

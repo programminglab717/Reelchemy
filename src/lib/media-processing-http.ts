@@ -1,5 +1,5 @@
 import { randomUUID, createHash } from "node:crypto";
-import path from "node:path";
+import { mediaUploadName } from "./media-upload-intent";
 import { z, ZodError } from "zod";
 import {
   mediaProcessing,
@@ -31,6 +31,7 @@ export function reserveMediaRequest(
   workspaceId: string,
   projectId: string | null,
   operation: MediaOperation,
+  storageLimitBytes?: number,
 ) {
   const requestKey = z
     .uuid()
@@ -46,6 +47,7 @@ export function reserveMediaRequest(
     operation,
     requestKey,
     fingerprint,
+    storageLimitBytes,
   });
 }
 function accepted(receipt: MediaReceipt, preferred = false) {
@@ -191,7 +193,13 @@ export async function receiveMediaRequest(
   let queued = false;
   try {
     const usage = mediaStorage(workspaceId);
-    reservation = reserveMediaRequest(req, workspaceId, projectId, operation);
+    reservation = reserveMediaRequest(
+      req,
+      workspaceId,
+      projectId,
+      operation,
+      usage.limitBytes,
+    );
     if (!reservation.created)
       return await mediaRequestResponse(req, reservation.receipt, workspaceId);
     if (
@@ -201,7 +209,12 @@ export async function receiveMediaRequest(
       throw new RequestBodyError("Project limit is 30 assets.");
     if (operation === "upload" && usage.remainingBytes === 0)
       throw new MediaStorageLimitError(usage.usedBytes, usage.limitBytes, 1);
-    const options = { timeoutMs: mediaProcessingPolicy().receiveMs };
+    const options = {
+      timeoutMs: mediaProcessingPolicy().receiveMs,
+      cancelled: () =>
+        mediaProcessing.get(reservation!.receipt.id, workspaceId)?.state !==
+        "receiving",
+    };
     let bytes: Uint8Array, metadata: MediaInput;
     if (operation === "upload") {
       const form = await multipart(req, MEDIA_INPUT_BYTES.upload, options);
@@ -226,12 +239,7 @@ export async function receiveMediaRequest(
       bytes = new Uint8Array(await file.arrayBuffer());
       metadata = {
         operation,
-        name:
-          path
-            .basename(file.name)
-            .replace(/[^a-zA-Z0-9._ -]/g, "_")
-            .slice(0, 100) ||
-          (kind === "video" ? "Video" : kind === "audio" ? "Audio" : "Image"),
+        name: mediaUploadName(file.name, kind),
         kind,
         license,
         bytes: bytes.length,
@@ -265,12 +273,16 @@ export async function receiveMediaRequest(
     queued = true;
     return await mediaRequestResponse(req, receipt, workspaceId);
   } catch (error) {
-    if (projectId && !projectInWorkspace(projectId, workspaceId))
-      return Response.json(
-        { error: "Project not found." },
-        { status: 404, headers: privateMediaHeaders },
-      );
-    return safeMediaFailure(error);
+    const response =
+      projectId && !projectInWorkspace(projectId, workspaceId)
+        ? Response.json(
+            { error: "Project not found." },
+            { status: 404, headers: privateMediaHeaders },
+          )
+        : safeMediaFailure(error);
+    if (reservation?.created && !queued)
+      response.headers.set("X-Reelchemy-Media-Not-Queued", "1");
+    return response;
   } finally {
     if (reservation?.created && !queued) {
       if (req.signal.aborted)

@@ -1,5 +1,5 @@
 "use client";
-import { useAccountFetch } from "./AccountBoundary";
+import { useMediaSubmission } from "./useMediaSubmission";
 import { useEffect, useRef, useState } from "react";
 import { encodeRecording } from "@/lib/recording";
 import type { Project } from "@/lib/schema";
@@ -24,7 +24,7 @@ export function NarrationRecorder({
   onPendingChange: (pending: boolean) => void;
   onStart: () => void;
 }) {
-  const accountFetch = useAccountFetch();
+  const upload = useMediaSubmission(`/api/projects/${projectId}/assets`);
   const [state, setState] = useState<
     "idle" | "permission" | "recording" | "stopping" | "review" | "saving"
   >("idle");
@@ -338,13 +338,7 @@ export function NarrationRecorder({
                     draft.blob,
                     `${name.trim().replace(/[^a-zA-Z0-9._ -]/g, "_")}.wav`,
                   );
-                  const response = await accountFetch(
-                    `/api/projects/${projectId}/assets`,
-                    { method: "POST", body },
-                  );
-                  const result = await response.json();
-                  if (!response.ok)
-                    throw new Error(result.error || "Recording upload failed");
+                  const result = await upload.submit(body);
                   onProject(result);
                   clearDraft();
                   setState("idle");
@@ -352,13 +346,13 @@ export function NarrationRecorder({
                 } catch (e) {
                   setState("review");
                   setError(
-                    `Recording was not saved: ${(e as Error).message}. You can retry or download this take.`,
+                    `Your take is retained here. ${(e as Error).message} You can retry or download it.`,
                   );
                 }
               }}
             >
               {state === "saving"
-                ? "Saving recording…"
+                ? upload.message || "Saving recording…"
                 : "Save recording to assets"}
             </button>
             <a className="subtle" href={draft.url} download="narration.wav">
