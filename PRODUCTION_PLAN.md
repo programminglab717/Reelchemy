@@ -2,6 +2,14 @@
 
 Prepared 28 October 2026 from the repository at `1d3d601`. This is a proposed release definition and effort estimate, not a statement that the listed features are implemented or a promised delivery date. Live AI verification is deliberately deferred until the final release gate; missing API keys do not block independent development or offline tests.
 
+## Current engineering checkpoint — 1 November 2026 (0.34.0)
+
+The current source includes the visual editor, autosave/CAS/undo and durable recovery, real footage/images/audio/recording/captions, private accounts and media reuse, export/cache/retry/cancellation, permanent project removal and coordinated snapshots. Media uploads/imports and uncached waveforms now run through a bounded durable ingestion consumer, with a separate data-only Compose role, admission-bound retained-byte limits, private status/cancellation and browser receipt recovery. The upload UI keeps files/takes after interrupted responses and exposes background work after refresh. No live provider or SMTP worker has been used.
+
+The backend suite passes **203 tests** and the 0.34 production build passes. The preceding 0.33 full HTTPS regression passed **56 of 57**: its only failure was an exact health-test expectation missing the new true ingestion check. The corrected strict contract and new upload/recovery/narration UI are being checked against 0.34; their completed outcomes belong in VALIDATION.md. A new immutable-image acceptance for all three service roles is pending. The original matrix below is a historical gap inventory; later completed checkpoints supersede its baseline.
+
+Remaining work includes the actual provider usage/spending ledger, permanent account erasure and managed retention/quotas for histories/exports/cache/backups, compact history reads, longer-video/native-HD performance and creator tools/acceptance. Public staging, hosted CI execution, real mail delivery, off-host restore/monitoring/load acceptance and the final live-AI gate are still open. Supported limits remain 60 seconds/12 scenes, 720p landscape/portrait and 1080-square. The measured static-minute optimization does not establish moving-footage/five-minute/1080p landscape or portrait support.
+
 ## Working release target
 
 The user confirmed **a public multi-user product**. Separate customers must be able to register, verify an account, sign in and access only their own studio, projects, media and exports. Tenant isolation, account recovery, abuse controls and public-service operations are release requirements. Shared team workspaces and billing require separate product decisions; public signup does not by itself imply either feature.
@@ -12,11 +20,11 @@ A useful product must let a maker complete the ordinary creative workflow throug
 
 ## Baseline when this plan was prepared (0.5.0)
 
-The current 0.5.0 foundation has deterministic Remotion/FFmpeg exports, a restricted scene DSL, demo planning, mocked-contract Claude/compatible adapters, scene revisions and restore, basic layer/scene controls, frame-keyframe and camera JSON editors, image/audio uploads, timed audio/captions, project ZIP round trips, render activity/recovery/cancellation, checksummed scene clip reuse, and technical QC evidence. The last verified suite was 25 unit tests and eight production browser tests, plus build/lint/type/format checks and an audit with zero reported vulnerabilities.
+The 0.5.0 foundation had deterministic Remotion/FFmpeg exports, a restricted scene DSL, demo planning, mocked-contract Claude/compatible adapters, scene revisions and restore, basic layer/scene controls, frame-keyframe and camera JSON editors, image/audio uploads, timed audio/captions, project ZIP round trips, render activity/recovery/cancellation, checksummed scene clip reuse, and technical QC evidence. Its verified suite was 25 unit tests and eight production browser tests, plus build/lint/type/format checks and an audit with zero reported vulnerabilities.
 
 These tests validate implemented paths. They do not establish overall editor usability, artistic quality, production security, long-video performance, supported-codec breadth or service reliability under real users.
 
-Current limits include a 60-second timeline, 12 scenes, local SQLite/filesystem storage, one render worker, 720p landscape/portrait outputs, fixed three-scene demo planning, no video-clip ingestion, no autosave/undo/redo, no user authentication/authorization, no database migration workflow, and no deployment/backup/monitoring system. A production Next.js build is not a deployed production service.
+At that baseline, limits included a 60-second timeline, 12 scenes, local SQLite/filesystem storage, one render worker, 720p landscape/portrait outputs, fixed three-scene demo planning, no video-clip ingestion, no autosave/undo/redo, no user authentication/authorization, no database migration workflow, and no deployment/backup/monitoring system. Many of these gaps are now closed as described above. A production Next.js build is not a deployed production service.
 
 ## Delivery workstreams and exit criteria
 
@@ -171,7 +179,7 @@ Private browser requests now declare the server-rendered account and fail before
 
 ## Static-scene render efficiency checkpoint — 1 November 2026 (0.30.0)
 
-Eligible static title cards reuse bounded real browser captures and still encode every output frame; captions retain exact starts/ends and ordinary animation/footage rendering remains available. Actual paired short exports match decoded baseline pixels, color metadata and frame counts in all three formats, including rotated media/captions, cache reuse and cancellation cleanup. A separate paired cold static-minute measurement is pending. This addresses repeated captures of unchanged visuals; it does not establish the five-minute/1080p landscape/portrait target or accelerate continuously moving footage. Current duration/resolution limits remain unchanged while the remaining performance and public-service work continues.
+Eligible static title cards reuse bounded real browser captures and still encode every output frame; captions retain exact starts/ends and ordinary animation/footage rendering remains available. Actual paired short exports match decoded baseline pixels, color metadata and frame counts in all three formats, including rotated media/captions, cache reuse and cancellation cleanup. The paired restricted cold static-minute job fell from 242.208 to 168.694 seconds (30.35% in that fixture), with full-resolution SSIM 1.000000 across all 1,800 frames and identical decoded PCM audio. This addresses repeated captures of unchanged visuals; it does not establish the five-minute/1080p landscape/portrait target or accelerate continuously moving footage. Current duration/resolution limits remain unchanged while the remaining performance and public-service work continues.
 
 ## Studio media reuse checkpoint — 1 November 2026 (0.31.0)
 
