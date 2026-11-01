@@ -5,7 +5,9 @@ if (
   (arguments_.length === 1 && arguments_[0] !== "--recount-media")
 )
   throw new Error("Usage: npm run db:migrate -- [--recount-media]");
-const { recountMediaStorage } = await import("../src/lib/db");
+const { recountMediaStorage, artifactDir } = await import("../src/lib/db");
+const { mkdir } = await import("node:fs/promises");
+await mkdir(artifactDir, { recursive: true, mode: 0o700 });
 if (arguments_[0] === "--recount-media") {
   const result = recountMediaStorage();
   console.log(

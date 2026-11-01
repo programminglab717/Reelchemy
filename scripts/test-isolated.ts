@@ -99,6 +99,7 @@ try {
   };
   delete env.AI_API_KEY;
   delete env.SMTP_PASSWORD;
+  await mkdir(env.REELCHEMY_ARTIFACT_DIR!, { recursive: true, mode: 0o700 });
   const start = (arguments_: string[]) => {
     const child = spawnTestProcess(process.execPath, arguments_, {
       env,

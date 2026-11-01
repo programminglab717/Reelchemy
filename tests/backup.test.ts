@@ -70,7 +70,7 @@ test("backup/restore drill preserves accounts, private workspaces/media and expo
   const job = db.createJob(p);
   db.claimJob();
   const exports = path.join(process.env.REELCHEMY_ARTIFACT_DIR!, job.id);
-  await mkdir(exports);
+  await mkdir(exports, { recursive: true });
   execFileSync("ffmpeg", [
     "-v",
     "error",

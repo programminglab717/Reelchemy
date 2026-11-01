@@ -1,5 +1,5 @@
 import Database from "better-sqlite3";
-import { mkdirSync, lstatSync } from "node:fs";
+import { mkdirSync, lstatSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type {
@@ -45,6 +45,10 @@ import {
   mediaStorageLimit,
   MediaStorageLimitError,
 } from "./media-storage-policy";
+import { MediaProcessingStore } from "./media-processing-store";
+import { MediaInputFiles } from "./media-input-files";
+import { withPrivateDirectory } from "./private-directory";
+import { removeCachedWaveform } from "./waveform-cache";
 // Runtime state lives on the mounted filesystem; do not embed it in server traces.
 export const dataDir = path.resolve(
   /* turbopackIgnore: true */ process.env.REELCHEMY_DATA_DIR || ".data",
@@ -53,7 +57,6 @@ export const artifactDir = path.resolve(
   /* turbopackIgnore: true */ process.env.REELCHEMY_ARTIFACT_DIR || "artifacts",
 );
 mkdirSync(dataDir, { recursive: true });
-mkdirSync(artifactDir, { recursive: true });
 const db = new Database(path.join(dataDir, "studio.sqlite"));
 db.pragma("journal_mode = WAL");
 db.pragma("busy_timeout = 5000");
@@ -106,6 +109,43 @@ db.transaction(() => {
   migrateMediaReferences(db);
   migrateProjectDeletions(db);
 }).immediate();
+export const mediaProcessing = new MediaProcessingStore(db);
+export const mediaInputs = new MediaInputFiles(dataDir);
+export function cleanupUnreferencedMediaOutputs(ids: string[]) {
+  return db
+    .transaction(() =>
+      withPrivateDirectory(dataDir, "assets", (anchor) => {
+        for (const id of ids) {
+          if (!validAssetId(id)) throw new Error("Invalid media output.");
+          if (
+            db
+              .prepare(
+                "SELECT 1 FROM project_media_refs WHERE asset_id=? UNION ALL SELECT 1 FROM job_media_refs WHERE asset_id=? LIMIT 1",
+              )
+              .get(id, id)
+          )
+            continue;
+          const file = path.join(anchor, id);
+          try {
+            const stat = lstatSync(file);
+            if (!stat.isFile() && !stat.isSymbolicLink())
+              throw new Error("Unexpected media output type.");
+            unlinkSync(file);
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+          }
+          removeCachedWaveform(id);
+        }
+      }),
+    )
+    .immediate();
+}
+export function cleanupMediaRequest(id: string) {
+  return mediaProcessing.cleanup(id, (outputs) => {
+    cleanupUnreferencedMediaOutputs(outputs);
+    mediaInputs.remove(id);
+  });
+}
 function rebuildMediaSizeIndex() {
   const rows = db
     .prepare(
@@ -779,6 +819,9 @@ export function setProjectTrashed(id: string, trashed: boolean) {
           "This project is scheduled for permanent deletion.",
         );
       if (trashed) {
+        db.prepare(
+          "UPDATE media_requests SET state='cancelling',updated_at=? WHERE project_id=? AND state IN ('receiving','queued','working')",
+        ).run(Date.now(), id);
         const jobs = db
           .prepare(
             "SELECT id FROM jobs WHERE project_id=? AND status IN ('queued','rendering')",

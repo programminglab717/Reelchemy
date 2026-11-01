@@ -6,6 +6,13 @@ x-auth-environment: &auth
   SMTP_HOST: ${SMTP_HOST:?Set an SMTP host}
   EMAIL_FROM: ${EMAIL_FROM:?Set the account sender address}
   REELCHEMY_AUTH_DIR: /app/private-auth
+x-media-environment: &media
+  REELCHEMY_MEDIA_STORAGE_BYTES: ${REELCHEMY_MEDIA_STORAGE_BYTES:-536870912}
+  REELCHEMY_MEDIA_INPUT_SLOTS: ${REELCHEMY_MEDIA_INPUT_SLOTS:-4}
+  REELCHEMY_MEDIA_INPUTS_PER_STUDIO: ${REELCHEMY_MEDIA_INPUTS_PER_STUDIO:-1}
+  REELCHEMY_MEDIA_ANALYSIS_SLOTS: ${REELCHEMY_MEDIA_ANALYSIS_SLOTS:-16}
+  REELCHEMY_MEDIA_ANALYSES_PER_STUDIO: ${REELCHEMY_MEDIA_ANALYSES_PER_STUDIO:-4}
+  REELCHEMY_MEDIA_RAW_BYTES: ${REELCHEMY_MEDIA_RAW_BYTES:-268435456}
 x-runtime: &runtime
   image: reelchemy:local
   build:
@@ -60,7 +67,7 @@ services:
       - studio-artifacts:/app/artifacts
       - studio-auth:/app/private-auth
     environment:
-      <<: [*paths, *auth]
+      <<: [*paths, *auth, *media]
       AI_PROVIDER: ${AI_PROVIDER:-mock}
       AI_BASE_URL: ${AI_BASE_URL:-}
       AI_MODEL: ${AI_MODEL:-}
@@ -70,7 +77,25 @@ services:
       REELCHEMY_PLANS_PER_DAY: ${REELCHEMY_PLANS_PER_DAY:-60}
       REELCHEMY_EXPORT_REQUESTS_PER_DAY: ${REELCHEMY_EXPORT_REQUESTS_PER_DAY:-30}
       REELCHEMY_ACTIVE_EXPORTS_PER_STUDIO: ${REELCHEMY_ACTIVE_EXPORTS_PER_STUDIO:-2}
-      REELCHEMY_MEDIA_STORAGE_BYTES: ${REELCHEMY_MEDIA_STORAGE_BYTES:-536870912}
+  ingest:
+    <<: *runtime
+    command: [npm, run, ingest:worker]
+    cpus: 2
+    mem_limit: 2g
+    pids_limit: 256
+    network_mode: none
+    volumes:
+      - studio-data:/app/.data
+    healthcheck:
+      test: [CMD, node, --import, tsx, scripts/check-ingest.ts]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    environment:
+      <<: *media
+      REELCHEMY_DATA_DIR: /app/.data
+      RAYON_NUM_THREADS: "2"
   render:
     <<: *runtime
     command: [npm, run, worker]

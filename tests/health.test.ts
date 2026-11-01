@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { recentHeartbeat, HEARTBEAT_NAME } from "../src/lib/worker-heartbeat";
-import { mkdtemp, readFile, rm, access, chmod } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, access, chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
@@ -24,6 +24,7 @@ test("real worker readiness follows its heartbeat and graceful shutdown cleans i
   const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-health-"));
   process.env.REELCHEMY_DATA_DIR = dir;
   process.env.REELCHEMY_ARTIFACT_DIR = path.join(dir, "artifacts");
+  await mkdir(process.env.REELCHEMY_ARTIFACT_DIR);
   const accounts = path.join(dir, "accounts");
   process.env.REELCHEMY_AUTH_DIR = accounts;
   process.env.EMAIL_DELIVERY = "file";

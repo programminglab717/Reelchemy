@@ -16,6 +16,7 @@ import {
 import path from "node:path";
 import { z } from "zod";
 import { omitPendingDeletionsFromSnapshot } from "./project-deletion-store";
+import { normalizeMediaProcessingSnapshot } from "./media-processing-store";
 
 const uuid = /^[a-f0-9-]{36}$/;
 const entryPath =
@@ -181,7 +182,7 @@ function snapshotReferences(db: Database.Database) {
   ).map((w) => w.owner_id);
   return { assets, jobs, owners };
 }
-// Admin-only filesystem tooling. Stop web, render and mail services first. We do
+// Admin-only filesystem tooling. Stop web, render, ingestion and mail first. We do
 // not copy live SQLite files/WAL bytes or claim cross-database transactionality.
 export async function createBackup(options: {
   data: string;
@@ -201,6 +202,10 @@ export async function createBackup(options: {
     throw new Error(
       "Stop the render worker before backing up. After a crash, verify its PID before removing a stale lock.",
     );
+  if (await exists(path.join(data, "ingest.lock")))
+    throw new Error(
+      "Stop the media worker before backing up. After a crash, verify its PID before removing stale diagnostics. Never remove its lifecycle lock.",
+    );
   await mkdir(path.dirname(output), { recursive: true, mode: 0o700 });
   await mkdir(output, { mode: 0o700 }); // Exclusive: never overwrite an existing backup.
   try {
@@ -214,6 +219,7 @@ export async function createBackup(options: {
     });
     let refs: ReturnType<typeof snapshotReferences>;
     try {
+      normalizeMediaProcessingSnapshot(studio);
       omitPendingDeletionsFromSnapshot(studio);
       refs = snapshotReferences(studio);
     } finally {
@@ -412,6 +418,7 @@ export async function restoreBackup(source: string, destination: string) {
     const studio = new Database(path.join(root, "data/studio.sqlite"));
     try {
       studio.transaction(() => {
+        normalizeMediaProcessingSnapshot(studio);
         const rows = studio
           .prepare("SELECT id,status,data FROM jobs")
           .all() as { id: string; status: string; data: string }[];

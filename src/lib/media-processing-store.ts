@@ -152,6 +152,25 @@ export function migrateMediaProcessing(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS media_requests_project_idx ON media_requests(project_id,state);`);
 }
 
+// Private snapshot/restore copies only. Raw inputs are intentionally excluded
+// from portable backups, so copied requests cannot resume without their input.
+export function normalizeMediaProcessingSnapshot(
+  db: Database.Database,
+  now = Date.now(),
+) {
+  if (
+    !db
+      .prepare(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='media_requests'",
+      )
+      .get()
+  )
+    return;
+  db.prepare(
+    `UPDATE media_requests SET state=CASE WHEN state='cancelling' THEN 'cancelled' WHEN ${active} THEN 'failed' ELSE state END,error=CASE WHEN state='cancelling' THEN NULL WHEN ${active} THEN 'INTERRUPTED' ELSE error END,reserved_bytes=0,input=NULL,outputs='[]',token=NULL,updated_at=?`,
+  ).run(now);
+}
+
 export class MediaProcessingStore {
   constructor(
     private db: Database.Database,
@@ -400,6 +419,28 @@ export class MediaProcessingStore {
         .all() as Row[]
     ).map(task);
   }
+  retryInterrupted(job: MediaTask, cleanupOutputs: (ids: string[]) => void) {
+    return this.db
+      .transaction(() => {
+        const row = this.row(job.id);
+        if (
+          !row ||
+          row.token !== job.token ||
+          row.state !== "working" ||
+          row.attempts >= 2 ||
+          !this.targetActive(row.workspace_id, row.project_id)
+        )
+          return false;
+        cleanupOutputs(z.array(uuid).max(30).parse(JSON.parse(row.outputs)));
+        this.db
+          .prepare(
+            "UPDATE media_requests SET state='queued',outputs='[]',token=NULL,error=NULL,updated_at=? WHERE id=?",
+          )
+          .run(this.now(), job.id);
+        return true;
+      })
+      .immediate();
+  }
   isCancelled(job: MediaTask) {
     const row = this.row(job.id);
     return (
@@ -498,6 +539,18 @@ export class MediaProcessingStore {
         `UPDATE media_requests SET reserved_bytes=0,input=NULL,outputs='[]',updated_at=? WHERE id=? AND ${terminal}`,
       )
       .run(this.now(), id);
+  }
+  cleanup(id: string, remove: (outputIds: string[]) => void) {
+    return this.db
+      .transaction(() => {
+        const row = this.row(id);
+        if (!row || !["completed", "failed", "cancelled"].includes(row.state))
+          return false;
+        remove(z.array(uuid).max(30).parse(JSON.parse(row.outputs)));
+        this.acknowledgeCleanup(id);
+        return true;
+      })
+      .immediate();
   }
   prune() {
     return this.db

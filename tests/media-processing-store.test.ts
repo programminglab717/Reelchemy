@@ -17,6 +17,7 @@ import {
   migrateMediaProcessing,
   MediaProcessingStore,
   mediaInputFingerprint,
+  normalizeMediaProcessingSnapshot,
   type MediaInput,
 } from "../src/lib/media-processing-store";
 
@@ -446,6 +447,68 @@ test("expired receivers cannot enqueue or free their raw reservation by changing
     assert.equal(f.queue.cleanupCandidates().length, 1);
     f.queue.acknowledgeCleanup(first.receipt.id);
     assert.equal(f.queue.projectBusy(f.owners[0].projectId), false);
+  } finally {
+    f.db.close();
+  }
+});
+
+test("backup-copy normalization cannot resurrect raw inputs and does not change its source", () => {
+  const f = fixture();
+  try {
+    f.enqueue();
+    const job = f.queue.claim()!;
+    f.queue.recordOutputs(job, [randomUUID()]);
+    const cancelled = f.reserve(1);
+    f.queue.cancel(cancelled.receipt.id, f.owners[1].workspaceId);
+    const before = f.db
+      .prepare("SELECT * FROM media_requests ORDER BY id")
+      .all();
+    const copy = new Database(f.db.serialize());
+    try {
+      normalizeMediaProcessingSnapshot(copy);
+      const rows = copy
+        .prepare(
+          "SELECT state,error,input,outputs,token,reserved_bytes FROM media_requests ORDER BY id",
+        )
+        .all() as {
+        state: string;
+        error: string | null;
+        input: string | null;
+        outputs: string;
+        token: string | null;
+        reserved_bytes: number;
+      }[];
+      assert.ok(
+        rows.some(
+          (row) => row.state === "failed" && row.error === "INTERRUPTED",
+        ),
+      );
+      assert.ok(
+        rows.some((row) => row.state === "cancelled" && row.error === null),
+      );
+      for (const row of rows)
+        assert.deepEqual(
+          {
+            input: row.input,
+            outputs: row.outputs,
+            token: row.token,
+            bytes: row.reserved_bytes,
+          },
+          { input: null, outputs: "[]", token: null, bytes: 0 },
+        );
+      assert.deepEqual(
+        f.db.prepare("SELECT * FROM media_requests ORDER BY id").all(),
+        before,
+      );
+    } finally {
+      copy.close();
+    }
+    const legacy = new Database(":memory:");
+    try {
+      assert.doesNotThrow(() => normalizeMediaProcessingSnapshot(legacy));
+    } finally {
+      legacy.close();
+    }
   } finally {
     f.db.close();
   }

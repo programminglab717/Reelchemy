@@ -1,4 +1,5 @@
 export const HEARTBEAT_NAME = "worker-heartbeat.json";
+export const INGEST_HEARTBEAT_NAME = "ingest-heartbeat.json";
 export function recentHeartbeat(value: unknown, now = Date.now()) {
   if (
     !value ||

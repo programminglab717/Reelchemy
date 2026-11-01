@@ -11,6 +11,7 @@
     "render:sample": "tsx scripts/render-sample.ts",
     "test:e2e": "playwright test",
     "worker": "tsx scripts/worker-entrypoint.ts",
+    "ingest:worker": "tsx scripts/ingest-entrypoint.ts",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

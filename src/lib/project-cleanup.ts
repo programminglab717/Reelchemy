@@ -18,6 +18,7 @@ import {
   failProjectDeletion,
 } from "./db";
 import { renderCacheWorkspaceDirectory } from "./render-cache-path";
+import { removeCachedWaveform } from "./waveform-cache";
 
 async function directoryAnchor(directory: string, configuredRoot = false) {
   let handle: FileHandle;
@@ -80,6 +81,7 @@ export async function processProjectDeletion(isStopping: () => boolean) {
     for (const id of assets) {
       if (isStopping()) return true;
       await removeEntry(media?.root, id, false);
+      removeCachedWaveform(id);
     }
     const exports = await directoryAnchor(artifactDir, true);
     if (exports) anchors.push(exports);

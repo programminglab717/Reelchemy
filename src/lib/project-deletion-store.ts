@@ -2,6 +2,7 @@ import type Database from "better-sqlite3";
 import { z } from "zod";
 import { mediaReferencedOutsideProject } from "./media-references";
 import { ProjectDeletionConflict } from "./project-deletion-policy";
+import { migrateMediaProcessing } from "./media-processing-store";
 
 const manifestSchema = z.object({
   assets: z.array(z.uuid()).max(100000),
@@ -69,6 +70,7 @@ function assertSource(db: Database.Database, row: Row) {
 }
 export function migrateProjectDeletions(db: Database.Database) {
   db.transaction(() => {
+    migrateMediaProcessing(db);
     db.exec(
       "CREATE TABLE IF NOT EXISTS schema_migrations(id TEXT PRIMARY KEY,applied_at TEXT NOT NULL)",
     );
@@ -205,6 +207,9 @@ export function requestProjectDeletion(
         "UPDATE jobs SET status='cancelled',data=json_set(data,'$.status','cancelled','$.stage','Cancelled by permanent project deletion') WHERE project_id=? AND status IN ('queued','rendering')",
       ).run(id);
       db.prepare(
+        "UPDATE media_requests SET state='cancelling',updated_at=? WHERE project_id=? AND state IN ('receiving','queued','working')",
+      ).run(Date.now(), id);
+      db.prepare(
         "INSERT INTO project_deletions(project_id,workspace_id,name,state,requested_at,manifest) VALUES (?,?,?,'queued',?,?)",
       ).run(
         id,
@@ -227,7 +232,7 @@ export function claimProjectDeletion(
     .transaction(() => {
       const row = db
         .prepare(
-          "SELECT * FROM project_deletions WHERE state='working' OR (state='queued' AND available_at<=?) ORDER BY requested_at LIMIT 1",
+          "SELECT * FROM project_deletions d WHERE (state='working' OR (state='queued' AND available_at<=?)) AND NOT EXISTS(SELECT 1 FROM media_requests m WHERE m.project_id=d.project_id AND (m.state IN ('receiving','queued','working','cancelling') OR m.reserved_bytes>0 OR m.outputs<>'[]')) ORDER BY requested_at LIMIT 1",
         )
         .get(now) as Row | undefined;
       if (!row) return undefined;
@@ -326,11 +331,22 @@ export function finishProjectDeletion(
       )
         throw new ProjectDeletionConflict(reviewMessage);
       assertSource(db, row);
+      if (
+        db
+          .prepare(
+            "SELECT 1 FROM media_requests WHERE project_id=? AND (state IN ('receiving','queued','working','cancelling') OR reserved_bytes>0 OR outputs<>'[]') LIMIT 1",
+          )
+          .get(task.projectId)
+      )
+        throw new ProjectDeletionConflict(reviewMessage);
       db.prepare("DELETE FROM export_requests WHERE project_id=?").run(
         task.projectId,
       );
       db.prepare("DELETE FROM jobs WHERE project_id=?").run(task.projectId);
       db.prepare("DELETE FROM projects WHERE id=?").run(task.projectId);
+      db.prepare(
+        "DELETE FROM media_requests WHERE project_id=? OR (operation='import' AND result_id=?)",
+      ).run(task.projectId, task.projectId);
       db.prepare(
         "DELETE FROM media_sizes WHERE asset_id IN (SELECT asset_id FROM media_deletion_targets WHERE project_id=?)",
       ).run(task.projectId);
@@ -375,6 +391,16 @@ export function omitPendingDeletionsFromSnapshot(db: Database.Database) {
         );
         db.prepare("DELETE FROM jobs WHERE project_id=?").run(row.project_id);
         db.prepare("DELETE FROM projects WHERE id=?").run(row.project_id);
+        if (
+          db
+            .prepare(
+              "SELECT 1 FROM sqlite_master WHERE type='table' AND name='media_requests'",
+            )
+            .get()
+        )
+          db.prepare(
+            "DELETE FROM media_requests WHERE project_id=? OR (operation='import' AND result_id=?)",
+          ).run(row.project_id, row.project_id);
         db.prepare("DELETE FROM media_deletion_targets WHERE project_id=?").run(
           row.project_id,
         );
