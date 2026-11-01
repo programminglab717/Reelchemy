@@ -1,5 +1,7 @@
 // Synthetic, private runtime fixture. Invoked through docker exec by check-runtime.
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { createReadStream } from "node:fs";
 import {
   mkdtemp,
   readFile,
@@ -19,6 +21,13 @@ import {
   getJob,
   getProject,
   saveProject,
+  listJobs,
+  appendOwnedAsset,
+  mediaStorage,
+  setProjectTrashed,
+  requestOwnedProjectDeletion,
+  ownedProjectDeletion,
+  projectInWorkspace,
 } from "../src/lib/db.ts";
 import { blankTimeline } from "../src/lib/editor.ts";
 import { storeVideo } from "../src/lib/video.ts";
@@ -29,6 +38,11 @@ import { HEARTBEAT_NAME } from "../src/lib/worker-heartbeat.ts";
 
 const operation = process.env.RUNTIME_CHECK_OPERATION;
 const benchmark = process.env.RUNTIME_CHECK_BENCHMARK === "square-minute";
+async function hashFile(file) {
+  const hash = createHash("sha256");
+  for await (const bytes of createReadStream(file)) hash.update(bytes);
+  return hash.digest("hex");
+}
 if (operation === "seed") {
   const temporary = await mkdtemp(
     path.join(tmpdir(), "reelchemy-runtime-media-"),
@@ -306,6 +320,118 @@ if (operation === "seed") {
   timeline.captions[0].text = "Recovered container export";
   reviseProject(project, timeline, "Synthetic restart fixture");
   console.log(JSON.stringify({ jobId: createJob(project).id }));
+} else if (operation === "delete-request") {
+  const workspace = ensureWorkspace("runtime-check-only", "Synthetic runtime");
+  const project = getProject(process.env.RUNTIME_CHECK_PROJECT_ID);
+  if (!project || !projectInWorkspace(project.id, workspace.id))
+    throw new Error("Runtime cleanup requires its synthetic project's owner.");
+  // The completed source exports are deliberately removed; a separate project
+  // retains the same footage, then renders successfully after worker cleanup.
+  const keeping = createProject(project.brief, workspace.id);
+  keeping.assets = structuredClone(project.assets);
+  saveProject(keeping);
+  reviseProject(
+    keeping,
+    structuredClone(project.timeline),
+    "Retained synthetic footage",
+  );
+  const shared = project.assets.find((asset) => asset.mime === "video/mp4");
+  if (!shared)
+    throw new Error("Runtime cleanup has no shared footage fixture.");
+  const sharedHash = await hashFile(
+    path.join(process.env.REELCHEMY_DATA_DIR, "assets", shared.id),
+  );
+  const exclusive = await storeImage(
+    await sharp({
+      create: { width: 32, height: 32, channels: 3, background: "#ffd085" },
+    })
+      .png()
+      .toBuffer(),
+    "Exclusive synthetic cleanup image.png",
+    "Generated acceptance fixture",
+  );
+  if (!appendOwnedAsset(project.id, workspace.id, exclusive))
+    throw new Error("Runtime cleanup fixture could not attach private media.");
+  const jobs = listJobs(project.id).map((job) => job.id);
+  setProjectTrashed(project.id, true);
+  const receipt = requestOwnedProjectDeletion(project.id, workspace.id);
+  if (!receipt || !["queued", "working", "completed"].includes(receipt.state))
+    throw new Error("Runtime cleanup did not admit its synthetic request.");
+  const next = createJob(keeping);
+  console.log(
+    JSON.stringify({
+      keepProjectId: keeping.id,
+      keepJobId: next.id,
+      sharedAssetId: shared.id,
+      sharedHash,
+      exclusiveAssetId: exclusive.id,
+      removedJobs: jobs,
+    }),
+  );
+} else if (operation === "delete-status") {
+  const workspace = ensureWorkspace("runtime-check-only", "Synthetic runtime");
+  const receipt = ownedProjectDeletion(
+    process.env.RUNTIME_CHECK_PROJECT_ID,
+    workspace.id,
+  );
+  console.log(JSON.stringify({ state: receipt?.state, error: receipt?.error }));
+} else if (operation === "delete-verify") {
+  const workspace = ensureWorkspace("runtime-check-only", "Synthetic runtime");
+  const projectId = process.env.RUNTIME_CHECK_PROJECT_ID;
+  const receipt = ownedProjectDeletion(projectId, workspace.id);
+  if (
+    receipt?.state !== "completed" ||
+    receipt.name !== null ||
+    getProject(projectId) ||
+    listJobs(projectId).length
+  )
+    throw new Error(
+      "Runtime cleanup retained source metadata or did not complete.",
+    );
+  if (
+    !projectInWorkspace(process.env.RUNTIME_CHECK_KEEP_PROJECT_ID, workspace.id)
+  )
+    throw new Error(
+      "Runtime cleanup removed the retained project's ownership.",
+    );
+  for (const file of [
+    path.join(
+      process.env.REELCHEMY_DATA_DIR,
+      "assets",
+      process.env.RUNTIME_CHECK_EXCLUSIVE_ASSET_ID,
+    ),
+    ...JSON.parse(process.env.RUNTIME_CHECK_REMOVED_JOBS).map((id) =>
+      path.join(process.env.REELCHEMY_ARTIFACT_DIR, id),
+    ),
+  ]) {
+    try {
+      await access(file);
+      throw new Error(
+        "Runtime cleanup retained exclusive media or export files.",
+      );
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+    }
+  }
+  const sharedFile = path.join(
+    process.env.REELCHEMY_DATA_DIR,
+    "assets",
+    process.env.RUNTIME_CHECK_SHARED_ASSET_ID,
+  );
+  if ((await hashFile(sharedFile)) !== process.env.RUNTIME_CHECK_SHARED_HASH)
+    throw new Error("Runtime cleanup changed shared footage.");
+  const usage = mediaStorage(workspace.id);
+  if (usage.usedBytes !== (await stat(sharedFile)).size)
+    throw new Error(
+      "Runtime cleanup did not reclaim exclusive media accounting.",
+    );
+  console.log(
+    JSON.stringify({
+      projectCleanup: true,
+      sharedMediaPreserved: true,
+      quotaReclaimed: true,
+    }),
+  );
 } else if (operation === "auth-owner") {
   const { authStorageDirectory } = await import("../src/lib/auth-storage.ts");
   const directory = authStorageDirectory();

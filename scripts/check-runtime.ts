@@ -402,6 +402,38 @@ try {
     console.log(
       "Duplicate worker rejected; forced in-flight container-crash recovery and another export passed.",
     );
+    const cleanup = await execute(
+      "delete-request",
+      { RUNTIME_CHECK_PROJECT_ID: seed.projectId },
+      web,
+    );
+    await waitFor(async () => {
+      const status = await execute("delete-status", {
+        RUNTIME_CHECK_PROJECT_ID: seed.projectId,
+      });
+      if (status.state === "failed")
+        throw new Error(status.error || "Runtime project cleanup failed.");
+      return status.state === "completed";
+    }, "Network-isolated worker did not finish permanent project cleanup.");
+    const removal = await execute("delete-verify", {
+      RUNTIME_CHECK_PROJECT_ID: seed.projectId,
+      RUNTIME_CHECK_KEEP_PROJECT_ID: cleanup.keepProjectId,
+      RUNTIME_CHECK_SHARED_ASSET_ID: cleanup.sharedAssetId,
+      RUNTIME_CHECK_SHARED_HASH: cleanup.sharedHash,
+      RUNTIME_CHECK_EXCLUSIVE_ASSET_ID: cleanup.exclusiveAssetId,
+      RUNTIME_CHECK_REMOVED_JOBS: JSON.stringify(cleanup.removedJobs),
+    });
+    assert.equal(removal.projectCleanup, true);
+    assert.equal(removal.sharedMediaPreserved, true);
+    assert.equal(removal.quotaReclaimed, true);
+    await completed(cleanup.keepJobId);
+    assert.equal(
+      (await execute("auth-isolation")).authenticationFilesystemIsolated,
+      true,
+    );
+    console.log(
+      "Permanent cleanup removed private media/exports, reclaimed quota, preserved shared footage and completed a later export with account storage still isolated.",
+    );
   } else {
     await run([
       "cp",
@@ -493,6 +525,10 @@ try {
                 "forced-container-crash-recovery",
                 "retained-export",
                 "second-export",
+                "permanent-project-cleanup",
+                "shared-media-preserved",
+                "exclusive-media-quota-reclaimed",
+                "post-cleanup-export",
               ]),
         ],
       },
