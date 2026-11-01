@@ -1,10 +1,12 @@
 "use client";
+import { useAccountFetch } from "./AccountBoundary";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { ProjectSummary } from "@/lib/schema";
 import { DeleteProjectDialog } from "./DeleteProjectDialog";
 import { ProjectDeletions } from "./ProjectDeletions";
 export function TrashProjects({ userId }: { userId: string }) {
+  const accountFetch = useAccountFetch();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState<{
     query: string;
@@ -23,7 +25,7 @@ export function TrashProjects({ userId }: { userId: string }) {
       controller = new AbortController();
     const timer = setTimeout(
       () => {
-        void fetch(
+        void accountFetch(
           `/api/projects?trashed=true&limit=20&q=${encodeURIComponent(query)}&view=summary`,
           { signal: controller.signal },
         )
@@ -51,7 +53,7 @@ export function TrashProjects({ userId }: { userId: string }) {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query, revision]);
+  }, [query, revision, accountFetch]);
   return (
     <main className="trash-page">
       <Link href="/" className="subtle">
@@ -125,7 +127,7 @@ export function TrashProjects({ userId }: { userId: string }) {
                       setBusy(true);
                       setError("");
                       try {
-                        const response = await fetch(
+                        const response = await accountFetch(
                           `/api/projects/${project.id}/trash`,
                           { method: "POST" },
                         );
@@ -170,7 +172,7 @@ export function TrashProjects({ userId }: { userId: string }) {
                 setBusy(true);
                 setError("");
                 try {
-                  const response = await fetch(
+                  const response = await accountFetch(
                     `/api/projects?trashed=true&limit=20&offset=${page.next}&q=${encodeURIComponent(query)}&view=summary`,
                   );
                   const projects = await response.json();

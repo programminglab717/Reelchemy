@@ -1,4 +1,5 @@
 "use client";
+import { useAccountFetch } from "./AccountBoundary";
 import { useEffect, useState } from "react";
 import type { ActiveStudioExport, RenderJob } from "@/lib/schema";
 type Queue = { limit: number; exports: ActiveStudioExport[] };
@@ -13,6 +14,7 @@ export function WorkspaceExports({
   onOpen: (projectId: string) => Promise<void>;
   onJob: (job: RenderJob) => void;
 }) {
+  const accountFetch = useAccountFetch();
   const [queue, setQueue] = useState<Queue | null>(null);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
@@ -24,7 +26,7 @@ export function WorkspaceExports({
       if (loading) return;
       loading = true;
       try {
-        const response = await fetch("/api/workspace/exports", {
+        const response = await accountFetch("/api/workspace/exports", {
           cache: "no-store",
           signal: AbortSignal.any([
             controller.signal,
@@ -55,7 +57,7 @@ export function WorkspaceExports({
       controller.abort();
       clearInterval(timer);
     };
-  }, [revision, refreshKey]);
+  }, [revision, refreshKey, accountFetch]);
   return (
     <section
       className="workspace-exports layer-editor"
@@ -114,9 +116,12 @@ export function WorkspaceExports({
                     setPending(job.id);
                     setError("");
                     try {
-                      const response = await fetch(`/api/jobs/${job.id}`, {
-                        method: "DELETE",
-                      });
+                      const response = await accountFetch(
+                        `/api/jobs/${job.id}`,
+                        {
+                          method: "DELETE",
+                        },
+                      );
                       const result = await response.json();
                       if (!response.ok)
                         throw new Error(

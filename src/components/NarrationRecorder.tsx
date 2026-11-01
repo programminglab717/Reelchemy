@@ -1,4 +1,5 @@
 "use client";
+import { useAccountFetch } from "./AccountBoundary";
 import { useEffect, useRef, useState } from "react";
 import { encodeRecording } from "@/lib/recording";
 import type { Project } from "@/lib/schema";
@@ -23,6 +24,7 @@ export function NarrationRecorder({
   onPendingChange: (pending: boolean) => void;
   onStart: () => void;
 }) {
+  const accountFetch = useAccountFetch();
   const [state, setState] = useState<
     "idle" | "permission" | "recording" | "stopping" | "review" | "saving"
   >("idle");
@@ -336,7 +338,7 @@ export function NarrationRecorder({
                     draft.blob,
                     `${name.trim().replace(/[^a-zA-Z0-9._ -]/g, "_")}.wav`,
                   );
-                  const response = await fetch(
+                  const response = await accountFetch(
                     `/api/projects/${projectId}/assets`,
                     { method: "POST", body },
                   );

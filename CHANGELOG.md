@@ -258,3 +258,9 @@
 - Add owner-scoped, confirmed removal from Trash, private cleanup status/pagination/retry and idempotent receipts. Keep resources hidden and unfinished exports cancelled once removal is requested.
 - Perform bounded, resumable cleanup between worker exports, preserving shared/current/historical/job media and other projects' exports. Use validated IDs/no-follow directory anchors; protect reserved media and pending IDs against legacy writers and reclaim quota after cleanup.
 - Clear only the selected project's browser recovery copies. New snapshots omit pending-deletion content without changing live storage; older backups/copies retain their separate policy.
+
+## 0.29.0 — 2026-11-01
+
+- Bind private browser API requests to the verified account that opened Studio/Trash. A stale account header is rejected before workspace creation, quota consumption or handler execution; the verified cookie remains authoritative and existing API clients remain compatible.
+- Stop private browser requests after account change/session expiry, including late in-flight responses, while keeping unsaved edits downloadable and browser copies under the original account. Reload remounts the editor under the current verified account.
+- Check the account on the exact sign-out request, so a stale tab cannot revoke the newly signed-in account or clear original recovery copies after a refused sign-out. Apply the bound request helper to project lists/edits, uploads/recordings, exports, waveforms, archives, storage and permanent deletion.

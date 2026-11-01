@@ -1,4 +1,5 @@
 "use client";
+import { useAccountFetch } from "./AccountBoundary";
 import { useEffect, useState } from "react";
 import type { ProjectDeletion } from "@/lib/project-deletion-store";
 type Page = {
@@ -7,6 +8,7 @@ type Page = {
   nextOffset: number | null;
 };
 export function ProjectDeletions({ refreshKey }: { refreshKey: number }) {
+  const accountFetch = useAccountFetch();
   const [page, setPage] = useState<Page | null>(null);
   const [offset, setOffset] = useState(0);
   const [revision, setRevision] = useState(0);
@@ -19,7 +21,7 @@ export function ProjectDeletions({ refreshKey }: { refreshKey: number }) {
       if (loading) return;
       loading = true;
       try {
-        const response = await fetch(
+        const response = await accountFetch(
           `/api/workspace/deletions?offset=${offset}`,
           {
             cache: "no-store",
@@ -54,7 +56,7 @@ export function ProjectDeletions({ refreshKey }: { refreshKey: number }) {
       controller.abort();
       clearInterval(timer);
     };
-  }, [offset, revision, refreshKey]);
+  }, [offset, revision, refreshKey, accountFetch]);
   return (
     <section className="project-deletions" aria-label="Project removals">
       <div className="panel-heading">
@@ -101,7 +103,7 @@ export function ProjectDeletions({ refreshKey }: { refreshKey: number }) {
                     setPending(item.projectId);
                     setError("");
                     try {
-                      const response = await fetch(
+                      const response = await accountFetch(
                         `/api/projects/${item.projectId}/deletion`,
                         {
                           method: "POST",

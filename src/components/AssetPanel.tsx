@@ -1,4 +1,5 @@
 "use client";
+import { useAccountFetch } from "./AccountBoundary";
 import { useState } from "react";
 import type { Project } from "@/lib/schema";
 import { VideoUpload } from "./VideoUpload";
@@ -17,6 +18,7 @@ export function AssetPanel({
   onRecordingPending: (pending: boolean) => void;
   onRecordStart: () => void;
 }) {
+  const accountFetch = useAccountFetch();
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   return (
@@ -40,10 +42,13 @@ export function AssetPanel({
           setError("");
           const form = e.currentTarget;
           try {
-            const response = await fetch(`/api/projects/${project.id}/assets`, {
-              method: "POST",
-              body: new FormData(form),
-            });
+            const response = await accountFetch(
+              `/api/projects/${project.id}/assets`,
+              {
+                method: "POST",
+                body: new FormData(form),
+              },
+            );
             const data = await response.json();
             if (!response.ok) throw new Error(data.error);
             onProject({ ...project, assets: data.assets });
@@ -90,7 +95,7 @@ export function AssetPanel({
           try {
             const body = new FormData(form);
             body.set("kind", "audio");
-            const r = await fetch(`/api/projects/${project.id}/assets`, {
+            const r = await accountFetch(`/api/projects/${project.id}/assets`, {
               method: "POST",
               body,
             });

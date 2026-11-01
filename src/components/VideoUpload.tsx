@@ -1,4 +1,5 @@
 "use client";
+import { useAccountFetch } from "./AccountBoundary";
 import { useState } from "react";
 import type { Project } from "@/lib/schema";
 export function VideoUpload({
@@ -8,6 +9,7 @@ export function VideoUpload({
   projectId: string;
   onProject: (p: Project) => void;
 }) {
+  const accountFetch = useAccountFetch();
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   return (
@@ -23,7 +25,7 @@ export function VideoUpload({
           const file = body.get("file");
           if (!(file instanceof File) || file.size > 25 * 1024 * 1024)
             throw new Error("Choose a video up to 25 MB.");
-          const r = await fetch(`/api/projects/${projectId}/assets`, {
+          const r = await accountFetch(`/api/projects/${projectId}/assets`, {
             method: "POST",
             body,
           });

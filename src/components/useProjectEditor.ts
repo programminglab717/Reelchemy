@@ -1,4 +1,5 @@
 "use client";
+import { useAccountFetch } from "./AccountBoundary";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { editHistory, revisionId, type EditHistory } from "@/lib/editor";
 import type { Project, Timeline } from "@/lib/schema";
@@ -13,6 +14,7 @@ import {
 } from "@/lib/browser-drafts";
 
 export function useProjectEditor(userId: string) {
+  const accountFetch = useAccountFetch();
   const [project, setProject] = useState<Project | null>(null);
   const [history, setHistory] = useState<EditHistory | null>(null);
   const [baseline, setBaseline] = useState("");
@@ -152,7 +154,7 @@ export function useProjectEditor(userId: string) {
         ) {
           const draft = current.current;
           const snapshot = JSON.stringify(draft.timeline);
-          const response = await fetch(`/api/projects/${draft.id}`, {
+          const response = await accountFetch(`/api/projects/${draft.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -210,7 +212,7 @@ export function useProjectEditor(userId: string) {
     } finally {
       flight.current = null;
     }
-  }, [publish, persistDraft, refreshDrafts]);
+  }, [publish, persistDraft, refreshDrafts, accountFetch]);
   const dirty =
     !!project?.timeline && JSON.stringify(project.timeline) !== baseline;
   useEffect(() => {

@@ -1,4 +1,5 @@
 "use client";
+import { useAccountFetch } from "./AccountBoundary";
 import { useEffect, useState } from "react";
 import { waveformBars, type Waveform } from "@/lib/waveform-math";
 import type { TrackRange } from "@/lib/track-edit";
@@ -11,6 +12,7 @@ export function AudioWaveform({
   range: TrackRange;
   volume: number;
 }) {
+  const accountFetch = useAccountFetch();
   const [data, setData] = useState<{ src: string; waveform: Waveform } | null>(
     null,
   );
@@ -20,7 +22,7 @@ export function AudioWaveform({
   const [retry, setRetry] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
-    void fetch(src, { signal: controller.signal })
+    void accountFetch(src, { signal: controller.signal })
       .then(async (r) => {
         const result = await r.json();
         if (!r.ok) throw new Error(result.error || "Waveform unavailable");
@@ -33,7 +35,7 @@ export function AudioWaveform({
         if (!controller.signal.aborted) setError({ src, message: e.message });
       });
     return () => controller.abort();
-  }, [src, retry]);
+  }, [src, retry, accountFetch]);
   if (error?.src === src)
     return (
       <button

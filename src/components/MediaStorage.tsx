@@ -1,4 +1,5 @@
 "use client";
+import { useAccountFetch } from "./AccountBoundary";
 import { useEffect, useState } from "react";
 type Usage = {
   usedBytes: number;
@@ -19,6 +20,7 @@ export function MediaStorage({
   projectId: string;
   assetCount: number;
 }) {
+  const accountFetch = useAccountFetch();
   const [usage, setUsage] = useState<Usage | null>(null);
   const [error, setError] = useState("");
   const [refresh, setRefresh] = useState(0);
@@ -28,7 +30,7 @@ export function MediaStorage({
     const load = async () => {
       setLoading(true);
       try {
-        const response = await fetch("/api/workspace/storage", {
+        const response = await accountFetch("/api/workspace/storage", {
           signal: controller.signal,
         });
         const result = await response.json();
@@ -51,7 +53,7 @@ export function MediaStorage({
     };
     void load();
     return () => controller.abort();
-  }, [projectId, assetCount, refresh]);
+  }, [projectId, assetCount, refresh, accountFetch]);
   return (
     <section className="media-storage" aria-label="Media storage">
       <div className="media-storage-title">

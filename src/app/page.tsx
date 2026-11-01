@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getAuth } from "@/lib/auth";
 import { Studio } from "@/components/Studio";
+import { AccountBoundary } from "@/components/AccountBoundary";
 export default async function Page() {
   const requestHeaders = await headers();
   let session;
@@ -13,5 +14,9 @@ export default async function Page() {
     redirect("/sign-in");
   }
   if (!session?.user.emailVerified) redirect("/sign-in");
-  return <Studio userId={session.user.id} />;
+  return (
+    <AccountBoundary key={session.user.id} userId={session.user.id}>
+      <Studio key={session.user.id} userId={session.user.id} />
+    </AccountBoundary>
+  );
 }

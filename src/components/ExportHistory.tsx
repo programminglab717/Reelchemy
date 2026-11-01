@@ -1,4 +1,5 @@
 "use client";
+import { useAccountFetch } from "./AccountBoundary";
 import { useEffect, useState } from "react";
 import type { RenderJob } from "@/lib/schema";
 export function ExportHistory({
@@ -10,11 +11,12 @@ export function ExportHistory({
   current: RenderJob | null;
   onSelect: (job: RenderJob) => void;
 }) {
+  const accountFetch = useAccountFetch();
   const [jobs, setJobs] = useState<RenderJob[]>([]),
     [error, setError] = useState("");
   useEffect(() => {
     let alive = true;
-    fetch(`/api/projects/${projectId}/render`)
+    accountFetch(`/api/projects/${projectId}/render`)
       .then(async (r) => {
         if (!r.ok) throw new Error("Could not load exports.");
         return r.json();
@@ -28,7 +30,7 @@ export function ExportHistory({
     return () => {
       alive = false;
     };
-  }, [projectId, current?.id, current?.status]);
+  }, [projectId, current?.id, current?.status, accountFetch]);
   return (
     <section className="layer-editor">
       <h2>Export history</h2>

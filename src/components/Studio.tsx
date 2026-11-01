@@ -21,10 +21,10 @@ import { WorkspaceExports } from "./WorkspaceExports";
 import { ExportHistory, QualityEvidence } from "./ExportHistory";
 import { MediaEditor } from "./MediaEditor";
 import { ImportProject } from "./ProjectPortability";
-import { authClient } from "@/lib/auth-client";
+import { useAccountFetch } from "./AccountBoundary";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 import { Film } from "@/video/Composition";
 import {
@@ -57,29 +57,34 @@ const ideas = [
     prompt: "A bold, minimal launch film for a new creative notebook.",
   },
 ];
-async function api<T>(
-  url: string,
-  method = "GET",
-  data?: unknown,
-  headers?: Record<string, string>,
-): Promise<T> {
-  const r = await fetch(url, {
-    method,
-    headers: {
-      ...(data ? { "Content-Type": "application/json" } : {}),
-      ...headers,
-    },
-    body: data ? JSON.stringify(data) : undefined,
-  });
-  const result = await r.json();
-  if (!r.ok) {
-    if (result.code === "REVISION_CONFLICT") throw new RevisionConflict();
-    throw new Error(result.error || "Request failed");
-  }
-  return result;
-}
 export function Studio({ userId }: { userId: string }) {
   const router = useRouter();
+  const accountFetch = useAccountFetch();
+  const api = useCallback(
+    async <T,>(
+      url: string,
+      method = "GET",
+      data?: unknown,
+      headers?: Record<string, string>,
+    ): Promise<T> => {
+      const r = await accountFetch(url, {
+        method,
+        headers: {
+          ...(data ? { "Content-Type": "application/json" } : {}),
+          ...headers,
+        },
+        body: data ? JSON.stringify(data) : undefined,
+      });
+      const result = await r.json();
+      if (!r.ok) {
+        if (result.code === "REVISION_CONFLICT") throw new RevisionConflict();
+        throw new Error(result.error || "Request failed");
+      }
+      return result;
+    },
+    [accountFetch],
+  );
+
   const editor = useProjectEditor(userId);
   const { project, dirty, save, change: editorChange } = editor;
   const [projects, setProjects] = useState<ProjectSummary[]>([]),
@@ -117,7 +122,7 @@ export function Studio({ userId }: { userId: string }) {
     const controller = new AbortController();
     const timer = setTimeout(
       () => {
-        void fetch(
+        void accountFetch(
           `/api/projects?limit=20&q=${encodeURIComponent(projectQuery)}&view=summary`,
           { signal: controller.signal },
         )
@@ -149,13 +154,13 @@ export function Studio({ userId }: { userId: string }) {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [projectQuery, listRefresh]);
+  }, [projectQuery, listRefresh, accountFetch]);
   async function loadMoreProjects() {
     if (nextOffset === null || loadingMore) return;
     const version = listVersion.current;
     setLoadingMore(true);
     try {
-      const response = await fetch(
+      const response = await accountFetch(
         `/api/projects?limit=20&offset=${nextOffset}&q=${encodeURIComponent(projectQuery)}&view=summary`,
       );
       const result = await response.json();
@@ -187,7 +192,7 @@ export function Studio({ userId }: { userId: string }) {
       1000,
     );
     return () => clearInterval(timer);
-  }, [job]);
+  }, [job, api]);
   async function run(fn: () => Promise<void>) {
     setBusy(true);
     setError("");
@@ -252,8 +257,12 @@ export function Studio({ userId }: { userId: string }) {
         )
       )
         return;
-      const result = await authClient.signOut();
-      if (result.error) throw new Error("Could not sign out. Try again.");
+      const result = await accountFetch("/api/auth/sign-out", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      });
+      if (!result.ok) throw new Error("Could not sign out. Try again.");
       editor.clearBrowserDrafts();
       router.replace("/sign-in");
       router.refresh();

@@ -7,6 +7,7 @@ import {
   type Workspace,
 } from "./db";
 import { localMutation, failure } from "./http";
+import { accountMismatch } from "./account-session";
 import {
   limitsPolicy,
   RequestRateError,
@@ -46,6 +47,8 @@ export function secureRoute<P extends Params>(
         { error: "Sign in with a verified account to continue." },
         { status: 401 },
       );
+    const mismatch = accountMismatch(req.headers, session.user.id);
+    if (mismatch) return mismatch;
     const workspace = ensureWorkspace(session.user.id, session.user.name),
       params = await context.params;
     let projectId: string | undefined;

@@ -1,4 +1,5 @@
 "use client";
+import { useAccountFetch } from "./AccountBoundary";
 import { useState } from "react";
 import type { Project } from "@/lib/schema";
 export function ImportProject({
@@ -6,6 +7,7 @@ export function ImportProject({
 }: {
   onImport: (p: Project) => void;
 }) {
+  const accountFetch = useAccountFetch();
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   return (
@@ -26,7 +28,7 @@ export function ImportProject({
             try {
               if (file.size > 50 * 1024 * 1024)
                 throw new Error("Archives must be 50 MB or smaller.");
-              const r = await fetch("/api/projects/import", {
+              const r = await accountFetch("/api/projects/import", {
                 method: "POST",
                 headers: { "content-type": "application/zip" },
                 body: file,

@@ -1820,3 +1820,24 @@ main.account-page {
   flex-wrap: wrap;
   gap: 10px;
 }
+.account-session-notice {
+  position: fixed;
+  z-index: 1000;
+  bottom: 16px;
+  right: 16px;
+  width: min(540px, calc(100% - 32px));
+  padding: 14px 18px;
+  border: 1px solid #a66a20;
+  border-radius: 10px;
+  background: #fff6e8;
+  color: #4b3213;
+  box-shadow: 0 6px 24px #0003;
+}
+.account-session-notice p {
+  margin: 0 0 10px;
+}
+.account-session-notice button {
+  min-height: 40px;
+  padding: 8px 14px;
+  cursor: pointer;
+}

@@ -1,4 +1,5 @@
 "use client";
+import { useAccountFetch } from "./AccountBoundary";
 import { useEffect, useRef, useState } from "react";
 import type { ProjectSummary } from "@/lib/schema";
 import { clearProjectBrowserDrafts } from "@/lib/browser-drafts";
@@ -14,6 +15,7 @@ export function DeleteProjectDialog({
   onClose: () => void;
   onRequested: (message: string) => void;
 }) {
+  const accountFetch = useAccountFetch();
   const dialog = useRef<HTMLDialogElement>(null);
   const [confirmation, setConfirmation] = useState("");
   const [pending, setPending] = useState(false);
@@ -42,7 +44,7 @@ export function DeleteProjectDialog({
           setError("");
           void (async () => {
             try {
-              const response = await fetch(
+              const response = await accountFetch(
                 `/api/projects/${project.id}/deletion`,
                 {
                   method: "POST",
