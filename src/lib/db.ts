@@ -35,6 +35,11 @@ import {
   type DeletionTask,
 } from "./project-deletion-store";
 import { ProjectDeletionConflict } from "./project-deletion-policy";
+import {
+  listLibraryMedia,
+  libraryAssetSchema,
+  type LibraryQuery,
+} from "./media-library";
 export type { ProjectDeletion, DeletionTask } from "./project-deletion-store";
 import {
   mediaStorageLimit,
@@ -251,6 +256,41 @@ export function saveImportedProject(project: Project, workspaceId: string) {
         throw new Error("Imported project already exists.");
       checkMediaStorage(workspaceId, assets);
       return saveProject({ ...project, assets }, workspaceId);
+    })
+    .immediate();
+}
+export function mediaLibrary(workspaceId: string, options: LibraryQuery) {
+  return db
+    .transaction(() => listLibraryMedia(db, workspaceId, options))
+    .deferred();
+}
+export function reuseOwnedMedia(
+  projectId: string,
+  sourceProjectId: string,
+  assetId: string,
+  workspaceId: string,
+) {
+  return db
+    .transaction(() => {
+      // The selected source may have changed since the library loaded or while
+      // the request body streamed. Check both owners/activity in this same writer
+      // transaction, then retain the shared ID before cleanup can reserve it.
+      if (!projectInWorkspace(projectId, workspaceId)) return undefined;
+      const latest = getProject(projectId)!;
+      // A lost response can be replayed after its original source was removed.
+      // This returns only media already owned by the target; it says nothing
+      // about whether the supplied source ID exists or belongs to anyone.
+      if (latest.assets?.some((asset) => asset.id === assetId)) return latest;
+      if (!projectInWorkspace(sourceProjectId, workspaceId)) return undefined;
+      const row = db
+        .prepare(
+          "SELECT a.value AS asset FROM projects p,json_each(p.data,'$.assets') a WHERE p.id=? AND json_extract(CASE WHEN a.type='object' THEN a.value ELSE '{}' END,'$.id')=? LIMIT 1",
+        )
+        .get(sourceProjectId, assetId) as { asset: string } | undefined;
+      if (!row) return undefined;
+      const parsed = libraryAssetSchema.safeParse(JSON.parse(row.asset));
+      if (!parsed.success) return undefined;
+      return appendOwnedAsset(projectId, workspaceId, parsed.data);
     })
     .immediate();
 }

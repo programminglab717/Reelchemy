@@ -1194,6 +1194,7 @@ export function Studio({ userId }: { userId: string }) {
                   </small>
                 </section>
                 <AssetPanel
+                  canAddVisual={!!scene && scene.layers.length < 20}
                   onRecordingPending={setRecordingPending}
                   onRecordStart={() => player.current?.pause()}
                   project={project}

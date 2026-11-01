@@ -5,18 +5,21 @@ import type { Project } from "@/lib/schema";
 import { VideoUpload } from "./VideoUpload";
 import { NarrationRecorder } from "./NarrationRecorder";
 import { MediaStorage } from "./MediaStorage";
+import { StudioMediaLibrary } from "./StudioMediaLibrary";
 export function AssetPanel({
   project,
   onProject,
   onAdd,
   onRecordingPending,
   onRecordStart,
+  canAddVisual,
 }: {
   project: Project;
   onProject: (p: Project) => void;
   onAdd: (id: string) => void;
   onRecordingPending: (pending: boolean) => void;
   onRecordStart: () => void;
+  canAddVisual: boolean;
 }) {
   const accountFetch = useAccountFetch();
   const [error, setError] = useState(""),
@@ -27,6 +30,11 @@ export function AssetPanel({
       <MediaStorage
         projectId={project.id}
         assetCount={project.assets?.length || 0}
+      />
+      <StudioMediaLibrary
+        key={project.id}
+        project={project}
+        onProject={onProject}
       />
       <NarrationRecorder
         projectId={project.id}
@@ -166,9 +174,7 @@ export function AssetPanel({
             {a.mime !== "audio/wav" && (
               <button
                 className="subtle"
-                disabled={project.timeline?.scenes.some(
-                  (s) => s.layers.length >= 20,
-                )}
+                disabled={!canAddVisual}
                 onClick={() => onAdd(a.id)}
               >
                 {a.mime === "video/mp4"

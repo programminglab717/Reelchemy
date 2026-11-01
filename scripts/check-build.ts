@@ -11,6 +11,7 @@ for (const page of [
   "/api/workspace/storage",
   "/api/workspace/exports",
   "/api/workspace/deletions",
+  "/api/workspace/assets",
 ])
   if (manifest.routes[page])
     throw new Error(

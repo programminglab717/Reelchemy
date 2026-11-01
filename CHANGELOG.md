@@ -270,3 +270,9 @@
 - Reuse browser captures within eligible static scenes while encoding every 30 fps output frame. Still text/images/rectangles/mountains/arrows/gradients with cuts and at most eight caption states use bounded immutable JPEG captures; motion, footage, camera/keyframes, fades, unknown primitives, short scenes and dense caption changes retain ordinary frame rendering.
 - Preserve exact caption starts/ends, rotations, geometry and current color/encoding metadata; reuse hard links rather than copying full-size image buffers, and clean capture directories on success/failure/cancellation. Native encoding remains cancellable and bounded.
 - Stream cached-video checksums, require the exact encoded frame count and include the new renderer sources in cache invalidation. Private QC/cache metadata records actual frame reuse. Add a separate cold static-minute benchmark; mixed-footage duration/output limits are unchanged.
+
+## 0.31.0 — 2026-11-01
+
+- Add a private studio media library with filename search, type filters, pagination, provenance/rights, owned previews and retry/mobile states. Reuse normalized images, video and audio across active projects without copying files or charging their bytes twice.
+- Atomically recheck source/target ownership and activity when retaining a shared asset ID; preserve unsaved edits, saved versions and shared media during source deletion. Completed links replay safely after their source disappears. Metadata reuse spends ordinary write allowance and preserves the upload/decoder allowance.
+- Bound/sanitize metadata, requests and errors, omit histories and arbitrary legacy fields, support safe legacy project IDs, reject missing/symlink files and keep the 30-upload limit. Asset insertion now respects the selected scene's capacity rather than blocking every scene when one is full.
