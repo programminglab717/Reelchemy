@@ -241,3 +241,8 @@
 - Load recovery JSON into its original account/project through Keep your project, retaining undo, autosave, concurrency checks and saved versions. Support earlier unsaved whole-project JSON while importing only its timeline/base; bound files to 2 MiB and reject unsupported or mismatched files.
 - Download compact recovery records without copied media paths, messages or full history; keep editable ZIP archives as the transfer workflow.
 - Hide decorative project-list glyphs from assistive technology; exclude the conventional private account directory from Git, formatting and lint traversal.
+
+## 0.26.0 — Reproducible render-capacity baseline
+
+- Add an optional cold-cache one-minute mixed-media square benchmark to the isolated service harness, using the real worker's unchanged resource/deadline limits.
+- Verify frame count, format, audio and full decode; retain the synthetic export, image identity, elapsed time and sampled Docker resource usage. Require completion without a worker restart or export retry. Supported duration/resolution limits remain unchanged; executed results are recorded separately.

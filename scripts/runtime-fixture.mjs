@@ -22,9 +22,13 @@ import {
 } from "../src/lib/db.ts";
 import { blankTimeline } from "../src/lib/editor.ts";
 import { storeVideo } from "../src/lib/video.ts";
+import { storeImage } from "../src/lib/assets.ts";
+import { storeAudio } from "../src/lib/audio.ts";
+import sharp from "sharp";
 import { HEARTBEAT_NAME } from "../src/lib/worker-heartbeat.ts";
 
 const operation = process.env.RUNTIME_CHECK_OPERATION;
+const benchmark = process.env.RUNTIME_CHECK_BENCHMARK === "square-minute";
 if (operation === "seed") {
   const temporary = await mkdtemp(
     path.join(tmpdir(), "reelchemy-runtime-media-"),
@@ -39,11 +43,13 @@ if (operation === "seed") {
         "-f",
         "lavfi",
         "-i",
-        "color=c=blue:s=320x180:r=30:d=5",
+        benchmark
+          ? "testsrc2=size=320x180:rate=30:duration=20"
+          : "color=c=blue:s=320x180:r=30:d=5",
         "-f",
         "lavfi",
         "-i",
-        "sine=frequency=440:sample_rate=48000:duration=5",
+        `sine=frequency=440:sample_rate=48000:duration=${benchmark ? 20 : 5}`,
         "-c:v",
         "libx264",
         "-threads",
@@ -64,8 +70,8 @@ if (operation === "seed") {
     );
     const brief = {
       prompt: "Private container runtime check",
-      duration: 5,
-      format: "landscape",
+      duration: benchmark ? 60 : 5,
+      format: benchmark ? "square" : "landscape",
     };
     const workspace = ensureWorkspace(
       "runtime-check-only",
@@ -73,7 +79,6 @@ if (operation === "seed") {
     );
     const project = createProject(brief, workspace.id);
     project.assets = [asset];
-    saveProject(project);
     const timeline = blankTimeline(brief);
     timeline.scenes[0].layers = [
       {
@@ -103,9 +108,131 @@ if (operation === "seed") {
         endFrame: 135,
       },
     ];
+    if (benchmark) {
+      const image = await storeImage(
+        await sharp({
+          create: {
+            width: 256,
+            height: 256,
+            channels: 3,
+            background: "#00b6a3",
+          },
+        })
+          .png()
+          .toBuffer(),
+        "Synthetic badge.png",
+        "Generated benchmark fixture",
+      );
+      const audioFile = path.join(temporary, "voice.wav");
+      execFileSync(
+        "ffmpeg",
+        [
+          "-v",
+          "error",
+          "-f",
+          "lavfi",
+          "-i",
+          "sine=frequency=220:sample_rate=48000:duration=60",
+          "-ac",
+          "1",
+          "-c:a",
+          "pcm_s16le",
+          audioFile,
+        ],
+        { timeout: 30000 },
+      );
+      const audio = await storeAudio(
+        await readFile(audioFile),
+        "Synthetic voice.wav",
+        "Generated benchmark fixture",
+      );
+      project.assets.push(image, audio);
+      for (const [index, scene] of timeline.scenes.entries()) {
+        const video = {
+          ...structuredClone(timeline.scenes[0].layers[0]),
+          id: "footage",
+          y: 0.25,
+          height: 0.55,
+          video: {
+            startFrame: 0,
+            offsetFrames: 0,
+            durationFrames: 600,
+            volume: 0.15,
+            audio: true,
+            fit: "contain",
+          },
+        };
+        scene.title = `Mixed media section ${index + 1}`;
+        scene.layers = [
+          video,
+          {
+            ...video,
+            id: "heading",
+            kind: "text",
+            assetId: undefined,
+            video: undefined,
+            x: 0.05,
+            y: 0.05,
+            width: 0.62,
+            height: 0.14,
+            color: "#ffffff",
+            fontSize: 42,
+            text: `Mixed-media minute / ${index + 1}`,
+            rotation: 0,
+          },
+          {
+            ...video,
+            id: "badge",
+            kind: "image",
+            video: undefined,
+            assetId: image.id,
+            x: 0.78,
+            y: 0.05,
+            width: 0.14,
+            height: 0.14,
+            rotation: 15,
+          },
+          {
+            ...video,
+            id: "accent",
+            kind: "circle",
+            assetId: undefined,
+            video: undefined,
+            x: 0.82,
+            y: 0.82,
+            width: 0.08,
+            height: 0.08,
+            color: "#ffd085",
+          },
+        ];
+      }
+      timeline.audioTracks = [
+        {
+          id: "narration",
+          assetId: audio.id,
+          startFrame: 0,
+          offsetFrames: 0,
+          durationFrames: 1800,
+          volume: 0.15,
+          fadeFrames: 15,
+        },
+      ];
+      timeline.captions = Array.from({ length: 30 }, (_, i) => ({
+        id: `cue-${i}`,
+        text: `Mixed media sample ${i + 1}`,
+        startFrame: i * 60,
+        endFrame: i * 60 + 54,
+      }));
+    }
+    saveProject(project);
     reviseProject(project, timeline, "Synthetic runtime fixture");
+    const job = createJob(project);
     console.log(
-      JSON.stringify({ jobId: createJob(project).id, projectId: project.id }),
+      JSON.stringify({
+        jobId: job.id,
+        projectId: project.id,
+        createdAt: job.createdAt,
+      }),
     );
   } finally {
     await rm(temporary, { recursive: true, force: true });
@@ -117,6 +244,7 @@ if (operation === "seed") {
       status: job?.status,
       stage: job?.stage,
       retryCount: job?.retryCount,
+      createdAt: job?.createdAt,
       error: job?.error || null,
     }),
   );
@@ -136,10 +264,11 @@ if (operation === "seed") {
   const video = probe.streams.find((stream) => stream.codec_type === "video");
   if (
     video?.codec_name !== "h264" ||
-    video.width !== 1280 ||
-    video.height !== 720 ||
+    video.width !== (benchmark ? 1080 : 1280) ||
+    video.height !== (benchmark ? 1080 : 720) ||
     video.r_frame_rate !== "30/1" ||
-    Math.abs(Number(probe.format.duration) - 5) > 0.034 ||
+    Math.abs(Number(probe.format.duration) - (benchmark ? 60 : 5)) > 0.034 ||
+    Number(video.nb_frames) !== (benchmark ? 1800 : 150) ||
     !probe.streams.some(
       (stream) => stream.codec_type === "audio" && stream.codec_name === "aac",
     )
@@ -148,9 +277,18 @@ if (operation === "seed") {
   execFileSync(
     "ffmpeg",
     ["-v", "error", "-xerror", "-i", file, "-f", "null", "-"],
-    { timeout: 30000 },
+    { timeout: benchmark ? 90000 : 30000 },
   );
-  console.log(JSON.stringify({ decoded: true }));
+  console.log(
+    JSON.stringify({
+      decoded: true,
+      width: video.width,
+      height: video.height,
+      frames: Number(video.nb_frames),
+      duration: Number(probe.format.duration),
+      bytes: Number(probe.format.size),
+    }),
+  );
 } else if (operation === "heartbeat") {
   console.log(
     JSON.stringify(

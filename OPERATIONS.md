@@ -124,3 +124,15 @@ For an existing combined installation, stop **all** web/render/mail writers, cre
 Existing v1 snapshots remain supported; their offline private backup layout still contains `data/auth.sqlite`/`data/auth-secret`, while runtime restore relocates those files to the returned `auth` directory. Pending mail and environment secrets are excluded as before; request fresh verification/reset messages and retain the operator-managed raw signing secret/configuration separately. Restored sessions/tokens are revoked and pending jobs are failed, so users sign in and explicitly start a new export. Do not run an SMTP worker during a drill.
 
 The `workspace:claim` maintenance script reads the configured account directory; assignment remains offline, explicit and dry-run by default. The production build checks both NFT traces and required-server-file manifests for media/account/environment paths. Actual current-image filesystem/service acceptance and public deployment are separate gates recorded in VALIDATION.md.
+
+## Cold one-minute square render benchmark (0.26.0)
+
+After building/selecting an app image, run this separately from other heavy verification on a small host:
+
+```sh
+node scripts/check-runtime.ts --image reelchemy:local --benchmark-square-minute
+```
+
+The optional case uses fresh synthetic Compose volumes and a cold cache. It generates a 60-second 1080×1080 timeline with three 20-second scenes, normalized moving footage/source audio, a rotated image badge, text/shape layers, a separate narration-tone track and 30 caption cues. It runs the actual worker under the standard 2 CPU, 4 GiB and 256 PID limits, verifies 1800 H.264 frames/30 fps/60-second duration plus AAC, and fully decodes the result. A restart, retry or failed export does not count as a passing cold benchmark. It preserves a private copy of the export and a report under the printed temporary evidence directory, then removes only its synthetic services/volumes. No mail worker, paid provider or actual user storage is used.
+
+The report identifies the immutable image and resource limits, includes five-second Docker memory/PID/CPU samples, and reports elapsed time from enqueue through full decode/polling (fixture ingestion and service startup are excluded). Docker memory usage may exclude inactive file cache; sampled peaks can miss spikes and do not include the later full-decode phase. The enforced container limits remain independent. This one synthetic cold export is not a throughput/concurrency guarantee, a 1080p landscape/portrait result, five-minute support or artistic/creator acceptance. Keep supported limits unchanged until their own representative benchmarks pass. The ordinary runtime-check command retains its separate small export/forced-crash acceptance path.
