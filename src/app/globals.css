@@ -1766,3 +1766,57 @@ main.account-page {
     flex-direction: column;
   }
 }
+
+.delete-project-dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 24px;
+  background: white;
+  color: var(--ink);
+}
+.delete-project-dialog::backdrop {
+  background: rgb(16 29 49 / 55%);
+}
+.delete-project-dialog h2 {
+  font-size: 20px;
+}
+.delete-project-dialog input {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+}
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+.delete-project-confirm {
+  border: 1px solid #8b2922;
+  background: #9c3027;
+  color: white;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font: inherit;
+  cursor: pointer;
+}
+.delete-project-confirm:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.project-deletions {
+  margin: 24px 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.project-deletions .panel-heading {
+  padding: 0;
+  border: 0;
+  flex-wrap: wrap;
+  gap: 10px;
+}

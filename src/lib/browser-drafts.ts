@@ -142,3 +142,12 @@ export function countBrowserDrafts(storage: DraftStorage, userId: string) {
 export function clearBrowserDrafts(storage: DraftStorage, userId: string) {
   for (const name of ownerKeys(storage, userId)) storage.removeItem(name);
 }
+export function clearProjectBrowserDrafts(
+  storage: DraftStorage,
+  userId: string,
+  projectId: string,
+) {
+  const prefix = `${ownerPrefix(userId)}${projectId}:`;
+  for (const name of ownerKeys(storage, userId))
+    if (name.startsWith(prefix)) storage.removeItem(name);
+}

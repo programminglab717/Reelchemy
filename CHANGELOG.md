@@ -252,3 +252,9 @@
 - Index media referenced by uploads, current/historical project timelines and immutable export jobs, with atomic SQLite triggers that also cover older/raw database writers.
 - Backfill and explicitly recount the derived indexes without changing project/job content. Preserve references across transaction rollback, legacy replace/ignore writes and shared-project histories.
 - This is preparation for safe cleanup; permanent deletion is not enabled by this change.
+
+## 0.28.0 — Permanent project removal and storage reclamation
+
+- Add owner-scoped, confirmed removal from Trash, private cleanup status/pagination/retry and idempotent receipts. Keep resources hidden and unfinished exports cancelled once removal is requested.
+- Perform bounded, resumable cleanup between worker exports, preserving shared/current/historical/job media and other projects' exports. Use validated IDs/no-follow directory anchors; protect reserved media and pending IDs against legacy writers and reclaim quota after cleanup.
+- Clear only the selected project's browser recovery copies. New snapshots omit pending-deletion content without changing live storage; older backups/copies retain their separate policy.

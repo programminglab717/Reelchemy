@@ -4,7 +4,13 @@ import { ExportRequestConflict, ExportCapacityError } from "./export-policy";
 import { RequestRateError, LimitConfigurationError } from "./limits-policy";
 import { MediaStorageLimitError } from "./media-storage-policy";
 import { ProviderError } from "./provider-error";
+import { ProjectDeletionConflict } from "./project-deletion-policy";
 export function failure(error: unknown) {
+  if (error instanceof ProjectDeletionConflict)
+    return Response.json(
+      { error: error.message, code: "PROJECT_DELETION_CONFLICT" },
+      { status: 409, headers: { "Cache-Control": "private, no-store" } },
+    );
   if (error instanceof ProviderError)
     return Response.json(
       { error: error.message, code: error.code },

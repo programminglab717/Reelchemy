@@ -15,6 +15,7 @@ import {
 } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
+import { omitPendingDeletionsFromSnapshot } from "./project-deletion-store";
 
 const uuid = /^[a-f0-9-]{36}$/;
 const entryPath =
@@ -88,8 +89,14 @@ async function digest(file: string) {
   for await (const chunk of createReadStream(file)) hash.update(chunk);
   return hash.digest("hex");
 }
-function openVerified(file: string) {
-  const db = new Database(file, { readonly: true, fileMustExist: true });
+function openVerified(
+  file: string,
+  options: { allowSnapshotWrites?: boolean } = {},
+) {
+  const db = new Database(file, {
+    readonly: !options.allowSnapshotWrites,
+    fileMustExist: true,
+  });
   try {
     const result = db.pragma("integrity_check", { simple: true });
     if (result !== "ok")
@@ -202,9 +209,12 @@ export async function createBackup(options: {
       path.join(data, "studio.sqlite"),
       path.join(output, "data/studio.sqlite"),
     );
-    const studio = openVerified(path.join(output, "data/studio.sqlite"));
+    const studio = openVerified(path.join(output, "data/studio.sqlite"), {
+      allowSnapshotWrites: true,
+    });
     let refs: ReturnType<typeof snapshotReferences>;
     try {
+      omitPendingDeletionsFromSnapshot(studio);
       refs = snapshotReferences(studio);
     } finally {
       studio.close();

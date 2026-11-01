@@ -24,6 +24,19 @@ import {
   rebuildMediaReferences,
 } from "./media-references";
 import {
+  migrateProjectDeletions,
+  requestProjectDeletion as requestDeletion,
+  getProjectDeletion as deletionForOwner,
+  listProjectDeletions as deletionsForOwner,
+  claimProjectDeletion as claimDeletion,
+  reserveDeletionMedia,
+  finishProjectDeletion as completeDeletion,
+  failProjectDeletion as failedDeletion,
+  type DeletionTask,
+} from "./project-deletion-store";
+import { ProjectDeletionConflict } from "./project-deletion-policy";
+export type { ProjectDeletion, DeletionTask } from "./project-deletion-store";
+import {
   mediaStorageLimit,
   MediaStorageLimitError,
 } from "./media-storage-policy";
@@ -86,6 +99,7 @@ db.transaction(() => {
     rebuildMediaSizeIndex();
   }
   migrateMediaReferences(db);
+  migrateProjectDeletions(db);
 }).immediate();
 function rebuildMediaSizeIndex() {
   const rows = db
@@ -113,6 +127,12 @@ function rebuildMediaSizeIndex() {
 export function recountMediaStorage() {
   return db
     .transaction(() => {
+      if (
+        db.prepare("SELECT asset_id FROM media_deletion_targets LIMIT 1").get()
+      )
+        throw new ProjectDeletionConflict(
+          "Finish pending project cleanup before recounting media.",
+        );
       rebuildMediaReferences(db);
       return rebuildMediaSizeIndex();
     })
@@ -283,6 +303,7 @@ function projectFilter(
 ) {
   const clauses: string[] = [
       trashed ? "trashed_at IS NOT NULL" : "trashed_at IS NULL",
+      "NOT EXISTS(SELECT 1 FROM project_deletions d WHERE d.project_id=projects.id)",
     ],
     values: (string | number)[] = [];
   if (workspaceId) {
@@ -696,7 +717,7 @@ export function projectInWorkspace(
 ) {
   return !!db
     .prepare(
-      `SELECT id FROM projects WHERE id=? AND workspace_id=?${includeTrashed ? "" : " AND trashed_at IS NULL"}`,
+      `SELECT id FROM projects WHERE id=? AND workspace_id=?${includeTrashed ? "" : " AND trashed_at IS NULL"} AND NOT EXISTS(SELECT 1 FROM project_deletions d WHERE d.project_id=projects.id)`,
     )
     .get(id, workspaceId);
 }
@@ -707,6 +728,16 @@ export function setProjectTrashed(id: string, trashed: boolean) {
         .prepare("SELECT trashed_at FROM projects WHERE id=?")
         .get(id) as { trashed_at: string | null } | undefined;
       if (!row) throw new Error("Project not found.");
+      if (
+        db
+          .prepare(
+            "SELECT project_id FROM project_deletions WHERE project_id=?",
+          )
+          .get(id)
+      )
+        throw new ProjectDeletionConflict(
+          "This project is scheduled for permanent deletion.",
+        );
       if (trashed) {
         const jobs = db
           .prepare(
@@ -747,4 +778,26 @@ export function workspaceForProject(id: string) {
         { workspace_id: string | null } | undefined
     )?.workspace_id || null
   );
+}
+
+export function requestOwnedProjectDeletion(id: string, workspaceId: string) {
+  return requestDeletion(db, id, workspaceId);
+}
+export function ownedProjectDeletion(id: string, workspaceId: string) {
+  return deletionForOwner(db, id, workspaceId);
+}
+export function ownedProjectDeletions(workspaceId: string, offset = 0) {
+  return deletionsForOwner(db, workspaceId, offset);
+}
+export function claimProjectDeletion() {
+  return claimDeletion(db);
+}
+export function reserveProjectDeletionMedia(task: DeletionTask) {
+  return reserveDeletionMedia(db, task);
+}
+export function finishProjectDeletion(task: DeletionTask) {
+  return completeDeletion(db, task);
+}
+export function failProjectDeletion(task: DeletionTask) {
+  return failedDeletion(db, task);
 }

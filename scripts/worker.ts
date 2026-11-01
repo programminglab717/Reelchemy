@@ -16,6 +16,7 @@ import { HEARTBEAT_NAME } from "../src/lib/worker-heartbeat";
 import { RenderQCError } from "../src/lib/layout-qc";
 import { transientRenderError } from "../src/lib/retry";
 import { renderFilm } from "../src/lib/render";
+import { processProjectDeletion } from "../src/lib/project-cleanup";
 const lock = path.join(dataDir, "worker.lock");
 async function main() {
   const instanceId = randomUUID();
@@ -113,6 +114,7 @@ async function main() {
     await beat();
     console.log("Reelchemy render worker ready");
     while (!stopping) {
+      if (await processProjectDeletion(() => stopping)) continue;
       const claimed = claimJob();
       if (!claimed) {
         await new Promise((r) => setTimeout(r, 500));

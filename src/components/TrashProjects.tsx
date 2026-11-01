@@ -2,7 +2,9 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { ProjectSummary } from "@/lib/schema";
-export function TrashProjects() {
+import { DeleteProjectDialog } from "./DeleteProjectDialog";
+import { ProjectDeletions } from "./ProjectDeletions";
+export function TrashProjects({ userId }: { userId: string }) {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState<{
     query: string;
@@ -14,6 +16,8 @@ export function TrashProjects() {
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const generation = useRef(0);
+  const [deleting, setDeleting] = useState<ProjectSummary | null>(null);
+  const [notice, setNotice] = useState("");
   useEffect(() => {
     const current = ++generation.current,
       controller = new AbortController();
@@ -57,9 +61,26 @@ export function TrashProjects() {
       <p>
         Projects here are hidden from the studio, and their active exports are
         cancelled. Restore brings back saved versions, media and finished
-        exports. Nothing is automatically erased; Trash is not permanent
-        deletion and still uses storage.
+        exports. Projects stay here and use storage until you restore them or
+        deliberately delete them permanently.
       </p>
+      {notice && <p role="status">{notice}</p>}
+      <ProjectDeletions refreshKey={revision} />
+      {deleting && (
+        <DeleteProjectDialog
+          key={deleting.id}
+          project={deleting}
+          userId={userId}
+          onClose={() => {
+            setDeleting(null);
+            setRevision((n) => n + 1);
+          }}
+          onRequested={(message) => {
+            setNotice(message);
+            setRevision((n) => n + 1);
+          }}
+        />
+      )}
       <label>
         Find a trashed project
         <input
@@ -120,6 +141,15 @@ export function TrashProjects() {
                     }}
                   >
                     Restore project
+                  </button>
+                  <button
+                    type="button"
+                    className="subtle"
+                    disabled={busy}
+                    aria-label={`Permanently delete ${project.name}`}
+                    onClick={() => setDeleting(project)}
+                  >
+                    Delete permanently
                   </button>
                 </li>
               ))}

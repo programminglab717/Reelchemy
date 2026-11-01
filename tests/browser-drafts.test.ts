@@ -9,6 +9,7 @@ import {
   listBrowserDrafts,
   removeBrowserDraft,
   clearBrowserDrafts,
+  clearProjectBrowserDrafts,
   countBrowserDrafts,
   parseDownloadedDraft,
   MAX_DOWNLOADED_DRAFT_BYTES,
@@ -187,4 +188,23 @@ test("downloaded recovery JSON is scoped and legacy files import only validated 
       ),
     /2 MiB/,
   );
+});
+
+test("project removal clears only its account/project recovery copies across tabs", () => {
+  const storage = new MemoryStorage();
+  const first = project(),
+    other = project();
+  for (const draft of [
+    createBrowserDraft("owner:a", first, randomUUID()),
+    createBrowserDraft("owner:a", first, randomUUID()),
+    createBrowserDraft("owner:a", other, randomUUID()),
+    createBrowserDraft("owner:b", first, randomUUID()),
+  ])
+    writeBrowserDraft(storage, draft);
+  storage.setItem("unrelated", "keep");
+  clearProjectBrowserDrafts(storage, "owner:a", first.id);
+  assert.equal(listBrowserDrafts(storage, "owner:a", first.id).length, 0);
+  assert.equal(listBrowserDrafts(storage, "owner:a", other.id).length, 1);
+  assert.equal(listBrowserDrafts(storage, "owner:b", first.id).length, 1);
+  assert.equal(storage.getItem("unrelated"), "keep");
 });

@@ -14,6 +14,7 @@ import { selectComposition, renderMedia } from "@remotion/renderer";
 import { formats, totalFrames, type Timeline } from "./schema";
 import { runCommand } from "./process";
 import type { RenderBrowser } from "./render-browser";
+import { renderCacheWorkspaceDirectory } from "./render-cache-path";
 export function localSceneTimeline(t: Timeline, index: number): Timeline {
   const start = t.scenes
       .slice(0, index)
@@ -171,12 +172,7 @@ export async function renderCachedScenes(options: {
     onProgress,
   } = options;
   const namespace = options.namespace || "local";
-  if (!/^(?:local|legacy|[a-f0-9-]{36})$/.test(namespace))
-    throw new Error("Invalid render cache workspace.");
-  const cacheRoot = path.resolve(
-    process.env.REELCHEMY_RENDER_CACHE_DIR || "artifacts/.scene-cache",
-    namespace,
-  );
+  const cacheRoot = renderCacheWorkspaceDirectory(namespace);
   await mkdir(cacheRoot, { recursive: true });
   const source = await (sourceFingerprint ??= fingerprint());
   const clips: string[] = [],

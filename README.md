@@ -79,7 +79,7 @@ Animations depend only on frame index and fixed inputs. Rendering uses local Ari
 - Optional uploaded audio supports frame-based start, trim, gain and fades (up to four tracks), AAC encoding, codec/duration checks and peak measurement. Captions are burned into preview/MP4 and downloadable as SRT/VTT. Projects without audio stay silent. Voice generation, advanced character rigs, generated media and external stock integrations remain to build. A simple layered character, arrows, gradients and whole-scene camera keyframes are available as deterministic primitives.
 - Queue execution supports persisted stages/activity, cancellation, one automatic retry for transient browser/media timeouts, and bounded restart recovery. Identical scene video clips are reused through a content-addressed cache; still/clip evidence is recaptured per export. Distributed workers, OS-level resource isolation and cost accounting remain future work.
 - Formats 16:9, 9:16, and 1:1 have schema/preview support; verified encoded outputs are listed in VALIDATION.md.
-- Account authentication and per-account authorization are implemented. Shared-workspace collaboration, expiring sharing, managed cloud storage, permanent data erasure and chosen-host production operations remain to build. Project data still lives on this machine.
+- Account authentication, private studios and permanent project removal are implemented. Shared-workspace collaboration, expiring sharing, managed cloud storage, account erasure/retention and chosen-host production operations remain to build. Project data still lives on this machine.
 
 See [CHANGELOG.md](CHANGELOG.md) for checkpoints. Verified checkpoints are committed locally as requested; no remote pushes have been made.
 
@@ -153,7 +153,7 @@ Sound & captions includes global font/color/position/alignment/background contro
 
 Import plain UTF-8 `.srt`/`.vtt` files up to 64 KB and 100 non-overlapping cues, each 1–80 characters, within the current video duration. Review before merging or explicitly replacing existing cues; either action is one undo step. Timing rounds to 30 fps, line breaks flatten, supported basic markup is removed, and unsupported positioning/STYLE/REGION/embedded timestamp syntax fails explicitly. Download current SRT/VTT without exporting an MP4. Subtitle files carry text/timing; appearance is stored in the project and burned into the MP4.
 
-Search projects by name and load additional pages from the sidebar or mobile project library. Rename changes metadata without clearing timeline undo/history; a stale concurrent rename returns a visible conflict. These are private project operations. Trash, permanent deletion/privacy workflows and retention are still open.
+Search projects by name and load additional pages from the sidebar or mobile project library. Rename changes metadata without clearing timeline undo/history; a stale concurrent rename returns a visible conflict. Trash, restore and explicit permanent project removal are private operations. Account erasure and operator retention still have open release gates.
 
 `GET /api/health/live` reports process liveness. `GET /api/health` returns 200 only when the studio database, authentication initialization, writable storage/free-space floor and a render-worker heartbeat are healthy; otherwise it returns 503. Responses contain booleans only, without paths, credentials or project details. Heartbeats expire after 30 seconds. `REELCHEMY_MIN_FREE_BYTES` defaults to 200 MB (clamped to 50 MB–10 GB). This is an availability probe, not a render-capacity or SMTP-delivery guarantee. AI credentials are not required for readiness.
 
@@ -173,7 +173,7 @@ Rendering and layout diagnostics use the same style function. Text that cannot f
 
 **Move project to Trash** saves the editor first and asks for confirmation. Media, saved versions and completed exports are retained; queued/rendering exports are cancelled. Normal resource routes become unavailable until the owner restores the project from the searchable Trash page. Restore does not restart cancelled renders. An unsaved narration take must be saved or discarded before Trash navigation/removal.
 
-Trash works on desktop/mobile and offers retry for loading errors. It is not permanent deletion: files still consume storage, and no automatic retention deadline applies. Permanent project/account erasure remains a production release gate.
+Trash works on desktop/mobile and offers retry for loading errors. Trash alone retains files/storage without an automatic deadline. Its explicit permanent-removal workflow is described below; account erasure and operator backup/cache retention remain production release gates.
 
 Unit/media checks use at most two test processes to keep worker startup and Chromium layout checks reliable on a small host. Run builds and browser/media checks sequentially when sharing limited CPU resources; do not increase heartbeat freshness allowances to hide an unavailable worker.
 
@@ -276,3 +276,11 @@ A successful save removes its matching recovery copies. Signing out clears this 
 This is recovery for timeline edits, not a fully offline application: reopening projects and saving/exporting still need the server. Browser storage can be cleared by the browser or device owner and is not an encrypted backup. Use a private browser profile on shared devices and download important unsaved work. The application's coordinated backups include saved server state, not these browser copies.
 
 Downloaded recovery files can be reopened through **Keep your project → Recover a downloaded draft** in the original account/project (2 MiB maximum). Both current recovery JSON and earlier unsaved whole-project JSON are supported; only the timeline and saved-base identifier are imported. The original uploaded media must still belong to the project. Recovering an older base needs confirmation and creates an edit through normal version/concurrency checks. Use an editable project ZIP for transferring a complete project with media/history into another project or account.
+
+### Permanent project removal (0.28.0)
+
+From Trash, choose **Delete permanently**, review the named project's scope and type **DELETE**. Cancellation leaves it in Trash. Confirmed removal immediately hides its resources and cancels unfinished exports; the worker removes its files after the current operation closes. The Project removals panel shows progress/failures and allows retry. A lost response can be retried safely, including after cleanup completes. The studio's retained-media allowance is reclaimed when cleanup finishes.
+
+Cleanup preserves media still referenced by another project, its saved history or an immutable export. It removes only the selected project's export folders and clears that studio's rebuildable scene cache; other projects' finished exports remain. Existing recovery copies for the selected project in this browser are cleared; other projects/accounts are untouched. This cannot be undone through Trash. Previously downloaded copies, other devices, older backups and storage-provider snapshots have separate retention.
+
+New coordinated backups omit projects already requested for permanent removal, even while cleanup is pending or needs retry. They preserve deletion intent on restore and keep shared/other-project data. This normalization changes only the new backup copy, never the live source. Older backups are retained under the operator's separate policy. This is removal from active application storage, not a claim of cryptographic/forensic erasure or permanent account deletion.
