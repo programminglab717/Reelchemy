@@ -276,3 +276,7 @@
 - Add a private studio media library with filename search, type filters, pagination, provenance/rights, owned previews and retry/mobile states. Reuse normalized images, video and audio across active projects without copying files or charging their bytes twice.
 - Atomically recheck source/target ownership and activity when retaining a shared asset ID; preserve unsaved edits, saved versions and shared media during source deletion. Completed links replay safely after their source disappears. Metadata reuse spends ordinary write allowance and preserves the upload/decoder allowance.
 - Bound/sanitize metadata, requests and errors, omit histories and arbitrary legacy fields, support safe legacy project IDs, reject missing/symlink files and keep the 30-upload limit. Asset insertion now respects the selected scene's capacity rather than blocking every scene when one is full.
+
+## 0.31.1 — 2026-11-01
+
+- Hide the decorative export arrow from assistive technology so the button's accessible name is exactly “Approve & export MP4”. The first library browser acceptance reached export after its reuse/deletion checks but timed out on that exact name; its failure remains recorded and the three library cases are rerun after rebuilding.

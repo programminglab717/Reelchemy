@@ -1293,7 +1293,7 @@ export function Studio({ userId }: { userId: string }) {
                     }
                   >
                     {active ? "Rendering…" : "Approve & export MP4"}{" "}
-                    <span>↗</span>
+                    <span aria-hidden="true">↗</span>
                   </button>
                 </section>
                 <ExportHistory
