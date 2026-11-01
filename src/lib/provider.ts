@@ -8,72 +8,84 @@ import {
 } from "./schema";
 import { validateProjectAssets } from "./project-assets";
 import { mockPlan } from "./demo-plan";
+import { providerConfiguration } from "./provider-config";
+import { ProviderError } from "./provider-error";
+import { readProviderResponse } from "./provider-response";
 export { mockPlan } from "./demo-plan";
 export async function generatePlan(
   brief: CreativeBrief,
   context?: { current: Timeline; instruction: string },
   assets: readonly Asset[] = [],
 ): Promise<{ timeline: Timeline; provider: string }> {
-  const provider = process.env.AI_PROVIDER || "mock";
+  const config = providerConfiguration();
+  const { provider } = config;
   if (provider === "mock")
     return { timeline: mockPlan(brief), provider: "mock" };
-  if (!["compatible", "anthropic"].includes(provider))
-    throw new Error(
-      "Unknown AI_PROVIDER. Choose mock, compatible, or anthropic.",
-    );
-  const { AI_API_KEY, AI_MODEL } = process.env;
-  const AI_BASE_URL =
-    process.env.AI_BASE_URL ||
-    (provider === "anthropic" ? "https://api.anthropic.com/v1" : undefined);
-  if (!AI_BASE_URL || !AI_API_KEY || !AI_MODEL)
-    throw new Error(
-      "Compatible provider requires AI_BASE_URL, AI_API_KEY, and AI_MODEL on the server.",
-    );
-  const url = new URL(AI_BASE_URL);
-  if (url.protocol !== "https:") throw new Error("AI_BASE_URL must use HTTPS.");
-  const res = await fetch(
-    `${url.toString().replace(/\/$/, "")}/${provider === "anthropic" ? "messages" : "chat/completions"}`,
-    {
+  const signal = AbortSignal.timeout(60000);
+  let res: Response;
+  try {
+    res = await fetch(config.endpoint, {
       method: "POST",
+      redirect: "error",
+      cache: "no-store",
       headers: {
         ...(provider === "anthropic"
-          ? { "x-api-key": AI_API_KEY, "anthropic-version": "2023-06-01" }
-          : { Authorization: `Bearer ${AI_API_KEY}` }),
+          ? { "x-api-key": config.key, "anthropic-version": "2023-06-01" }
+          : { Authorization: `Bearer ${config.key}` }),
         "Content-Type": "application/json",
       },
-      signal: AbortSignal.timeout(60000),
+      signal,
       body: JSON.stringify(
-        providerPayload(provider, AI_MODEL, brief, context, assets),
+        providerPayload(provider, config.model, brief, context, assets),
       ),
-    },
-  );
-  if (!res.ok)
-    throw new Error(
-      `AI provider returned HTTP ${res.status}. Check server configuration.`,
-    );
-  const data = await res.json();
-  const timeline = timelineSchema.parse(
-    JSON.parse(
+    });
+  } catch {
+    throw new ProviderError(signal.aborted ? "timeout" : "unavailable");
+  }
+  if (!res.ok) {
+    void res.body?.cancel().catch(() => {});
+    throw new ProviderError("unavailable");
+  }
+  const data = await readProviderResponse(res, signal);
+  let timeline: Timeline;
+  try {
+    const envelope =
       provider === "anthropic"
-        ? (data.content || [])
-            .filter((b: { type: string }) => b.type === "text")
-            .map((b: { text: string }) => b.text)
+        ? z
+            .object({
+              content: z
+                .array(
+                  z.object({ type: z.string(), text: z.string().optional() }),
+                )
+                .max(100),
+            })
+            .parse(data)
+        : z
+            .object({
+              choices: z
+                .array(z.object({ message: z.object({ content: z.string() }) }))
+                .min(1)
+                .max(100),
+            })
+            .parse(data);
+    const text =
+      "content" in envelope
+        ? envelope.content
+            .filter((b) => b.type === "text")
+            .map((b) => b.text ?? "")
             .join("")
-        : data.choices?.[0]?.message?.content || "",
-    ),
-  );
+        : envelope.choices[0].message.content;
+    timeline = timelineSchema.parse(JSON.parse(text));
+    validateProjectAssets({ assets: [...assets] }, timeline);
+  } catch {
+    throw new ProviderError("response");
+  }
   if (
     timeline.scenes.reduce((n, s) => n + s.durationFrames, 0) !==
     Math.round(brief.duration * 30)
   )
-    throw new Error(
-      "Provider returned a duration different from the requested brief.",
-    );
-  if (timeline.format !== brief.format)
-    throw new Error(
-      "Provider returned a format different from the requested brief.",
-    );
-  validateProjectAssets({ assets: [...assets] }, timeline);
+    throw new ProviderError("response");
+  if (timeline.format !== brief.format) throw new ProviderError("response");
   return { timeline, provider };
 }
 
@@ -142,13 +154,13 @@ export async function reviseScene(
       assets,
     );
     if (result.timeline.scenes.length !== 1)
-      throw new Error("Scene revision must return exactly one scene.");
+      throw new ProviderError("response");
     replacement = result.timeline.scenes[0];
     if (
       replacement.id !== source.id ||
       replacement.durationFrames !== source.durationFrames
     )
-      throw new Error("Scene revision changed its ID or duration.");
+      throw new ProviderError("response");
   }
   return timelineSchema.parse({
     ...current,

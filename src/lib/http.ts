@@ -3,7 +3,16 @@ import { RevisionConflict } from "./editor";
 import { ExportRequestConflict, ExportCapacityError } from "./export-policy";
 import { RequestRateError, LimitConfigurationError } from "./limits-policy";
 import { MediaStorageLimitError } from "./media-storage-policy";
+import { ProviderError } from "./provider-error";
 export function failure(error: unknown) {
+  if (error instanceof ProviderError)
+    return Response.json(
+      { error: error.message, code: error.code },
+      {
+        status: error.status,
+        headers: { "Cache-Control": "private, no-store" },
+      },
+    );
   if (error instanceof ExportCapacityError)
     return Response.json(
       {

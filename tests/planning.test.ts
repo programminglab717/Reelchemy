@@ -219,11 +219,61 @@ test("planning validates owned media and protects saves across asynchronous prov
         if (defect === "wrong format") timeline.format = "portrait";
         const before = db.getProject(p.id);
         globalThis.fetch = async () => response(timeline);
-        assert.equal((await plan(p)).status, 400);
+        assert.equal((await plan(p)).status, 502);
         assert.deepEqual(db.getProject(p.id), before);
       },
     );
   }
+
+  await t.test(
+    "provider failures return safe codes without saving partial plans and manual work remains usable",
+    async () => {
+      const p = project();
+      const before = db.getProject(p.id);
+      const key = process.env.AI_API_KEY;
+      const secret = "synthetic-private-provider-detail-DO-NOT-RETURN";
+      try {
+        for (const defect of [
+          "configuration",
+          "transport",
+          "response",
+        ] as const) {
+          process.env.AI_API_KEY =
+            defect === "configuration" ? `${secret}\n` : key;
+          globalThis.fetch = async () => {
+            if (defect === "configuration")
+              throw new Error("must not reach transport");
+            if (defect === "transport") throw new Error(secret);
+            return new Response(`invalid response ${secret}`);
+          };
+          const result = await plan(p, {
+            revision: "Improve this scene without losing my manual work",
+          });
+          assert.equal(result.status, defect === "configuration" ? 503 : 502);
+          assert.equal(
+            result.headers.get("cache-control"),
+            "private, no-store",
+          );
+          const body = await result.json();
+          assert.equal(
+            body.code,
+            defect === "configuration"
+              ? "AI_CONFIGURATION"
+              : defect === "transport"
+                ? "AI_UNAVAILABLE"
+                : "AI_INVALID_RESPONSE",
+          );
+          assert(!JSON.stringify(body).includes(secret));
+          assert.deepEqual(db.getProject(p.id), before);
+        }
+        process.env.AI_API_KEY = key;
+        globalThis.fetch = async () => response(p.timeline!);
+        assert.equal((await plan(p)).status, 200);
+      } finally {
+        process.env.AI_API_KEY = key;
+      }
+    },
+  );
 
   await t.test(
     "manual duration/format changes define a whole-plan revision's brief",

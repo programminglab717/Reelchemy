@@ -54,7 +54,13 @@ export function authStorageDirectory(
           "Authentication storage must be separate from media and exports.",
         );
     }
-    for (const file of ["auth.sqlite", "auth-secret", "mail"]) {
+    for (const file of [
+      "auth.sqlite",
+      "auth.sqlite-wal",
+      "auth.sqlite-shm",
+      "auth-secret",
+      "mail",
+    ]) {
       try {
         lstatSync(path.join(data, file));
       } catch (error) {

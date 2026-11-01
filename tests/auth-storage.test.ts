@@ -59,7 +59,13 @@ test("production requires disjoint canonical authentication storage and refuses 
     () => authStorageDirectory({ ...env, REELCHEMY_AUTH_DIR: link }),
     /must be separate/,
   );
-  for (const file of ["auth.sqlite", "auth-secret", "mail"]) {
+  for (const file of [
+    "auth.sqlite",
+    "auth.sqlite-wal",
+    "auth.sqlite-shm",
+    "auth-secret",
+    "mail",
+  ]) {
     await writeFile(path.join(data, file), "legacy synthetic fixture");
     assert.throws(
       () => authStorageDirectory(env),

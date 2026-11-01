@@ -152,3 +152,7 @@ The public queue now limits a studio to two active jobs by default within the fi
 ## Private account storage checkpoint — 0.23.0, 30 October 2026
 
 Production accounts/mail/signing-file material now use a separate configured root and private service volume. The renderer receives neither that mount nor authentication/provider/SMTP environment credentials; mail receives only the private account mount. Legacy production data requires coordinated backup/restore into new separate roots rather than in-place deletion. Build guards reject runtime credentials/media in server traces. Unit and real legacy-snapshot restore checks are executed; current app-image filesystem/production HTTP acceptance is recorded separately. Web-side media ingestion remains in the web process, and global decoder isolation/budgets, permanent erasure/retention, longer videos, hosting operations and creator acceptance are still open.
+
+## Provider error boundary checkpoint — 1 November 2026 (0.24.0)
+
+Server configuration validation, credential-safe fixed errors, redirect refusal, bounded response streams and no automatic retries are implemented with offline contracts for both adapters. Authenticated route regressions verify that failures preserve the saved project and a later valid plan still works. These controls do not meter actual provider token/dollar usage or establish real model quality. Live requests remain deferred; public staging, SMTP delivery, budgets, global ingestion isolation, permanent erasure/retention, durable drafts and longer-video acceptance remain open.

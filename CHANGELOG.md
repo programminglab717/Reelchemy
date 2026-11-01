@@ -218,3 +218,10 @@
 - Refuse overlapping account roots and legacy authentication files in production media storage. Preserve the development legacy fallback and provide non-destructive backup/restore cutover into new separate directories.
 - Keep v1 backup compatibility, return an explicit restored account path, revoke only restored sessions/tokens, and adapt offline owner assignment and synthetic mail fixtures.
 - Exclude private runtime/environment files from Next server traces and check both trace/required-file manifests; add actual app-image filesystem canaries to service acceptance.
+
+## 0.24.0 — Safe AI provider failures
+
+- Validate provider endpoints, model names and server keys before network work; reject credential-bearing/query/fragment URLs and malformed header values using fixed public-safe errors.
+- Refuse redirects and automatic retries; bound successful response bodies to 512 KiB and the network/body phase to 60 seconds, cancelling oversized or stalled streams.
+- Return private, structured 502/503/504 errors without upstream contents, keys, URL values or nested transport/JSON/schema errors. Failed plans preserve saved projects and manual editing.
+- Verify compatible and native Claude behavior with simulated responses; live model verification remains deferred.

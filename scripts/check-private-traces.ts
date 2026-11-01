@@ -41,6 +41,19 @@ function privatePath(file: string) {
     );
   });
 }
+const resolvedPaths = new Map<string, Promise<string>>();
+async function tracedPrivatePath(file: string) {
+  if (privatePath(file)) return true;
+  let resolved = resolvedPaths.get(file);
+  if (!resolved) {
+    resolved = realpath(file).catch((error) => {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return file;
+      throw error;
+    });
+    resolvedPaths.set(file, resolved);
+  }
+  return privatePath(await resolved);
+}
 let checked = 0;
 async function walk(directory: string) {
   for (const item of await readdir(directory, { withFileTypes: true })) {
@@ -53,14 +66,11 @@ async function walk(directory: string) {
         trace.files.some((entry: unknown) => typeof entry !== "string")
       )
         throw new Error("Invalid server trace file.");
-      if (
-        trace.files.some((entry: string) =>
-          privatePath(path.resolve(directory, entry)),
-        )
-      )
-        throw new Error(
-          "Runtime data or environment files entered a server trace.",
-        );
+      for (const entry of trace.files)
+        if (await tracedPrivatePath(path.resolve(directory, entry)))
+          throw new Error(
+            "Runtime data or environment files entered a server trace.",
+          );
       checked++;
     }
   }
@@ -75,14 +85,11 @@ try {
     required.files.some((entry: unknown) => typeof entry !== "string")
   )
     throw new Error("Invalid required server files manifest.");
-  if (
-    required.files.some((entry: string) =>
-      privatePath(path.resolve(root, entry)),
-    )
-  )
-    throw new Error(
-      "Runtime data or environment files entered required server files.",
-    );
+  for (const entry of required.files)
+    if (await tracedPrivatePath(path.resolve(root, entry)))
+      throw new Error(
+        "Runtime data or environment files entered required server files.",
+      );
 } catch (error) {
   if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
 }

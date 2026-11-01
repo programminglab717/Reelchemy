@@ -53,6 +53,20 @@ test("build trace guard refuses media, separate auth and environment files witho
       0,
       "canonical auth storage cannot escape through an alias",
     );
+    await trace(path.join(alias, "auth.sqlite"));
+    assert.notEqual(
+      run().status,
+      0,
+      "a traced symlink alias into private storage is also refused",
+    );
+    const fileAlias = path.join(dir, "innocent-looking.json");
+    await symlink(path.join(auth, "auth.sqlite"), fileAlias);
+    await trace(fileAlias);
+    assert.notEqual(
+      run().status,
+      0,
+      "a file alias cannot import private account contents",
+    );
     await trace(path.resolve("package.json"));
     await writeFile(
       path.join(output, "required-server-files.json"),
