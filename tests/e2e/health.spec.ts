@@ -15,6 +15,7 @@ test("public health probes report availability without project or configuration 
       authentication: true,
       storage: true,
       worker: true,
+      ingestion: true,
       limits: true,
     },
   });
