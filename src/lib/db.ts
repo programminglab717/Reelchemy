@@ -20,6 +20,10 @@ import {
 } from "./export-policy";
 import { validateProjectAssets, validAssetId } from "./project-assets";
 import {
+  migrateMediaReferences,
+  rebuildMediaReferences,
+} from "./media-references";
+import {
   mediaStorageLimit,
   MediaStorageLimitError,
 } from "./media-storage-policy";
@@ -81,6 +85,7 @@ db.transaction(() => {
   ) {
     rebuildMediaSizeIndex();
   }
+  migrateMediaReferences(db);
 }).immediate();
 function rebuildMediaSizeIndex() {
   const rows = db
@@ -106,7 +111,12 @@ function rebuildMediaSizeIndex() {
   return { assetCount, totalBytes };
 }
 export function recountMediaStorage() {
-  return db.transaction(rebuildMediaSizeIndex).immediate();
+  return db
+    .transaction(() => {
+      rebuildMediaReferences(db);
+      return rebuildMediaSizeIndex();
+    })
+    .immediate();
 }
 function measuredMediaBytes(id: string) {
   try {

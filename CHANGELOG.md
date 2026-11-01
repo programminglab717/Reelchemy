@@ -246,3 +246,9 @@
 
 - Add an optional cold-cache one-minute mixed-media square benchmark to the isolated service harness, using the real worker's unchanged resource/deadline limits.
 - Verify frame count, format, audio and full decode; retain the synthetic export, image identity, elapsed time and sampled Docker resource usage. Require completion without a worker restart or export retry. Supported duration/resolution limits remain unchanged; executed results are recorded separately.
+
+## 0.27.0 — Track retained and historical media references
+
+- Index media referenced by uploads, current/historical project timelines and immutable export jobs, with atomic SQLite triggers that also cover older/raw database writers.
+- Backfill and explicitly recount the derived indexes without changing project/job content. Preserve references across transaction rollback, legacy replace/ignore writes and shared-project histories.
+- This is preparation for safe cleanup; permanent deletion is not enabled by this change.
