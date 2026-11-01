@@ -248,28 +248,30 @@ export function MediaProcessing({
               );
             })}
           </ul>
-          <div className="layer-fields">
-            {offset > 0 && (
-              <button
-                type="button"
-                className="subtle"
-                disabled={!!pending}
-                onClick={() => setOffset((value) => Math.max(0, value - 20))}
-              >
-                Newer requests
-              </button>
-            )}
-            {page?.nextOffset !== null && page?.nextOffset !== undefined && (
-              <button
-                type="button"
-                className="subtle"
-                disabled={!!pending}
-                onClick={() => setOffset(page.nextOffset!)}
-              >
-                Older requests
-              </button>
-            )}
-          </div>
+          {(offset > 0 || typeof page?.nextOffset === "number") && (
+            <div className="layer-fields">
+              {offset > 0 && (
+                <button
+                  type="button"
+                  className="subtle"
+                  disabled={!!pending}
+                  onClick={() => setOffset((value) => Math.max(0, value - 20))}
+                >
+                  Newer requests
+                </button>
+              )}
+              {page?.nextOffset !== null && page?.nextOffset !== undefined && (
+                <button
+                  type="button"
+                  className="subtle"
+                  disabled={!!pending}
+                  onClick={() => setOffset(page.nextOffset!)}
+                >
+                  Older requests
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
     </section>

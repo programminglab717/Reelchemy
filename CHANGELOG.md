@@ -303,3 +303,7 @@
 - Add a private processing panel with recent requests, background progress after refresh, cancellation and reopening completed projects. Keep archive selections after failure and offer Retry import; bound mobile controls and history height.
 - Stop stalled body readers when a receiving request is cancelled. Distinguish confirmed pre-queue rejection from an uncertain response so retries neither duplicate accepted work nor become stuck on a rejected request.
 - Enforce the lower of the request's admitted retained-media allowance and the worker's current allowance during atomic attachment. Ignore client quota fields, preserve legacy no-media imports and normalize multipart filenames/rights before hashing retry intent.
+
+## 0.34.1 — 2026-11-01
+
+- Tighten the processing card's action spacing and omit an empty pagination row after screenshot review, keeping more of the editor visible while preserving background progress and recovery controls.

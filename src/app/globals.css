@@ -1769,6 +1769,9 @@ main.account-page {
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+.workspace-media .layer-fields {
+  margin: 0;
+}
 .workspace-media time {
   color: var(--muted);
   font-size: 11px;
