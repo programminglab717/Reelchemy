@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { recentHeartbeat, HEARTBEAT_NAME } from "../src/lib/worker-heartbeat";
-import { mkdtemp, readFile, rm, access } from "node:fs/promises";
+import { mkdtemp, readFile, rm, access, chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
@@ -24,6 +24,8 @@ test("real worker readiness follows its heartbeat and graceful shutdown cleans i
   const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-health-"));
   process.env.REELCHEMY_DATA_DIR = dir;
   process.env.REELCHEMY_ARTIFACT_DIR = path.join(dir, "artifacts");
+  const accounts = path.join(dir, "accounts");
+  process.env.REELCHEMY_AUTH_DIR = accounts;
   process.env.EMAIL_DELIVERY = "file";
   const children: ChildProcess[] = [];
   async function stop(child: ChildProcess) {
@@ -71,6 +73,23 @@ test("real worker readiness follows its heartbeat and graceful shutdown cleans i
       await new Promise((r) => setTimeout(r, 100));
     }
     assert(ready, "Worker must publish a fresh heartbeat.");
+    assert.equal((await readiness()).status, "ready");
+    try {
+      await chmod(accounts, 0o500);
+      const unavailable = await readiness();
+      assert.equal(
+        unavailable.checks.authentication,
+        true,
+        "the initialized account service is still cached",
+      );
+      assert.equal(
+        unavailable.checks.storage,
+        false,
+        "a separate unwritable account volume fails readiness",
+      );
+    } finally {
+      await chmod(accounts, 0o700);
+    }
     assert.equal((await readiness()).status, "ready");
     const previousLimit = process.env.REELCHEMY_WRITES_PER_MINUTE;
     try {

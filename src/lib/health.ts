@@ -3,6 +3,7 @@ import { constants } from "node:fs";
 import path from "node:path";
 import { dataDir, artifactDir, databaseHealthy } from "./db";
 import { getAuth } from "./auth";
+import { authStorageDirectory } from "./auth-storage";
 import { HEARTBEAT_NAME, recentHeartbeat } from "./worker-heartbeat";
 import { limitsPolicy } from "./limits-policy";
 import { mediaStorageLimit } from "./media-storage-policy";
@@ -35,11 +36,13 @@ export async function readiness() {
         ? Math.max(50 * 1024 * 1024, Math.min(10 * 1024 ** 3, requested))
         : 200 * 1024 * 1024;
     const disks = await Promise.all(
-      [dataDir, artifactDir].map(async (dir) => {
-        await access(dir, constants.W_OK);
-        const stats = await statfs(dir);
-        return stats.bavail * stats.bsize >= minimum;
-      }),
+      [...new Set([dataDir, artifactDir, authStorageDirectory()])].map(
+        async (dir) => {
+          await access(dir, constants.W_OK);
+          const stats = await statfs(dir);
+          return stats.bavail * stats.bsize >= minimum;
+        },
+      ),
     );
     checks.storage = disks.every(Boolean);
   } catch {}

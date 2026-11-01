@@ -3,6 +3,7 @@ import { clipAudioTracks } from "@/lib/clip-audio";
 import { CanvasEditor } from "./CanvasEditor";
 import { TimelineEditor } from "./TimelineEditor";
 import { useProjectEditor } from "./useProjectEditor";
+import { BrowserDraftRecovery, downloadDraft } from "./BrowserDraftRecovery";
 import { revisionId, RevisionConflict } from "@/lib/editor";
 import { AssetPanel } from "./AssetPanel";
 import { ProjectName } from "./ProjectName";
@@ -68,9 +69,9 @@ async function api<T>(
   }
   return result;
 }
-export function Studio() {
+export function Studio({ userId }: { userId: string }) {
   const router = useRouter();
-  const editor = useProjectEditor();
+  const editor = useProjectEditor(userId);
   const { project, dirty, save, change: editorChange } = editor;
   const [projects, setProjects] = useState<ProjectSummary[]>([]),
     [prompt, setPrompt] = useState(""),
@@ -234,7 +235,17 @@ export function Studio() {
           "Save or discard your narration take before signing out.",
         );
       await save();
-      await authClient.signOut();
+      const copies = editor.browserDraftCount();
+      if (
+        copies !== 0 &&
+        !window.confirm(
+          `${copies === null ? "This browser could not check its recovery copies." : `There ${copies === 1 ? "is 1 recovery copy" : `are ${copies} recovery copies`} for this account in this browser.`} Signing out clears these copies, including copies from other tabs. Recover or download them first if you want to keep them. Sign out and discard the copies?`,
+        )
+      )
+        return;
+      const result = await authClient.signOut();
+      if (result.error) throw new Error("Could not sign out. Try again.");
+      editor.clearBrowserDrafts();
       router.replace("/sign-in");
       router.refresh();
     });
@@ -697,6 +708,10 @@ export function Studio() {
                   >
                     Save now
                   </button>
+                  <small>
+                    Unsaved timeline edits have recovery copies on this device.
+                    Signing out clears this account’s copies.
+                  </small>
                 </div>
                 {editor.saveError && (
                   <div className="save-warning" role="alert">
@@ -707,16 +722,10 @@ export function Studio() {
                     <button
                       className="subtle"
                       onClick={() => {
-                        const url = URL.createObjectURL(
-                          new Blob([JSON.stringify(project, null, 2)], {
-                            type: "application/json",
-                          }),
+                        downloadDraft(
+                          project,
+                          `reelchemy-draft-${project.id}.json`,
                         );
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = `reelchemy-draft-${project.id}.json`;
-                        a.click();
-                        setTimeout(() => URL.revokeObjectURL(url), 1000);
                       }}
                     >
                       Download unsaved draft
@@ -734,6 +743,7 @@ export function Studio() {
                               "Replace your local edits with the latest saved version? Download your draft first if you want to keep it.",
                             )
                           ) {
+                            editor.discardDraft();
                             remember(latest);
                             setSelected(0);
                             setJob(null);
@@ -745,6 +755,37 @@ export function Studio() {
                     </button>
                   </div>
                 )}
+                {editor.draftError && (
+                  <div className="save-warning" role="alert">
+                    <p>{editor.draftError}</p>
+                    {!editor.saveError && (
+                      <button
+                        className="subtle"
+                        onClick={() =>
+                          downloadDraft(
+                            project,
+                            `reelchemy-draft-${project.id}.json`,
+                          )
+                        }
+                      >
+                        Download unsaved draft
+                      </button>
+                    )}
+                  </div>
+                )}
+                <BrowserDraftRecovery
+                  drafts={editor.browserDrafts}
+                  currentRevisionId={revisionId(project)}
+                  disabled={dirty || busy || editor.saving}
+                  onRecover={(draft) =>
+                    void run(async () => {
+                      editor.recoverDraft(draft);
+                      setSelected(0);
+                      setJob(null);
+                    })
+                  }
+                  onDiscard={(draft) => editor.discardDraft(draft)}
+                />
                 <div className="work-grid">
                   <section className="preview-panel">
                     <div className="panel-heading">

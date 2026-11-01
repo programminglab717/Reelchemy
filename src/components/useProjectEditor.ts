@@ -2,8 +2,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { editHistory, revisionId, type EditHistory } from "@/lib/editor";
 import type { Project, Timeline } from "@/lib/schema";
+import {
+  createBrowserDraft,
+  writeBrowserDraft,
+  listBrowserDrafts,
+  removeBrowserDraft,
+  clearBrowserDrafts,
+  countBrowserDrafts,
+  type BrowserDraft,
+} from "@/lib/browser-drafts";
 
-export function useProjectEditor() {
+export function useProjectEditor(userId: string) {
   const [project, setProject] = useState<Project | null>(null);
   const [history, setHistory] = useState<EditHistory | null>(null);
   const [baseline, setBaseline] = useState("");
@@ -14,6 +23,56 @@ export function useProjectEditor() {
   const edits = useRef<EditHistory | null>(null);
   const blocked = useRef(false);
   const flight = useRef<Promise<void> | null>(null);
+  const draftId = useRef("");
+  const ownDraft = useRef<BrowserDraft | null>(null);
+  const recoveredDraft = useRef<BrowserDraft | null>(null);
+  const [browserDrafts, setBrowserDrafts] = useState<BrowserDraft[]>([]);
+  const [draftError, setDraftError] = useState("");
+  const draftFailure = () =>
+    setDraftError(
+      "This browser could not keep a recovery copy. Download your unsaved draft before closing if saving fails.",
+    );
+  const persistDraft = useCallback(
+    (p: Project) => {
+      if (!p.timeline) return;
+      try {
+        if (JSON.stringify(p.timeline) === saved.current) {
+          if (ownDraft.current)
+            removeBrowserDraft(window.localStorage, ownDraft.current);
+          ownDraft.current = null;
+        } else {
+          const draft = createBrowserDraft(userId, p, draftId.current);
+          writeBrowserDraft(window.localStorage, draft);
+          ownDraft.current = draft;
+        }
+        setDraftError("");
+      } catch {
+        draftFailure();
+      }
+    },
+    [userId],
+  );
+  const refreshDrafts = useCallback(
+    (p: Project | null) => {
+      if (!p) {
+        setBrowserDrafts([]);
+        return;
+      }
+      try {
+        const found = listBrowserDrafts(window.localStorage, userId, p.id);
+        const pending: BrowserDraft[] = [];
+        for (const draft of found) {
+          if (JSON.stringify(draft.timeline) === saved.current)
+            removeBrowserDraft(window.localStorage, draft);
+          else if (draft.id !== draftId.current) pending.push(draft);
+        }
+        setBrowserDrafts(pending);
+      } catch {
+        draftFailure();
+      }
+    },
+    [userId],
+  );
   const publish = useCallback((p: Project | null) => {
     current.current = p;
     setProject(p);
@@ -28,9 +87,14 @@ export function useProjectEditor() {
       setHistory(edits.current);
       blocked.current = false;
       setSaveError("");
+      draftId.current = crypto.randomUUID();
+      ownDraft.current = null;
+      recoveredDraft.current = null;
+      setDraftError("");
       publish(p);
+      refreshDrafts(p);
     },
-    [publish],
+    [publish, refreshDrafts],
   );
   const change = useCallback(
     (action: Timeline | "undo" | "redo") => {
@@ -40,7 +104,9 @@ export function useProjectEditor() {
         if (next === edits.current) return;
         edits.current = next;
         setHistory(next);
-        publish({ ...current.current, timeline: next.present });
+        const p = { ...current.current, timeline: next.present };
+        publish(p);
+        persistDraft(p);
         if (!blocked.current) setSaveError("");
       } catch {
         setSaveError(
@@ -48,7 +114,7 @@ export function useProjectEditor() {
         );
       }
     },
-    [publish],
+    [publish, persistDraft],
   );
   const mergeAssets = useCallback(
     (p: Project) => {
@@ -107,12 +173,23 @@ export function useProjectEditor() {
               (a) => [a.id, a],
             ),
           );
-          publish({
+          const merged = {
             ...result,
             timeline: current.current.timeline,
             assets: [...assets.values()],
-          });
+          };
           saved.current = snapshot;
+          publish(merged);
+          persistDraft(merged);
+          if (recoveredDraft.current) {
+            try {
+              removeBrowserDraft(window.localStorage, recoveredDraft.current);
+            } catch {
+              draftFailure();
+            }
+            recoveredDraft.current = null;
+            refreshDrafts(merged);
+          }
           setBaseline(snapshot);
           setSaveError("");
         }
@@ -133,7 +210,7 @@ export function useProjectEditor() {
     } finally {
       flight.current = null;
     }
-  }, [publish]);
+  }, [publish, persistDraft, refreshDrafts]);
   const dirty =
     !!project?.timeline && JSON.stringify(project.timeline) !== baseline;
   useEffect(() => {
@@ -151,6 +228,11 @@ export function useProjectEditor() {
     window.addEventListener("beforeunload", prevent);
     return () => window.removeEventListener("beforeunload", prevent);
   }, [dirty]);
+  useEffect(() => {
+    const refresh = () => refreshDrafts(current.current);
+    window.addEventListener("storage", refresh);
+    return () => window.removeEventListener("storage", refresh);
+  }, [refreshDrafts]);
   return {
     project,
     open,
@@ -166,6 +248,47 @@ export function useProjectEditor() {
     dirty,
     saving,
     saveError,
+    draftError,
+    browserDrafts,
+    recoverDraft: (draft: BrowserDraft) => {
+      const p = current.current;
+      if (
+        !p ||
+        p.id !== draft.projectId ||
+        draft.userId !== userId ||
+        JSON.stringify(p.timeline) !== saved.current ||
+        flight.current
+      )
+        throw new Error(
+          "Save your current edits before recovering another draft.",
+        );
+      recoveredDraft.current = draft;
+      change(draft.timeline);
+    },
+    discardDraft: (draft?: BrowserDraft) => {
+      try {
+        const target = draft || ownDraft.current;
+        if (target) removeBrowserDraft(window.localStorage, target);
+        if (!draft) ownDraft.current = null;
+        refreshDrafts(current.current);
+      } catch {
+        draftFailure();
+      }
+    },
+    clearBrowserDrafts: () => {
+      try {
+        clearBrowserDrafts(window.localStorage, userId);
+      } catch {
+        draftFailure();
+      }
+    },
+    browserDraftCount: () => {
+      try {
+        return countBrowserDrafts(window.localStorage, userId);
+      } catch {
+        return null;
+      }
+    },
     canUndo: !!history?.past.length,
     canRedo: !!history?.future.length,
   };

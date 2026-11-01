@@ -13,5 +13,5 @@ export default async function Page() {
     redirect("/sign-in");
   }
   if (!session?.user.emailVerified) redirect("/sign-in");
-  return <Studio />;
+  return <Studio userId={session.user.id} />;
 }

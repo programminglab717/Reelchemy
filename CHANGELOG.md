@@ -229,3 +229,9 @@
 ## 0.24.1 — Compact container build layers
 
 - Assemble the app from read-only BuildKit inputs and compile as the node user in one layer, reducing full filesystem copies on VFS builders. Preserve private-context exclusions, public build-CA handling and empty runtime storage directories.
+
+## 0.25.0 — Durable browser timeline recovery
+
+- Keep validated per-account/project/tab timeline recovery copies across reloads after failed saves; offer explicit recovery/download/discard and preserve saved versions with undo/autosave.
+- Preserve concurrent-tab drafts, refuse stale deletion, provide a download fallback when browser storage is full/unavailable, and confirm before sign-out clears outstanding account copies.
+- Include the separate account volume in writable-space readiness checks, even when authentication is already initialized.

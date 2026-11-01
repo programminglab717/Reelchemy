@@ -32,7 +32,7 @@ After building the `app` target, run `npm run test:runtime -- --image reelchemy:
 ## Availability checks
 
 - `/api/health/live`: HTTP 200 means the web process answers requests.
-- `/api/health`: HTTP 200 requires the studio database, authentication initialization, writable data/export paths, the configured free-space floor and a render-worker heartbeat no older than 30 seconds. A failed check returns 503 and booleans only.
+- `/api/health`: HTTP 200 requires the studio database, authentication initialization, writable data/account/export paths, the configured free-space floor and a render-worker heartbeat no older than 30 seconds. A failed check returns 503 and booleans only.
 - This probe does not send mail, call an AI provider, prove SMTP delivery, guarantee capacity for another export or inspect artistic quality. An external monitor/alert destination has not been configured.
 
 Keep one render worker per database. Start it with `npm run worker`. On Linux the entrypoint holds an exclusive kernel filesystem lock for the worker's lifetime; the kernel releases it even after a forced crash. `worker.lock` and the heartbeat contain instance diagnostics. Successful managed startup replaces stale managed diagnostics, and normal shutdown removes them. The coordination file `worker.lifecycle.lock` remains: never delete or replace that inode while any service could be running. It must be on the same local volume as the database; this is not a distributed/NFS lock design.

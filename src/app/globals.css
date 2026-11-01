@@ -1284,6 +1284,7 @@ main.account-page {
   margin-left: auto;
 }
 .save-warning {
+  overflow-wrap: anywhere;
   background: #fff3de;
   border: 1px solid #c78439;
   padding: 16px;
