@@ -10,6 +10,8 @@ import {
   removeBrowserDraft,
   clearBrowserDrafts,
   countBrowserDrafts,
+  parseDownloadedDraft,
+  MAX_DOWNLOADED_DRAFT_BYTES,
   type DraftStorage,
 } from "../src/lib/browser-drafts";
 import { blankTimeline } from "../src/lib/editor";
@@ -136,5 +138,53 @@ test("full or unavailable browser storage preserves existing work and reports fa
   assert.throws(
     () => writeBrowserDraft(new MemoryStorage(), huge),
     /too large/,
+  );
+});
+test("downloaded recovery JSON is scoped and legacy files import only validated timelines", () => {
+  const p = project();
+  const draft = createBrowserDraft("owner", p, randomUUID());
+  assert.deepEqual(
+    parseDownloadedDraft(JSON.stringify(draft), "owner", p.id),
+    draft,
+  );
+  const legacy = {
+    ...p,
+    assets: [{ source: "private-path-canary" }],
+    messages: [{ role: "user", content: "private-message-canary" }],
+  };
+  const imported = parseDownloadedDraft(JSON.stringify(legacy), "owner", p.id);
+  assert.deepEqual(imported.timeline, p.timeline);
+  assert.equal(imported.baseRevisionId, p.revisions[0].id);
+  assert(!JSON.stringify(imported).includes("private-path-canary"));
+  assert(!JSON.stringify(imported).includes("private-message-canary"));
+  assert.throws(
+    () => parseDownloadedDraft(JSON.stringify(draft), "another-owner", p.id),
+    /different account or project/,
+  );
+  assert.throws(
+    () => parseDownloadedDraft(JSON.stringify(draft), "owner", randomUUID()),
+    /different account or project/,
+  );
+  for (const invalid of [
+    "invalid-json-canary",
+    JSON.stringify({ ...draft, version: 2 }),
+    JSON.stringify({ ...legacy, timeline: { fps: "private-error-canary" } }),
+  ]) {
+    assert.throws(
+      () => parseDownloadedDraft(invalid, "owner", p.id),
+      (error) =>
+        error instanceof Error &&
+        error.message ===
+          "This file does not contain a supported timeline recovery copy.",
+    );
+  }
+  assert.throws(
+    () =>
+      parseDownloadedDraft(
+        "x".repeat(MAX_DOWNLOADED_DRAFT_BYTES + 1),
+        "owner",
+        p.id,
+      ),
+    /2 MiB/,
   );
 });

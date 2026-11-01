@@ -235,3 +235,9 @@
 - Keep validated per-account/project/tab timeline recovery copies across reloads after failed saves; offer explicit recovery/download/discard and preserve saved versions with undo/autosave.
 - Preserve concurrent-tab drafts, refuse stale deletion, provide a download fallback when browser storage is full/unavailable, and confirm before sign-out clears outstanding account copies.
 - Include the separate account volume in writable-space readiness checks, even when authentication is already initialized.
+
+## 0.25.1 — Reload downloaded recovery files
+
+- Load recovery JSON into its original account/project through Keep your project, retaining undo, autosave, concurrency checks and saved versions. Support earlier unsaved whole-project JSON while importing only its timeline/base; bound files to 2 MiB and reject unsupported or mismatched files.
+- Download compact recovery records without copied media paths, messages or full history; keep editable ZIP archives as the transfer workflow.
+- Hide decorative project-list glyphs from assistive technology; exclude the conventional private account directory from Git, formatting and lint traversal.

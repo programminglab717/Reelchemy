@@ -1,6 +1,7 @@
 node_modules
 .next
 .data
+private-auth
 artifacts
 package-lock.json
 test-results

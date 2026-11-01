@@ -9,6 +9,7 @@ export default defineConfig([
     ".next-*/**",
     "artifacts/**",
     ".data/**",
+    "private-auth/**",
     "next-env.d.ts",
   ]),
   { rules: { "@next/next/no-img-element": "off" } },

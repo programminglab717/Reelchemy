@@ -1,6 +1,18 @@
 "use client";
 import type { BrowserDraft } from "@/lib/browser-drafts";
 
+export function confirmDraftRecovery(
+  draft: BrowserDraft,
+  currentRevisionId: string | null,
+) {
+  return (
+    draft.baseRevisionId === currentRevisionId ||
+    window.confirm(
+      "This recovery copy was based on an earlier saved version. Load its timeline as a new edit? Current saved versions remain in version history.",
+    )
+  );
+}
+
 export function downloadDraft(value: unknown, name: string) {
   const url = URL.createObjectURL(
     new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }),
@@ -50,13 +62,7 @@ export function BrowserDraftRecovery({
             className="subtle"
             disabled={disabled}
             onClick={() => {
-              if (
-                draft.baseRevisionId !== currentRevisionId &&
-                !window.confirm(
-                  "This recovery copy was based on an earlier saved version. Load its timeline as a new edit? Current saved versions remain in version history.",
-                )
-              )
-                return;
+              if (!confirmDraftRecovery(draft, currentRevisionId)) return;
               onRecover(draft);
             }}
           >

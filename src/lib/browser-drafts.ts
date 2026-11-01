@@ -3,6 +3,7 @@ import { timelineSchema, type Project } from "./schema";
 
 export const DRAFT_PREFIX = "reelchemy:browser-draft:v1:";
 export const MAX_DRAFT_BYTES = 512 * 1024;
+export const MAX_DOWNLOADED_DRAFT_BYTES = 2 * 1024 * 1024;
 const draftSchema = z.object({
   version: z.literal(1),
   id: z.uuid(),
@@ -37,6 +38,52 @@ export function createBrowserDraft(
     updatedAt: new Date().toISOString(),
     timeline: project.timeline,
   });
+}
+export function parseDownloadedDraft(
+  text: string,
+  userId: string,
+  projectId: string,
+): BrowserDraft {
+  if (new TextEncoder().encode(text).length > MAX_DOWNLOADED_DRAFT_BYTES)
+    throw new Error("Recovery files must be 2 MiB or smaller.");
+  let draft: BrowserDraft;
+  try {
+    const data = JSON.parse(text);
+    if (data && typeof data === "object" && "version" in data)
+      draft = draftSchema.parse(data);
+    else {
+      // Earlier versions downloaded the entire unsaved project as JSON. Read
+      // only its timeline/base; never import media paths, messages or history.
+      const legacy = z
+        .object({
+          id: z.uuid(),
+          timeline: timelineSchema,
+          revisions: z
+            .array(z.object({ id: z.string().max(200) }))
+            .max(10000)
+            .optional(),
+        })
+        .parse(data);
+      draft = draftSchema.parse({
+        version: 1,
+        id: crypto.randomUUID(),
+        userId,
+        projectId: legacy.id,
+        timeline: legacy.timeline,
+        baseRevisionId: legacy.revisions?.at(-1)?.id ?? null,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+  } catch {
+    throw new Error(
+      "This file does not contain a supported timeline recovery copy.",
+    );
+  }
+  if (draft.userId !== userId || draft.projectId !== projectId)
+    throw new Error(
+      "This recovery copy belongs to a different account or project. Open its original project, or use an editable project ZIP to transfer work.",
+    );
+  return draft;
 }
 export function writeBrowserDraft(storage: DraftStorage, draft: BrowserDraft) {
   const value = JSON.stringify(draftSchema.parse(draft));

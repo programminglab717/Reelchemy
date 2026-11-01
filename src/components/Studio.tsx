@@ -3,7 +3,16 @@ import { clipAudioTracks } from "@/lib/clip-audio";
 import { CanvasEditor } from "./CanvasEditor";
 import { TimelineEditor } from "./TimelineEditor";
 import { useProjectEditor } from "./useProjectEditor";
-import { BrowserDraftRecovery, downloadDraft } from "./BrowserDraftRecovery";
+import {
+  BrowserDraftRecovery,
+  downloadDraft,
+  confirmDraftRecovery,
+} from "./BrowserDraftRecovery";
+import {
+  createBrowserDraft,
+  parseDownloadedDraft,
+  MAX_DOWNLOADED_DRAFT_BYTES,
+} from "@/lib/browser-drafts";
 import { revisionId, RevisionConflict } from "@/lib/editor";
 import { AssetPanel } from "./AssetPanel";
 import { ProjectName } from "./ProjectName";
@@ -391,7 +400,7 @@ export function Studio({ userId }: { userId: string }) {
                 onClick={() => void navigate(p)}
                 disabled={busy || editor.saving}
               >
-                <span>▱</span>
+                <span aria-hidden="true">▱</span>
                 <span>{p.name}</span>
               </button>
             ))
@@ -723,7 +732,11 @@ export function Studio({ userId }: { userId: string }) {
                       className="subtle"
                       onClick={() => {
                         downloadDraft(
-                          project,
+                          createBrowserDraft(
+                            userId,
+                            project,
+                            crypto.randomUUID(),
+                          ),
                           `reelchemy-draft-${project.id}.json`,
                         );
                       }}
@@ -763,7 +776,11 @@ export function Studio({ userId }: { userId: string }) {
                         className="subtle"
                         onClick={() =>
                           downloadDraft(
-                            project,
+                            createBrowserDraft(
+                              userId,
+                              project,
+                              crypto.randomUUID(),
+                            ),
                             `reelchemy-draft-${project.id}.json`,
                           )
                         }
@@ -1110,6 +1127,41 @@ export function Studio({ userId }: { userId: string }) {
                 </section>
                 <section className="scene-editor">
                   <h2>Keep your project</h2>
+                  <label>
+                    Recover a downloaded draft
+                    <input
+                      type="file"
+                      accept="application/json,.json"
+                      aria-label="Recover a downloaded draft"
+                      disabled={busy || dirty || editor.saving}
+                      onChange={(e) => {
+                        const file = e.currentTarget.files?.[0];
+                        e.currentTarget.value = "";
+                        if (!file) return;
+                        void run(async () => {
+                          if (file.size > MAX_DOWNLOADED_DRAFT_BYTES)
+                            throw new Error(
+                              "Recovery files must be 2 MiB or smaller.",
+                            );
+                          const draft = parseDownloadedDraft(
+                            await file.text(),
+                            userId,
+                            project.id,
+                          );
+                          if (!confirmDraftRecovery(draft, revisionId(project)))
+                            return;
+                          editor.recoverDraft(draft);
+                          setSelected(0);
+                          setJob(null);
+                        });
+                      }}
+                    />
+                  </label>
+                  <small>
+                    Use a recovery JSON from this account and project. Saved
+                    versions remain available; the original uploaded media must
+                    still be in the project.
+                  </small>
                   <button
                     className="subtle"
                     disabled={busy}
