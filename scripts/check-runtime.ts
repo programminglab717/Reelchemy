@@ -340,7 +340,7 @@ try {
   const firstExport = await completed(seed.jobId);
   const coldJobWallSeconds = (Date.now() - Date.parse(seed.createdAt)) / 1000;
   console.log(
-    "Network-isolated worker encoded and fully decoded real footage, captions and AAC audio.",
+    `Network-isolated worker encoded and fully decoded ${benchmark === "static-minute" ? "static title cards" : "real footage"}, captions and AAC audio.`,
   );
   if (!benchmark) {
     const before = await execute("heartbeat");
@@ -520,7 +520,9 @@ try {
           "render-network-none",
           "render-environment-credential-separation",
           "render-authentication-filesystem-isolation",
-          "real-footage-captions-aac",
+          benchmark === "static-minute"
+            ? "static-cards-captions-aac"
+            : "real-footage-captions-aac",
           "full-decode",
           ...(benchmark
             ? [
