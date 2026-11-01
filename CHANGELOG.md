@@ -286,3 +286,7 @@
 - Replace missing font-symbol decorations with inline SVG across studio navigation, idea cards, scene tiles, editing controls, downloads, sign-in branding and error dismissal. Icons stay outside accessible names and keyboard focus; existing button labels remain meaningful.
 - Show the verified studio account's name/initial instead of the placeholder profile, with bounded desktop and mobile identity displays. Account changes still remount under the verified user and stop stale requests.
 - Keep the sign-in wordmark visible on narrow screens by scoping the collapsed wordmark rule to the sidebar. Remove the decorative profile glyph that implied an unavailable menu.
+
+## 0.32.1 — 2026-11-01
+
+- Finish the composer aspect/time/demo indicators with SVG after visual review found three remaining unsupported symbols. Scene-order and saved-state decorations now use the same accessible icon component.

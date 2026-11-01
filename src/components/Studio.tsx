@@ -538,7 +538,7 @@ export function Studio({
               <div className="composer-footer">
                 <div className="options">
                   <label>
-                    <span>▭</span>
+                    <Icon name="frame" size={14} />
                     <select
                       aria-label="Aspect ratio"
                       value={format}
@@ -552,7 +552,7 @@ export function Studio({
                     </select>
                   </label>
                   <label>
-                    <span>◷</span>
+                    <Icon name="clock" size={14} />
                     <select
                       aria-label="Duration"
                       value={duration}
@@ -583,8 +583,8 @@ export function Studio({
               Start from a blank canvas
             </button>
             <div className="composer-note">
-              <span>✧</span> Demo director · Procedural animation · You approve
-              before export
+              <Icon name="sparkle" size={12} /> Demo director · Procedural
+              animation · You approve before export
             </div>
             <div className="section-heading">
               <h2>A starting point for your imagination</h2>
@@ -1107,7 +1107,7 @@ export function Studio({
                           setJob(null);
                         }}
                       >
-                        ←
+                        <Icon name="arrow-left" size={14} />
                       </button>
                       <button
                         aria-label="Move scene later"
@@ -1124,7 +1124,7 @@ export function Studio({
                           setJob(null);
                         }}
                       >
-                        →
+                        <Icon name="arrow-right" size={14} />
                       </button>
                     </div>
                     <button
@@ -1132,7 +1132,13 @@ export function Studio({
                       disabled={!dirty || busy}
                       onClick={() => void run(save)}
                     >
-                      {dirty ? "Save changes" : "Saved ✓"}
+                      {dirty ? (
+                        "Save changes"
+                      ) : (
+                        <>
+                          Saved <Icon name="check" size={14} />
+                        </>
+                      )}
                     </button>
                   </section>
                 )}

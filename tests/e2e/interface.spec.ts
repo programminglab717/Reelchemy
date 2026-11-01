@@ -21,6 +21,8 @@ test("studio icons render without symbol fonts and preserve keyboard/control nam
   await expect(
     page.locator('.studio-icon:not([aria-hidden="true"])'),
   ).toHaveCount(0);
+  await expect(page.locator(".composer-footer .options svg")).toHaveCount(2);
+  await expect(page.locator(".composer-note svg")).toBeVisible();
   await create.focus();
   await page.keyboard.press("Tab");
   await expect(

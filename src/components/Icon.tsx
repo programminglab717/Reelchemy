@@ -3,6 +3,16 @@ import type { ReactNode } from "react";
 // Interface decorations use SVG so they remain readable with the same small
 // system-font installation used by the private production renderer.
 const artwork = {
+  frame: <rect x="2" y="5" width="20" height="14" rx="2" />,
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 6v6l4 2" />
+    </>
+  ),
+  check: <path d="m4 12 5 5L20 6" />,
+  "arrow-left": <path d="M20 12H4m6-6-6 6 6 6" />,
+  "arrow-right": <path d="M4 12h16m-6-6 6 6-6 6" />,
   plus: <path d="M12 5v14M5 12h14" />,
   sparkle: (
     <>
