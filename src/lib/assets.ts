@@ -1,8 +1,12 @@
-import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import type { Asset } from "./schema";
+import {
+  assertNormalizationActive,
+  normalizationId,
+  writeNormalizedMedia,
+  type MediaNormalizationOptions,
+} from "./media-normalization";
 export const assetDir = path.resolve(
   process.env.REELCHEMY_DATA_DIR || ".data",
   "assets",
@@ -12,11 +16,14 @@ export async function storeImage(
   name: string,
   license: string,
   maxBytes = 10 * 1024 * 1024,
+  options: MediaNormalizationOptions = {},
 ): Promise<Asset> {
+  const id = normalizationId(options);
   if (bytes.length > maxBytes)
     throw new Error("Images must be 10 MB or smaller.");
   const image = sharp(bytes, { limitInputPixels: 16000000 });
   const meta = await image.metadata();
+  assertNormalizationActive(options);
   if (!["png", "jpeg"].includes(meta.format || ""))
     throw new Error("Only PNG and JPEG images are supported.");
   // Bake EXIF orientation into the pixels before stripping private metadata.
@@ -27,9 +34,7 @@ export async function storeImage(
     .toBuffer({ resolveWithObject: true });
   if (clean.length > 20 * 1024 * 1024)
     throw new Error("Decoded image is too large.");
-  const id = randomUUID();
-  await mkdir(assetDir, { recursive: true });
-  await writeFile(path.join(assetDir, id), clean, { flag: "wx" });
+  writeNormalizedMedia(id, clean, options);
   return {
     id,
     name:

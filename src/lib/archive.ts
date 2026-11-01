@@ -3,6 +3,7 @@ import { readFile, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { assertNormalizationActive } from "./media-normalization";
 import {
   assetDir,
   validAssetId,
@@ -116,7 +117,14 @@ export async function exportArchive(project: Project) {
     throw new Error("Project exceeds the 50 MB portable archive limit.");
   return zip;
 }
-export async function importArchive(bytes: Uint8Array): Promise<Project> {
+export async function importArchive(
+  bytes: Uint8Array,
+  options: {
+    cancelled?: () => boolean;
+    registerOutputs?: (ids: string[]) => void;
+  } = {},
+): Promise<Project> {
+  assertNormalizationActive(options);
   if (bytes.length > 50 * 1024 * 1024)
     throw new Error("Archives must be 50 MB or smaller.");
   let total = 0;
@@ -159,18 +167,33 @@ export async function importArchive(bytes: Uint8Array): Promise<Project> {
     throw new Error("Unexpected archive files.");
   const assets: Asset[] = [];
   const mapping = new Map<string, string>();
+  // Persist every possible output before the first codec runs. A worker killed
+  // after writing a file can then clean it without relying on in-memory state.
+  const outputIds = (input.assets || []).map(() => randomUUID());
+  options.registerOutputs?.(outputIds);
   try {
-    for (const a of input.assets || []) {
+    for (const [index, a] of (input.assets || []).entries()) {
+      assertNormalizationActive(options);
+      const normalization = {
+        id: outputIds[index],
+        cancelled: options.cancelled,
+      };
       const source = files[`assets/${a.id}`];
       if (!source) throw new Error(`Missing archived asset: ${a.name}`);
       const asset =
         a.mime === "video/mp4"
-          ? await storeVideo(Buffer.from(source), a.name, a.license)
+          ? await storeVideo(
+              Buffer.from(source),
+              a.name,
+              a.license,
+              normalization,
+            )
           : await (a.mime === "audio/wav" ? storeAudio : storeImage)(
               Buffer.from(source),
               a.name,
               a.license,
               25 * 1024 * 1024,
+              normalization,
             );
       assets.push(asset);
       mapping.set(a.id, asset.id);
@@ -205,6 +228,7 @@ export async function importArchive(bytes: Uint8Array): Promise<Project> {
       validateProjectAssets({ assets } as Project, timeline);
       return timeline;
     };
+    assertNormalizationActive(options);
     return {
       ...input,
       id: randomUUID(),

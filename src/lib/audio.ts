@@ -1,18 +1,16 @@
 import { clipAudioTracks } from "./clip-audio";
 import { runCommand } from "./process";
 import { execFileSync } from "node:child_process";
-import {
-  mkdtemp,
-  mkdir,
-  writeFile,
-  rm,
-  readFile,
-  rename,
-} from "node:fs/promises";
+import { mkdtemp, writeFile, rm, readFile, rename } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
 import { assetDir, validAssetId } from "./assets";
+import {
+  assertNormalizationActive,
+  normalizationId,
+  writeNormalizedMedia,
+  type MediaNormalizationOptions,
+} from "./media-normalization";
 import { totalFrames, type Asset, type Timeline } from "./schema";
 export function probeMedia(file: string) {
   return JSON.parse(
@@ -38,7 +36,9 @@ export async function storeAudio(
   name: string,
   license: string,
   maxBytes = 10 * 1024 * 1024,
+  options: MediaNormalizationOptions = {},
 ): Promise<Asset> {
+  const id = normalizationId(options);
   if (bytes.length > maxBytes)
     throw new Error("Audio files must be 10 MB or smaller.");
   const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-audio-"));
@@ -47,6 +47,7 @@ export async function storeAudio(
     await writeFile(input, bytes);
     const meta = probeMedia(input),
       duration = Number(meta.format.duration);
+    assertNormalizationActive(options);
     if (
       !["wav", "mp3", "ogg", "flac", "aac"].includes(meta.format.format_name) ||
       meta.streams.some(
@@ -60,7 +61,7 @@ export async function storeAudio(
         "Use a WAV, MP3, Ogg, FLAC, or AAC audio-only file up to 120 seconds.",
       );
     const output = path.join(dir, "normalized.wav");
-    execFileSync(
+    await runCommand(
       "ffmpeg",
       [
         "-v",
@@ -82,15 +83,11 @@ export async function storeAudio(
         "pcm_s16le",
         output,
       ],
-      { timeout: 30000 },
+      { timeoutMs: 30000, cancelled: options.cancelled },
     );
     const normalized = probeMedia(output);
-    const id = randomUUID();
-    await mkdir(assetDir, { recursive: true });
     const normalizedBytes = await readFile(output);
-    await writeFile(path.join(assetDir, id), normalizedBytes, {
-      flag: "wx",
-    });
+    writeNormalizedMedia(id, normalizedBytes, options);
     return {
       id,
       name: path

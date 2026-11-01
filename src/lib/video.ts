@@ -1,24 +1,23 @@
-import {
-  mkdtemp,
-  writeFile,
-  readFile,
-  rm,
-  mkdir,
-  stat,
-} from "node:fs/promises";
+import { mkdtemp, writeFile, readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
-import { randomUUID } from "node:crypto";
 import { probeMedia } from "./audio";
 import { runCommand } from "./process";
-import { assetDir } from "./assets";
 import type { Asset } from "./schema";
+import {
+  assertNormalizationActive,
+  normalizationId,
+  writeNormalizedMedia,
+  type MediaNormalizationOptions,
+} from "./media-normalization";
 export const MAX_VIDEO_BYTES = 25 * 1024 * 1024;
 export async function storeVideo(
   bytes: Buffer,
   name: string,
   license: string,
+  options: MediaNormalizationOptions = {},
 ): Promise<Asset> {
+  const id = normalizationId(options);
   if (bytes.length > MAX_VIDEO_BYTES)
     throw new Error("Video files must be 25 MB or smaller.");
   const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-video-"));
@@ -27,6 +26,7 @@ export async function storeVideo(
       output = path.join(dir, "normalized.mp4");
     await writeFile(input, bytes);
     const meta = probeMedia(input);
+    assertNormalizationActive(options);
     const streams = meta.streams.filter(
       (s: { codec_type: string }) => s.codec_type === "video",
     );
@@ -108,7 +108,7 @@ export async function storeVideo(
         "+faststart",
         output,
       ],
-      { timeoutMs: 120000 },
+      { timeoutMs: 120000, cancelled: options.cancelled },
     );
     const outputBytes = (await stat(output)).size;
     if (outputBytes > MAX_VIDEO_BYTES)
@@ -147,13 +147,9 @@ export async function storeVideo(
         "null",
         "-",
       ],
-      { timeoutMs: 120000 },
+      { timeoutMs: 120000, cancelled: options.cancelled },
     );
-    const id = randomUUID();
-    await mkdir(assetDir, { recursive: true });
-    await writeFile(path.join(assetDir, id), await readFile(output), {
-      flag: "wx",
-    });
+    writeNormalizedMedia(id, await readFile(output), options);
     return {
       id,
       bytes: outputBytes,

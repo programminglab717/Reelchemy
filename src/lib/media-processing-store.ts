@@ -288,7 +288,12 @@ export class MediaProcessingStore {
       })
       .immediate();
   }
-  enqueue(id: string, receiverToken: string, metadata: MediaInput) {
+  enqueue(
+    id: string,
+    receiverToken: string,
+    metadata: MediaInput,
+    persistInput?: () => void,
+  ) {
     const input = inputSchema.parse(metadata);
     return this.db
       .transaction(() => {
@@ -307,6 +312,7 @@ export class MediaProcessingStore {
           row.fingerprint !== mediaInputFingerprint(input)
         )
           throw new MediaProcessingConflict();
+        persistInput?.();
         this.db
           .prepare(
             "UPDATE media_requests SET state='queued',input=?,token=NULL,updated_at=? WHERE id=?",
