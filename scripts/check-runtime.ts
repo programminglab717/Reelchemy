@@ -9,17 +9,19 @@ import assert from "node:assert/strict";
 // Native Node 24 script: no host dependency installation or real credentials.
 const args = process.argv.slice(2);
 let image = "reelchemy:local",
-  benchmark = false,
+  benchmark: "square-minute" | "static-minute" | undefined,
   selectedImage = false;
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--image" && args[i + 1] && !selectedImage) {
     image = args[++i];
     selectedImage = true;
   } else if (args[i] === "--benchmark-square-minute" && !benchmark)
-    benchmark = true;
+    benchmark = "square-minute";
+  else if (args[i] === "--benchmark-static-minute" && !benchmark)
+    benchmark = "static-minute";
   else
     throw new Error(
-      "Usage: node scripts/check-runtime.ts [--image reelchemy:local] [--benchmark-square-minute]",
+      "Usage: node scripts/check-runtime.ts [--image reelchemy:local] [--benchmark-square-minute | --benchmark-static-minute]",
     );
 }
 if (!/^[a-z0-9][a-z0-9._:/-]{0,180}$/.test(image))
@@ -136,7 +138,7 @@ async function execute(
 ) {
   const variables = Object.entries({
     RUNTIME_CHECK_OPERATION: operation,
-    ...(benchmark ? { RUNTIME_CHECK_BENCHMARK: "square-minute" } : {}),
+    ...(benchmark ? { RUNTIME_CHECK_BENCHMARK: benchmark } : {}),
     ...extra,
   }).flatMap(([key, value]) => ["--env", `${key}=${value}`]);
   // Eval imports are relative to /app; fixture file imports are relative to scripts/.
@@ -464,7 +466,7 @@ try {
       "The cold benchmark must complete without an export retry.",
     );
     console.log(
-      "Cold-cache mixed-media square minute completed under the standard 2 CPU / 4 GiB / 256 PID render budget.",
+      `Cold-cache ${benchmark === "static-minute" ? "static title-card" : "mixed-media"} square minute completed under the standard 2 CPU / 4 GiB / 256 PID render budget.`,
     );
   }
   const imageId = (
@@ -482,7 +484,10 @@ try {
         ...(benchmark
           ? {
               benchmark: {
-                case: "cold-square-mixed-media-minute",
+                case:
+                  benchmark === "static-minute"
+                    ? "cold-square-static-minute"
+                    : "cold-square-mixed-media-minute",
                 coldJobWallSeconds,
                 timingIncludes:
                   "queueing, export, polling and full-decode verification; excludes fixture ingestion and service startup",
@@ -503,8 +508,7 @@ try {
                 sampledPeakPids: Math.max(0, ...samples.map((s) => s.pids)),
                 samples,
                 export: firstExport,
-                scope:
-                  "one synthetic cold-cache 60-second 1080x1080 export, not 1080p landscape/portrait, five-minute capacity, concurrent throughput or artistic acceptance",
+                scope: `one synthetic cold-cache 60-second 1080x1080 ${benchmark === "static-minute" ? "static title-card" : "moving-footage mixed-media"} export, not 1080p landscape/portrait, five-minute capacity, concurrent throughput or artistic acceptance`,
               },
             }
           : {}),
@@ -519,7 +523,12 @@ try {
           "real-footage-captions-aac",
           "full-decode",
           ...(benchmark
-            ? ["cold-mixed-square-minute", "standard-render-resource-budget"]
+            ? [
+                benchmark === "static-minute"
+                  ? "cold-static-square-minute"
+                  : "cold-mixed-square-minute",
+                "standard-render-resource-budget",
+              ]
             : [
                 "duplicate-worker-rejected",
                 "forced-container-crash-recovery",
@@ -545,7 +554,10 @@ try {
       JSON.stringify(
         {
           passed: false,
-          case: "cold-square-mixed-media-minute",
+          case:
+            benchmark === "static-minute"
+              ? "cold-square-static-minute"
+              : "cold-square-mixed-media-minute",
           samples,
           error:
             error instanceof Error

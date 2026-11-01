@@ -37,7 +37,9 @@ import sharp from "sharp";
 import { HEARTBEAT_NAME } from "../src/lib/worker-heartbeat.ts";
 
 const operation = process.env.RUNTIME_CHECK_OPERATION;
-const benchmark = process.env.RUNTIME_CHECK_BENCHMARK === "square-minute";
+const staticMinute = process.env.RUNTIME_CHECK_BENCHMARK === "static-minute";
+const benchmark =
+  staticMinute || process.env.RUNTIME_CHECK_BENCHMARK === "square-minute";
 async function hashFile(file) {
   const hash = createHash("sha256");
   for await (const bytes of createReadStream(file)) hash.update(bytes);
@@ -219,6 +221,20 @@ if (operation === "seed") {
             color: "#ffd085",
           },
         ];
+        if (staticMinute) {
+          scene.title = `Static title card ${index + 1}`;
+          scene.transition = "cut";
+          scene.camera = [];
+          scene.layers[0] = {
+            ...scene.layers[0],
+            kind: "rectangle",
+            assetId: undefined,
+            video: undefined,
+            color: "#2854a5",
+          };
+          scene.layers[1].text = `Static title card / ${index + 1}`;
+          scene.layers[3].kind = "rectangle";
+        }
       }
       timeline.audioTracks = [
         {
@@ -237,6 +253,13 @@ if (operation === "seed") {
         startFrame: i * 60,
         endFrame: i * 60 + 54,
       }));
+      if (staticMinute)
+        timeline.captions = Array.from({ length: 6 }, (_, i) => ({
+          id: `static-cue-${i}`,
+          text: `Static title-card sample ${i + 1}`,
+          startFrame: i * 300,
+          endFrame: i * 300 + 180,
+        }));
     }
     saveProject(project);
     reviseProject(project, timeline, "Synthetic runtime fixture");
@@ -293,6 +316,22 @@ if (operation === "seed") {
     ["-v", "error", "-xerror", "-i", file, "-f", "null", "-"],
     { timeout: benchmark ? 90000 : 30000 },
   );
+  const sceneCache = getJob(process.env.RUNTIME_CHECK_JOB_ID)?.report
+    ?.sceneCache;
+  const staticFrameReuse =
+    Array.isArray(sceneCache) &&
+    sceneCache.every((entry) => entry.frameReuse && !entry.reused)
+      ? {
+          captured: sceneCache.reduce(
+            (sum, entry) => sum + entry.frameReuse.captured,
+            0,
+          ),
+          total: sceneCache.reduce(
+            (sum, entry) => sum + entry.frameReuse.total,
+            0,
+          ),
+        }
+      : null;
   console.log(
     JSON.stringify({
       decoded: true,
@@ -301,6 +340,7 @@ if (operation === "seed") {
       frames: Number(video.nb_frames),
       duration: Number(probe.format.duration),
       bytes: Number(probe.format.size),
+      ...(staticMinute ? { staticFrameReuse } : {}),
     }),
   );
 } else if (operation === "heartbeat") {
