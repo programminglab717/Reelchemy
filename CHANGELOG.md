@@ -225,3 +225,7 @@
 - Refuse redirects and automatic retries; bound successful response bodies to 512 KiB and the network/body phase to 60 seconds, cancelling oversized or stalled streams.
 - Return private, structured 502/503/504 errors without upstream contents, keys, URL values or nested transport/JSON/schema errors. Failed plans preserve saved projects and manual editing.
 - Verify compatible and native Claude behavior with simulated responses; live model verification remains deferred.
+
+## 0.24.1 — Compact container build layers
+
+- Assemble the app from read-only BuildKit inputs and compile as the node user in one layer, reducing full filesystem copies on VFS builders. Preserve private-context exclusions, public build-CA handling and empty runtime storage directories.

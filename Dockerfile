@@ -20,19 +20,21 @@ RUN --mount=type=secret,id=build_ca --mount=type=cache,target=/root/.npm \
       NODE_EXTRA_CA_CERTS=/run/secrets/build_ca npm ci --cache /root/.npm; \
     else npm ci --cache /root/.npm; fi
 
-FROM base AS source
-COPY --from=dependencies --chown=node:node /app/node_modules ./node_modules
-COPY --chown=node:node . .
-RUN mkdir -p .data artifacts private-auth .next node_modules/.cache \
-    && chown node:node /app \
-    && chown -R node:node .data artifacts private-auth .next node_modules/.cache \
-    && chmod 700 .data artifacts private-auth
+FROM base AS build
+# Read-only BuildKit inputs avoid repeated full dependency/source layers on VFS
+# builders. The context still obeys .dockerignore; no live state enters the build.
+# Build application code as node, then leave only empty runtime directories.
+RUN --mount=type=bind,source=.,target=/build-source,readonly \
+    --mount=type=bind,from=dependencies,source=/app/node_modules,target=/build-dependencies,readonly \
+    cp -a /build-source/. /app/ \
+    && cp -a /build-dependencies /app/node_modules \
+    && mkdir -p .data artifacts private-auth .next node_modules/.cache \
+    && chown -R node:node /app \
+    && chmod 700 .data artifacts private-auth \
+    && runuser -u node -- npm run build \
+    && rm -rf .data artifacts private-auth \
+    && install -d -o node -g node -m 700 .data artifacts private-auth
 USER node
-
-FROM source AS build
-RUN npm run build
-# The image carries code/build output; live state only belongs on runtime volumes.
-RUN rm -rf .data artifacts private-auth && mkdir -m 700 .data artifacts private-auth
 
 FROM build AS test
 USER root
