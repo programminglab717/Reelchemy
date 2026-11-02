@@ -1930,3 +1930,122 @@ main.account-page {
     text-overflow: ellipsis;
   }
 }
+
+.version-history-dialog {
+  width: min(1120px, calc(100vw - 28px));
+  max-width: none;
+  max-height: calc(100dvh - 28px);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 24px 80px #142a4440;
+}
+.version-history-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.version-history-dialog::backdrop {
+  background: #111b2b88;
+}
+.version-history-header,
+.version-history-footer {
+  flex-shrink: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  background: #fff;
+}
+.version-history-header {
+  top: 0;
+  border-bottom: 1px solid #e4e9f0;
+}
+.version-history-footer {
+  bottom: 0;
+  border-top: 1px solid #e4e9f0;
+}
+.version-history-header h2,
+.version-history-header p,
+.version-history-footer p {
+  margin: 0;
+}
+.version-history-header p,
+.version-history-footer p,
+.version-history-range {
+  color: #647086;
+  font-size: 13px;
+}
+.version-history-body {
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+  gap: 24px;
+  padding: 20px;
+}
+.version-history-list,
+.version-history-preview {
+  min-width: 0;
+}
+.version-history-entries {
+  display: grid;
+  gap: 8px;
+  max-height: 430px;
+  overflow: auto;
+}
+.version-history-entries button {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #dce3ec;
+  border-radius: 10px;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  background: #fff;
+  color: #172033;
+}
+.version-history-entries button[aria-pressed="true"] {
+  border-color: var(--dark);
+  background: #eff5e6;
+}
+.version-history-entries small {
+  color: #647086;
+}
+.version-history-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.version-history-source {
+  overflow-wrap: anywhere;
+}
+.version-history-preview .player-wrap {
+  max-width: 100%;
+  overflow: hidden;
+}
+.version-history-footer button {
+  flex-shrink: 0;
+}
+@media (max-width: 760px) {
+  .version-history-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+    padding: 14px;
+  }
+  .version-history-entries {
+    max-height: 200px;
+  }
+  .version-history-header,
+  .version-history-footer {
+    flex-wrap: wrap;
+    padding: 14px;
+  }
+}

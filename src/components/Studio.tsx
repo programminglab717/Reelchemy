@@ -22,6 +22,7 @@ import { ExportHistory, QualityEvidence } from "./ExportHistory";
 import { MediaEditor } from "./MediaEditor";
 import { ImportProject } from "./ProjectPortability";
 import { MediaProcessing } from "./MediaProcessing";
+import { VersionHistory } from "./VersionHistory";
 import { useAccountFetch } from "./AccountBoundary";
 import { Icon, type IconName } from "./Icon";
 import { useRouter } from "next/navigation";
@@ -1152,7 +1153,9 @@ export function Studio({
                   <select
                     aria-label="Restore saved version"
                     defaultValue=""
-                    disabled={busy || dirty}
+                    disabled={
+                      busy || dirty || recordingPending || editor.saving
+                    }
                     onChange={(e) => {
                       const revisionId = e.target.value;
                       if (!revisionId) return;
@@ -1185,6 +1188,22 @@ export function Studio({
                     Restoring saves a new version; earlier versions stay
                     available.
                   </small>
+                  <VersionHistory
+                    key={project.id}
+                    projectId={project.id}
+                    latestRevisionId={revisionId(project)}
+                    count={project.revisions.length}
+                    disabled={busy || recordingPending}
+                    canRestore={
+                      !busy && !dirty && !recordingPending && !editor.saving
+                    }
+                    onOpen={() => player.current?.pause()}
+                    onRestored={(saved) => {
+                      remember(saved);
+                      setSelected(0);
+                      setJob(null);
+                    }}
+                  />
                 </section>
                 <section className="scene-editor">
                   <h2>Keep your project</h2>

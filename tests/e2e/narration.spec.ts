@@ -68,6 +68,12 @@ test("synthetic microphone take can be reviewed, recovered after failed upload, 
   await expect(
     page.getByLabel("Recorded narration preview", { exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Browse saved versions", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByLabel("Restore saved version", { exact: true }),
+  ).toBeDisabled();
   expect(
     await page.evaluate(() =>
       (window as unknown as { testMic: MediaStream }).testMic

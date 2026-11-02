@@ -51,6 +51,7 @@ import { withPrivateDirectory } from "./private-directory";
 import { removeCachedWaveform } from "./waveform-cache";
 import { ownedMediaCatalogue } from "./media-catalogue";
 import { ProviderUsageStore } from "./provider-usage-store";
+import { ownedVersionPage, ownedVersionSnapshot } from "./project-history";
 import {
   mediaProcessingPolicy,
   MediaAnalysisLimit,
@@ -377,6 +378,26 @@ export function mediaLibrary(workspaceId: string, options: LibraryQuery) {
 export function projectMediaCatalogue(projectId: string, workspaceId: string) {
   return db
     .transaction(() => ownedMediaCatalogue(db, projectId, workspaceId))
+    .deferred();
+}
+export function projectVersionPage(
+  projectId: string,
+  workspaceId: string,
+  offset: number,
+) {
+  return db
+    .transaction(() => ownedVersionPage(db, projectId, workspaceId, offset))
+    .deferred();
+}
+export function projectVersionSnapshot(
+  projectId: string,
+  workspaceId: string,
+  revisionId: string,
+) {
+  return db
+    .transaction(() =>
+      ownedVersionSnapshot(db, projectId, workspaceId, revisionId),
+    )
     .deferred();
 }
 export function reuseOwnedMedia(
