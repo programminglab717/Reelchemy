@@ -343,3 +343,9 @@
 - Add private reviewed saved-history cleanup with exact-data previews, active ownership rechecks, current-film/media/export preservation and bounded exact-once recovery receipts.
 - Add maker-facing allowance, cleanup preview/confirmation/retry and mobile controls; metadata refresh preserves unsaved film, undo and the current save base.
 - Reject exhausted planning allowances before provider contact; keep exact post-provider commit admission and private error contracts. Acceptance follows execution in VALIDATION.md.
+
+## 0.43.0 — 2026-11-02 (candidate)
+
+- Add shared retained-source byte admission and a census covering historical/export-only and previously indexed legacy media, preserving old data and zero-byte reuse.
+- Capture admitted shared ceilings for restart-safe final attachment; distinguish binary/project capacity failures and preserve completed receipt replay before admission.
+- Add read-only operator storage reporting and durable production browser JSON results. Physical export/backup retention and actual workspace upgrades are separate work.

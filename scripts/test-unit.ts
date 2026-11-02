@@ -29,6 +29,7 @@ const env: NodeJS.ProcessEnv = {
   REELCHEMY_ARTIFACT_DIR: path.join(dir, "artifacts"),
   REELCHEMY_RENDER_CACHE_DIR: path.join(dir, "cache"),
   REELCHEMY_MEDIA_STORAGE_BYTES: String(DEFAULT_MEDIA_STORAGE_BYTES),
+  REELCHEMY_MEDIA_SHARED_STORAGE_BYTES: "8589934592",
   REELCHEMY_PROJECT_DATA_BYTES: "33554432",
   REELCHEMY_STUDIO_DATA_BYTES: "268435456",
   REELCHEMY_SERVICE_DATA_BYTES: "4294967296",
@@ -90,6 +91,7 @@ try {
       "cache-worker.test.ts",
       "project-deletions.test.ts",
       "render-static.test.ts",
+      "shared-media-worker.test.ts",
     ].includes(path.basename(arg)),
   );
   if (nativeSelected) {

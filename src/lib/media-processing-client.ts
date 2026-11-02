@@ -96,6 +96,10 @@ function failureMessage(result: MediaReceipt) {
     return "Media processing was cancelled. The file has not been added; you can try again.";
   if (result.error === "STORAGE_LIMIT")
     return "The processed media exceeds your studio's remaining allowance. Reduce its dimensions or duration, or contact the operator.";
+  if (result.error === "SERVICE_STORAGE_LIMIT")
+    return "Shared media storage is full. Your file is kept here. Contact the studio operator or retry after storage is available.";
+  if (result.error === "PROJECT_DATA_LIMIT")
+    return "The retained project allowance is full. Keep your file and use Manage saved history, remove an unneeded project, or contact the operator before retrying.";
   if (result.error === "PROJECT_UNAVAILABLE")
     return "The target project is no longer available. Keep your file and open an active project.";
   if (result.error === "PROCESSING_TIMEOUT")

@@ -4,6 +4,7 @@ import path from "node:path";
 import { dataDir, mediaProcessing } from "../src/lib/db";
 import { mediaProcessingPolicy } from "../src/lib/media-processing-policy";
 import { projectStoragePolicy } from "../src/lib/project-storage-policy";
+import { sharedMediaStorageLimit } from "../src/lib/media-storage-policy";
 import {
   cleanMediaProcessing,
   processMediaTask,
@@ -29,6 +30,7 @@ try {
 const instanceId = randomUUID(),
   policy = mediaProcessingPolicy();
 projectStoragePolicy();
+sharedMediaStorageLimit();
 const diagnostic = `${lock}.${instanceId}.tmp`;
 await writeFile(
   diagnostic,

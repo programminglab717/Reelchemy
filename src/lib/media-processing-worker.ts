@@ -18,6 +18,7 @@ import { importArchive } from "./archive";
 import { readWaveform } from "./waveform";
 import { cacheWaveform } from "./waveform-cache";
 import { MediaStorageLimitError } from "./media-storage-policy";
+import { ProjectStorageLimit } from "./project-storage-policy";
 import { CommandTimeoutError } from "./process";
 import type { Asset } from "./schema";
 
@@ -83,6 +84,7 @@ export async function processMediaTask(
             task.workspaceId,
             asset,
             task.storageLimitBytes ?? undefined,
+            task.sharedStorageLimitBytes,
           )
         )
           throw new Error("Media target unavailable.");
@@ -108,6 +110,7 @@ export async function processMediaTask(
             project,
             task.workspaceId,
             task.storageLimitBytes ?? undefined,
+            task.sharedStorageLimitBytes,
           ).id,
       );
     } else {
@@ -142,14 +145,18 @@ export async function processMediaTask(
       Date.now() >= deadline || error instanceof CommandTimeoutError
         ? "PROCESSING_TIMEOUT"
         : error instanceof MediaStorageLimitError
-          ? "STORAGE_LIMIT"
-          : mediaProcessing.isCancelled(task)
-            ? "PROJECT_UNAVAILABLE"
-            : "INVALID_MEDIA";
+          ? error.scope === "service"
+            ? "SERVICE_STORAGE_LIMIT"
+            : "STORAGE_LIMIT"
+          : error instanceof ProjectStorageLimit
+            ? "PROJECT_DATA_LIMIT"
+            : mediaProcessing.isCancelled(task)
+              ? "PROJECT_UNAVAILABLE"
+              : "INVALID_MEDIA";
     mediaProcessing.fail(
       task,
       code,
-      error instanceof MediaStorageLimitError
+      error instanceof MediaStorageLimitError && error.scope === "studio"
         ? {
             usedBytes: error.usedBytes,
             limitBytes: error.limitBytes,

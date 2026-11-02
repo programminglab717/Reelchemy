@@ -1,7 +1,10 @@
 import type Database from "better-sqlite3";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
-import { mediaStorageLimit } from "./media-storage-policy";
+import {
+  mediaStorageLimit,
+  validatedSharedMediaBytes,
+} from "./media-storage-policy";
 import {
   MEDIA_INPUT_BYTES,
   mediaProcessingPolicy,
@@ -52,6 +55,8 @@ export type MediaFailure =
   | "INVALID_MEDIA"
   | "PROJECT_UNAVAILABLE"
   | "STORAGE_LIMIT"
+  | "SERVICE_STORAGE_LIMIT"
+  | "PROJECT_DATA_LIMIT"
   | "INTERRUPTED"
   | "RECEIVE_TIMEOUT"
   | "PROCESSING_TIMEOUT"
@@ -60,6 +65,8 @@ const failures: readonly MediaFailure[] = [
   "INVALID_MEDIA",
   "PROJECT_UNAVAILABLE",
   "STORAGE_LIMIT",
+  "SERVICE_STORAGE_LIMIT",
+  "PROJECT_DATA_LIMIT",
   "INTERRUPTED",
   "RECEIVE_TIMEOUT",
   "PROCESSING_TIMEOUT",
@@ -80,6 +87,7 @@ type Row = {
   error: MediaFailure | null;
   failure_details: string | null;
   storage_limit_bytes: number | null;
+  storage_shared_limit_bytes: number | null;
   created_at: number;
   updated_at: number;
   receive_until: number;
@@ -124,6 +132,7 @@ export type MediaTask = {
   outputIds: string[];
   attempts: number;
   storageLimitBytes: number | null;
+  sharedStorageLimitBytes?: number;
 };
 const active = "state IN ('receiving','queued','working','cancelling')";
 const terminal = "state IN ('completed','failed','cancelled')";
@@ -164,6 +173,13 @@ function task(row: Row): MediaTask {
         : mediaStorageLimit({
             REELCHEMY_MEDIA_STORAGE_BYTES: String(row.storage_limit_bytes),
           }),
+    ...(row.storage_shared_limit_bytes == null
+      ? {}
+      : {
+          sharedStorageLimitBytes: validatedSharedMediaBytes(
+            row.storage_shared_limit_bytes,
+          ),
+        }),
   };
 }
 
@@ -179,7 +195,7 @@ export function migrateMediaProcessing(db: Database.Database) {
     outputs TEXT NOT NULL DEFAULT '[]', result_id TEXT, error TEXT,
     created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, receive_until INTEGER NOT NULL,
     token TEXT, attempts INTEGER NOT NULL DEFAULT 0,
-    failure_details TEXT, storage_limit_bytes INTEGER,
+    failure_details TEXT, storage_limit_bytes INTEGER, storage_shared_limit_bytes INTEGER,
     UNIQUE(workspace_id,request_key));
     CREATE INDEX IF NOT EXISTS media_requests_queue_idx ON media_requests(state,created_at);
     CREATE INDEX IF NOT EXISTS media_requests_owner_idx ON media_requests(workspace_id,state);
@@ -197,6 +213,14 @@ export function migrateMediaProcessing(db: Database.Database) {
   )
     db.exec(
       "ALTER TABLE media_requests ADD COLUMN storage_limit_bytes INTEGER",
+    );
+  if (
+    !(db.pragma("table_info(media_requests)") as { name: string }[]).some(
+      (column) => column.name === "storage_shared_limit_bytes",
+    )
+  )
+    db.exec(
+      "ALTER TABLE media_requests ADD COLUMN storage_shared_limit_bytes INTEGER",
     );
 }
 
@@ -279,14 +303,18 @@ export class MediaProcessingStore {
       .get(workspace, project, asset, asset) as Row | undefined;
     return row ? receipt(row) : undefined;
   }
-  reserve(input: {
-    workspaceId: string;
-    projectId: string | null;
-    operation: MediaOperation;
-    requestKey: string;
-    fingerprint?: string;
-    storageLimitBytes?: number;
-  }) {
+  reserve(
+    input: {
+      workspaceId: string;
+      projectId: string | null;
+      operation: MediaOperation;
+      requestKey: string;
+      fingerprint?: string;
+      storageLimitBytes?: number;
+      sharedStorageLimitBytes?: number;
+    },
+    admit?: () => void,
+  ) {
     uuid.parse(input.requestKey);
     if (input.fingerprint !== undefined) hash.parse(input.fingerprint);
     const storageLimitBytes =
@@ -295,6 +323,10 @@ export class MediaProcessingStore {
         : mediaStorageLimit({
             REELCHEMY_MEDIA_STORAGE_BYTES: String(input.storageLimitBytes),
           });
+    const sharedStorageLimitBytes =
+      input.sharedStorageLimitBytes === undefined
+        ? null
+        : validatedSharedMediaBytes(input.sharedStorageLimitBytes);
     if (
       !Object.hasOwn(MEDIA_INPUT_BYTES, input.operation) ||
       (input.operation !== "import" && input.projectId === null) ||
@@ -350,12 +382,13 @@ export class MediaProcessingStore {
           reserved + bytes > this.policy.rawBytes
         )
           throw new MediaProcessingCapacity("global", this.policy.retryAfter);
+        admit?.();
         const id = randomUUID(),
           token = randomUUID(),
           now = this.now();
         this.db
           .prepare(
-            "INSERT INTO media_requests(id,workspace_id,project_id,operation,request_key,fingerprint,state,reserved_bytes,created_at,updated_at,receive_until,token,storage_limit_bytes) VALUES (?,?,?,?,?,?,'receiving',?,?,?,?,?,?)",
+            "INSERT INTO media_requests(id,workspace_id,project_id,operation,request_key,fingerprint,state,reserved_bytes,created_at,updated_at,receive_until,token,storage_limit_bytes,storage_shared_limit_bytes) VALUES (?,?,?,?,?,?,'receiving',?,?,?,?,?,?,?)",
           )
           .run(
             id,
@@ -370,6 +403,7 @@ export class MediaProcessingStore {
             now + this.policy.receiveCleanupMs,
             token,
             storageLimitBytes,
+            sharedStorageLimitBytes,
           );
         return {
           receipt: receipt(this.row(id)!),

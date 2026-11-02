@@ -1,6 +1,6 @@
 {
   "name": "reelchemy",
-  "version": "0.42.0",
+  "version": "0.43.0",
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0",
@@ -27,7 +27,8 @@
     "container:build": "tsx scripts/container-build.ts",
     "ai:usage": "tsx scripts/ai-usage.ts",
     "ai:reconcile": "tsx scripts/ai-reconcile.ts",
-    "cache:prune": "tsx scripts/cache-maintenance.ts"
+    "cache:prune": "tsx scripts/cache-maintenance.ts",
+    "storage:usage": "tsx scripts/storage-usage.ts"
   },
   "dependencies": {
     "@remotion/bundler": "4.0.539",

@@ -173,9 +173,13 @@ export function MediaProcessing({
                       <p>
                         {request.error === "STORAGE_LIMIT"
                           ? "The processed file exceeds the studio allowance. Try a smaller file."
-                          : request.error === "PROJECT_UNAVAILABLE"
-                            ? "This project's processing request is no longer available."
-                            : "Keep the original file and retry from the upload or import control."}
+                          : request.error === "SERVICE_STORAGE_LIMIT"
+                            ? "Shared media storage is full. Keep the original file and contact the studio operator, or retry after storage is available."
+                            : request.error === "PROJECT_DATA_LIMIT"
+                              ? "The retained project allowance is full. Keep the file and manage saved history, remove an unneeded project, or contact the operator before retrying."
+                              : request.error === "PROJECT_UNAVAILABLE"
+                                ? "This project's processing request is no longer available."
+                                : "Keep the original file and retry from the upload or import control."}
                       </p>
                     )}
                   </div>

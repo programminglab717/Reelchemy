@@ -7,6 +7,9 @@ import {
   getProject,
   projectInWorkspace,
   mediaStorage,
+  assertSharedMediaCapacity,
+  assertUploadProjectCapacity,
+  assertImportProjectCapacity,
 } from "./db";
 import {
   MEDIA_INPUT_BYTES,
@@ -18,7 +21,11 @@ import {
   type MediaOperation,
 } from "./media-processing-policy";
 import type { MediaReceipt, MediaInput } from "./media-processing-store";
-import { MediaStorageLimitError } from "./media-storage-policy";
+import {
+  MediaStorageLimitError,
+  sharedMediaStorageLimit,
+} from "./media-storage-policy";
+import { ProjectStorageLimit } from "./project-storage-policy";
 import { LimitConfigurationError } from "./limits-policy";
 import { multipart, readLimitedBody, RequestBodyError, failure } from "./http";
 
@@ -41,14 +48,26 @@ export function reserveMediaRequest(
     z.string()
       .regex(/^[a-f0-9]{64}$/)
       .parse(fingerprint);
-  return mediaProcessing.reserve({
-    workspaceId,
-    projectId,
-    operation,
-    requestKey,
-    fingerprint,
-    storageLimitBytes,
-  });
+  return mediaProcessing.reserve(
+    {
+      workspaceId,
+      projectId,
+      operation,
+      requestKey,
+      fingerprint,
+      storageLimitBytes,
+      sharedStorageLimitBytes:
+        operation === "waveform" ? undefined : sharedMediaStorageLimit(),
+    },
+    operation === "upload"
+      ? () => {
+          assertUploadProjectCapacity(projectId!, workspaceId);
+          assertSharedMediaCapacity();
+        }
+      : operation === "import"
+        ? () => assertImportProjectCapacity(workspaceId)
+        : undefined,
+  );
 }
 function accepted(receipt: MediaReceipt, preferred = false) {
   return Response.json(
@@ -71,6 +90,10 @@ const errors = {
     "The target project is no longer available for this operation.",
   STORAGE_LIMIT:
     "The processed media exceeds your studio's remaining allowance. Reduce its dimensions or duration, or contact the operator.",
+  SERVICE_STORAGE_LIMIT:
+    "Shared media storage is full. Keep your file and contact the studio operator, or retry after storage is available.",
+  PROJECT_DATA_LIMIT:
+    "The retained project allowance is full. Keep your file, manage saved history or remove an unneeded project, or contact the studio operator.",
   INTERRUPTED:
     "Media processing was interrupted twice. Keep your file and start a new request.",
   RECEIVE_TIMEOUT:
@@ -81,6 +104,13 @@ const errors = {
     "Media processing could not finish. Keep your file and try again.",
 };
 export function mediaFailure(receipt: MediaReceipt) {
+  if (receipt.error === "PROJECT_DATA_LIMIT")
+    return Response.json(
+      { error: errors.PROJECT_DATA_LIMIT, code: "PROJECT_STORAGE_LIMIT" },
+      { status: 503, headers: privateMediaHeaders },
+    );
+  if (receipt.error === "SERVICE_STORAGE_LIMIT")
+    return safeMediaFailure(new MediaStorageLimitError(0, 0, 1, "service"));
   if (receipt.error === "STORAGE_LIMIT" && receipt.storage)
     return safeMediaFailure(
       new MediaStorageLimitError(
@@ -165,6 +195,7 @@ export function safeMediaFailure(error: unknown) {
     error instanceof MediaProcessingConflict ||
     error instanceof MediaProcessingUnavailable ||
     error instanceof MediaStorageLimitError ||
+    error instanceof ProjectStorageLimit ||
     error instanceof LimitConfigurationError
   ) {
     const response = failure(error);

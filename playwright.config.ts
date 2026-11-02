@@ -15,5 +15,5 @@ export default defineConfig({
     },
     screenshot: "only-on-failure",
   },
-  reporter: "list",
+  reporter: [["list"], ["json", { outputFile: "test-results/results.json" }]],
 });

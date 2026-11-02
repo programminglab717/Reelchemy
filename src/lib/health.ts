@@ -11,7 +11,10 @@ import {
 } from "./worker-heartbeat";
 import { mediaProcessingPolicy } from "./media-processing-policy";
 import { limitsPolicy } from "./limits-policy";
-import { mediaStorageLimit } from "./media-storage-policy";
+import {
+  mediaStorageLimit,
+  sharedMediaStorageLimit,
+} from "./media-storage-policy";
 import { activeExportLimit } from "./export-policy";
 import { projectStoragePolicy } from "./project-storage-policy";
 export async function readiness() {
@@ -26,6 +29,7 @@ export async function readiness() {
   try {
     limitsPolicy();
     mediaStorageLimit();
+    sharedMediaStorageLimit();
     activeExportLimit();
     mediaProcessingPolicy();
     projectStoragePolicy();

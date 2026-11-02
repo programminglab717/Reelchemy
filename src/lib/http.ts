@@ -119,6 +119,17 @@ export function failure(error: unknown) {
       { error: error.message, code: "EXPORT_REQUEST_CONFLICT" },
       { status: 409, headers: { "Cache-Control": "private, no-store" } },
     );
+  if (error instanceof MediaStorageLimitError && error.scope === "service")
+    return Response.json(
+      { error: error.message, code: error.code, scope: "service" },
+      {
+        status: 503,
+        headers: {
+          "Cache-Control": "private, no-store",
+          "X-Content-Type-Options": "nosniff",
+        },
+      },
+    );
   if (error instanceof MediaStorageLimitError)
     return Response.json(
       {
