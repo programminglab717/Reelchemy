@@ -14,17 +14,23 @@ test("worker heartbeat rejects stale, missing, malformed and implausible future 
     {},
     { at: 123 },
     { at: "invalid" },
+    { at: new Date(now).toISOString(), ready: false },
+    { at: new Date(now).toISOString(), ready: "true" },
     { at: new Date(now - 30001).toISOString() },
     { at: new Date(now + 5001).toISOString() },
   ])
     assert.equal(recentHeartbeat(value, now), false);
   assert(recentHeartbeat({ at: new Date(now).toISOString() }, now));
+  assert(
+    recentHeartbeat({ at: new Date(now).toISOString(), ready: true }, now),
+  );
   assert(recentHeartbeat({ at: new Date(now - 29999).toISOString() }, now));
 });
 test("real worker readiness follows its heartbeat and graceful shutdown cleans its lock", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-health-"));
   process.env.REELCHEMY_DATA_DIR = dir;
   process.env.REELCHEMY_ARTIFACT_DIR = path.join(dir, "artifacts");
+  process.env.REELCHEMY_RENDER_CACHE_DIR = path.join(dir, "cache");
   await mkdir(process.env.REELCHEMY_ARTIFACT_DIR);
   const accounts = path.join(dir, "accounts");
   process.env.REELCHEMY_AUTH_DIR = accounts;

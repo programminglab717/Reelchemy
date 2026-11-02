@@ -34,6 +34,7 @@ function start(dir: string) {
         NODE_ENV: "production",
         REELCHEMY_DATA_DIR: dir,
         REELCHEMY_ARTIFACT_DIR: path.join(dir, "artifacts"),
+        REELCHEMY_RENDER_CACHE_DIR: path.join(dir, "cache"),
         AI_PROVIDER: "mock",
       },
       stdio: ["ignore", "ignore", "pipe"],

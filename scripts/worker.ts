@@ -12,6 +12,8 @@ import {
   recordJobStage,
   workspaceForProject,
 } from "../src/lib/db";
+import { cacheRetentionPolicy } from "../src/lib/cache-retention-policy";
+import { maintainSceneCache } from "../src/lib/cache-retention";
 import { HEARTBEAT_NAME } from "../src/lib/worker-heartbeat";
 import { RenderQCError } from "../src/lib/layout-qc";
 import { transientRenderError } from "../src/lib/retry";
@@ -20,6 +22,7 @@ import { processProjectDeletion } from "../src/lib/project-cleanup";
 const lock = path.join(dataDir, "worker.lock");
 async function main() {
   const instanceId = randomUUID();
+  const cachePolicy = cacheRetentionPolicy();
   const kernelManaged = process.env.REELCHEMY_WORKER_KERNEL_LOCK === "1";
   if (process.env.NODE_ENV === "production" && !kernelManaged)
     throw new Error(
@@ -92,13 +95,20 @@ async function main() {
   const heartbeat = path.join(dataDir, HEARTBEAT_NAME);
   const heartbeatTemp = `${heartbeat}.${process.pid}.tmp`;
   let heartbeatWriting = false;
+  let cacheReady = !kernelManaged;
+  let maintenanceDue = true;
+  let lastMaintenance = 0;
   async function beat() {
     if (heartbeatWriting) return;
     heartbeatWriting = true;
     try {
       await writeFile(
         heartbeatTemp,
-        JSON.stringify({ at: new Date().toISOString(), instanceId }),
+        JSON.stringify({
+          at: new Date().toISOString(),
+          instanceId,
+          ready: cacheReady,
+        }),
         { mode: 0o600 },
       );
       await rename(heartbeatTemp, heartbeat);
@@ -112,14 +122,55 @@ async function main() {
   try {
     recoverJobs();
     await beat();
-    console.log("Reelchemy render worker ready");
+    let announced = false;
     while (!stopping) {
-      if (await processProjectDeletion(() => stopping)) continue;
+      if (await processProjectDeletion(() => stopping)) {
+        maintenanceDue = true;
+        continue;
+      }
+      if (
+        kernelManaged &&
+        (maintenanceDue || Date.now() - lastMaintenance >= 60000)
+      ) {
+        try {
+          const report = maintainSceneCache(cachePolicy);
+          cacheReady = true;
+          maintenanceDue = false;
+          lastMaintenance = Date.now();
+          await beat();
+          if (report.removeEntries)
+            console.log(
+              JSON.stringify({
+                event: "cache.prune.complete",
+                entries: report.removeEntries,
+                bytes: report.removeBytes,
+                retainedEntries: report.retainedEntries,
+                retainedBytes: report.retainedBytes,
+              }),
+            );
+        } catch {
+          cacheReady = false;
+          await beat();
+          console.error(
+            JSON.stringify({
+              event: "cache.prune.blocked",
+              code: "SCENE_CACHE_UNAVAILABLE",
+            }),
+          );
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+          continue;
+        }
+      }
+      if (!announced) {
+        console.log("Reelchemy render worker ready");
+        announced = true;
+      }
       const claimed = claimJob();
       if (!claimed) {
         await new Promise((r) => setTimeout(r, 500));
         continue;
       }
+      maintenanceDue = true;
       const { job, timeline } = claimed;
       console.log(JSON.stringify({ event: "render.start", jobId: job.id }));
       const deadline =

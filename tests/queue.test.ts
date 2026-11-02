@@ -11,6 +11,11 @@ process.env.REELCHEMY_ARTIFACT_DIR = path.join(
   process.env.REELCHEMY_DATA_DIR,
   "artifacts",
 );
+// Separate worker lifecycles in other test files must not maintain this cache.
+process.env.REELCHEMY_RENDER_CACHE_DIR = path.join(
+  process.env.REELCHEMY_ARTIFACT_DIR!,
+  ".scene-cache",
+);
 const db = await import("../src/lib/db");
 test("queue snapshots survive retries/recovery and terminal jobs cannot be resurrected", () => {
   const brief = {

@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { createReadStream } from "node:fs";
+import { constants, createReadStream } from "node:fs";
 import {
   mkdir,
   readFile,
@@ -8,6 +8,9 @@ import {
   rename,
   rm,
   stat,
+  open,
+  realpath,
+  type FileHandle,
 } from "node:fs/promises";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
@@ -18,6 +21,7 @@ import type { RenderBrowser } from "./render-browser";
 import { renderCacheWorkspaceDirectory } from "./render-cache-path";
 import { staticScenePlan } from "./static-scene";
 import { renderStaticScene } from "./render-static";
+import { openSceneCacheNamespace } from "./cache-retention";
 export type SceneCacheResult = {
   sceneId: string;
   reused: boolean;
@@ -143,26 +147,78 @@ async function validClip(file: string, t: Timeline) {
   }
 }
 export async function cacheEntryValid(dir: string, t: Timeline, key: string) {
+  let directory: FileHandle | undefined,
+    manifestFile: FileHandle | undefined,
+    video: FileHandle | undefined;
   try {
-    const manifest = JSON.parse(
-      await readFile(path.join(dir, "manifest.json"), "utf8"),
+    directory = await open(
+      dir,
+      constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW,
     );
+    const root =
+      process.platform === "linux"
+        ? `/proc/${process.pid}/fd/${directory.fd}`
+        : await realpath(dir);
+    manifestFile = await open(
+      path.join(root, "manifest.json"),
+      constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+    );
+    const metadata = await manifestFile.stat();
+    if (!metadata.isFile() || metadata.size < 1 || metadata.size > 8192)
+      return false;
+    const bytes = Buffer.alloc(metadata.size);
+    const read = await manifestFile.read(bytes, 0, bytes.length, 0);
+    if (
+      read.bytesRead !== bytes.length ||
+      (await manifestFile.stat()).size !== bytes.length
+    )
+      return false;
+    const manifest = JSON.parse(bytes.toString());
     if (
       manifest.key !== key ||
       manifest.frames !== totalFrames(t) ||
-      !manifest.sha256
+      typeof manifest.sha256 !== "string" ||
+      !/^[a-f0-9]{64}$/.test(manifest.sha256)
     )
       return false;
-    const digest = await fileDigest(path.join(dir, "video.mp4"));
-    return (
-      manifest.sha256 === digest &&
-      (await validClip(path.join(dir, "video.mp4"), t))
+    video = await open(
+      path.join(root, "video.mp4"),
+      constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
     );
+    const before = await video.stat();
+    if (!before.isFile() || before.size < 1000 || before.size > 2 * 1024 ** 3)
+      return false;
+    const pinned =
+      process.platform === "linux"
+        ? `/proc/${process.pid}/fd/${video.fd}`
+        : path.join(root, "video.mp4");
+    if (
+      manifest.sha256 !== (await fileDigest(pinned)) ||
+      !(await validClip(pinned, t))
+    )
+      return false;
+    const after = await video.stat();
+    if (
+      before.size !== after.size ||
+      before.mtimeMs !== after.mtimeMs ||
+      before.ctimeMs !== after.ctimeMs
+    )
+      return false;
+    // Published clips are immutable; only successful validation refreshes LRU.
+    const now = new Date();
+    await manifestFile.utimes(now, now);
+    return true;
   } catch {
     return false;
+  } finally {
+    await Promise.all([
+      video?.close(),
+      manifestFile?.close(),
+      directory?.close(),
+    ]);
   }
 }
-export async function renderCachedScenes(options: {
+type CachedSceneOptions = {
   namespace?: string;
   timeline: Timeline;
   serveUrl: string;
@@ -174,7 +230,30 @@ export async function renderCachedScenes(options: {
   cancelSignal: Parameters<typeof renderMedia>[0]["cancelSignal"];
   isCancelled: () => boolean;
   onProgress: (n: number) => void;
-}) {
+};
+export async function renderCachedScenes(options: CachedSceneOptions) {
+  // Linux production holds this namespace inode through native concatenation.
+  // Development platforms retain the existing path-based rendering fallback.
+  if (process.platform !== "linux") {
+    if (process.env.NODE_ENV === "production")
+      throw new Error("Production scene caching requires Linux.");
+    const directory = renderCacheWorkspaceDirectory(
+      options.namespace || "local",
+    );
+    await mkdir(directory, { recursive: true });
+    return renderScenesInDirectory(options, directory);
+  }
+  const owned = openSceneCacheNamespace(options.namespace || "local");
+  try {
+    return await renderScenesInDirectory(options, owned.directory);
+  } finally {
+    owned.close();
+  }
+}
+async function renderScenesInDirectory(
+  options: CachedSceneOptions,
+  cacheRoot: string,
+) {
   const {
     timeline,
     serveUrl,
@@ -186,9 +265,6 @@ export async function renderCachedScenes(options: {
     isCancelled,
     onProgress,
   } = options;
-  const namespace = options.namespace || "local";
-  const cacheRoot = renderCacheWorkspaceDirectory(namespace);
-  await mkdir(cacheRoot, { recursive: true });
   const source = await (sourceFingerprint ??= fingerprint());
   const clips: string[] = [],
     cache: SceneCacheResult[] = [];

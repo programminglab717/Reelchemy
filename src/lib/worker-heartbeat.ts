@@ -8,6 +8,7 @@ export function recentHeartbeat(value: unknown, now = Date.now()) {
     typeof value.at !== "string"
   )
     return false;
+  if ("ready" in value && value.ready !== true) return false;
   const at = Date.parse(value.at);
   return Number.isFinite(at) && now - at >= -5000 && now - at <= 30000;
 }

@@ -17,7 +17,7 @@ import {
   finishProjectDeletion,
   failProjectDeletion,
 } from "./db";
-import { renderCacheWorkspaceDirectory } from "./render-cache-path";
+import { removeSceneCacheNamespace } from "./cache-retention";
 import { removeCachedWaveform } from "./waveform-cache";
 
 async function directoryAnchor(directory: string, configuredRoot = false) {
@@ -90,10 +90,7 @@ export async function processProjectDeletion(isStopping: () => boolean) {
       await removeEntry(exports?.root, id, true);
     }
     if (isStopping()) return true;
-    const cache = renderCacheWorkspaceDirectory(task.workspaceId);
-    const cacheParent = await directoryAnchor(path.dirname(cache), true);
-    if (cacheParent) anchors.push(cacheParent);
-    await removeEntry(cacheParent?.root, task.workspaceId, true);
+    removeSceneCacheNamespace(task.workspaceId);
     if (isStopping()) return true;
     finishProjectDeletion(task);
     console.log(
