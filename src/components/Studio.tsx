@@ -1151,6 +1151,7 @@ export function Studio({
                 <section className="scene-editor">
                   <h2>Version history</h2>
                   <select
+                    className="version-history-restore"
                     aria-label="Restore saved version"
                     defaultValue=""
                     disabled={

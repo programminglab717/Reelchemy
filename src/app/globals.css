@@ -1931,6 +1931,12 @@ main.account-page {
   }
 }
 
+.version-history-restore {
+  min-width: 0;
+  max-width: 100%;
+  text-overflow: ellipsis;
+}
+
 .version-history-dialog {
   width: min(1120px, calc(100vw - 28px));
   max-width: none;

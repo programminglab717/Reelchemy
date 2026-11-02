@@ -213,11 +213,23 @@ test("mobile history read failures retry while preview and keyboard commands pre
       exact: true,
     }),
   ).toBeVisible();
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
-  ).toBeTruthy();
+  const overflow = await page.evaluate(() => ({
+    width: window.innerWidth,
+    scroll: document.documentElement.scrollWidth,
+    elements: [...document.querySelectorAll("body *")]
+      .filter(
+        (element) => element.getBoundingClientRect().right > window.innerWidth,
+      )
+      .slice(0, 12)
+      .map((element) => ({
+        tag: element.tagName,
+        class: element.className,
+        right: element.getBoundingClientRect().right,
+      })),
+  }));
+  expect(overflow.scroll, JSON.stringify(overflow)).toBeLessThanOrEqual(
+    overflow.width,
+  );
   const box = await dialog.boundingBox();
   expect(box).toBeTruthy();
   expect(box!.x).toBeGreaterThanOrEqual(0);
