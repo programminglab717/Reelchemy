@@ -1,8 +1,9 @@
 "use client";
+import type { EditorProject as Project } from "@/lib/project-view";
 import { useAccountFetch } from "./AccountBoundary";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { editHistory, revisionId, type EditHistory } from "@/lib/editor";
-import type { Project, Timeline } from "@/lib/schema";
+import type { Timeline } from "@/lib/schema";
 import type { AssetUpdate } from "@/lib/project-assets";
 import {
   createBrowserDraft,

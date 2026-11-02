@@ -15,7 +15,7 @@ export function AssetPanel({
   onRecordStart,
   canAddVisual,
 }: {
-  project: Project;
+  project: Pick<Project, "id" | "assets" | "timeline">;
   onProject: (p: AssetUpdate) => void;
   onAdd: (id: string) => void;
   onRecordingPending: (pending: boolean) => void;

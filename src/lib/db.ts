@@ -50,6 +50,7 @@ import { MediaInputFiles } from "./media-input-files";
 import { withPrivateDirectory } from "./private-directory";
 import { removeCachedWaveform } from "./waveform-cache";
 import { ownedMediaCatalogue } from "./media-catalogue";
+import { ownedEditorProject, ownedConversationPage } from "./editor-project";
 import { ProviderUsageStore } from "./provider-usage-store";
 import {
   ownedVersionPage,
@@ -384,6 +385,22 @@ export function projectMediaCatalogue(projectId: string, workspaceId: string) {
     .transaction(() => ownedMediaCatalogue(db, projectId, workspaceId))
     .deferred();
 }
+export function editorProject(projectId: string, workspaceId: string) {
+  return db
+    .transaction(() => ownedEditorProject(db, projectId, workspaceId))
+    .deferred();
+}
+export function projectConversationPage(
+  projectId: string,
+  workspaceId: string,
+  before?: number,
+) {
+  return db
+    .transaction(() =>
+      ownedConversationPage(db, projectId, workspaceId, before),
+    )
+    .deferred();
+}
 export function projectVersionPage(
   projectId: string,
   workspaceId: string,
@@ -586,6 +603,19 @@ export function renameProject(id: string, name: string, baseName: string) {
       if (p.name !== baseName) return null;
       p.name = name;
       return saveProject(p);
+    })
+    .immediate();
+}
+export function renameOwnedProject(
+  id: string,
+  name: string,
+  baseName: string,
+  workspaceId: string,
+) {
+  return db
+    .transaction(() => {
+      if (!projectInWorkspace(id, workspaceId)) return undefined;
+      return renameProject(id, name, baseName);
     })
     .immediate();
 }

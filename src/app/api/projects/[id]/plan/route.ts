@@ -1,3 +1,4 @@
+import { projectResponse, privateProjectHeaders } from "@/lib/project-http";
 import { secureRoute, type Access } from "@/lib/access";
 import { getProject, reviseOwnedProject, providerUsage } from "@/lib/db";
 import { providerConfiguration } from "@/lib/provider-config";
@@ -72,11 +73,20 @@ async function POSTHandler(
       access.workspace.id,
     );
     return saved
-      ? Response.json(saved)
+      ? projectResponse(req, saved, access.workspace.id)
       : Response.json({ error: "Project not found" }, { status: 404 });
   } catch (e) {
     return failure(e);
   }
 }
 
-export const POST = secureRoute(POSTHandler, "project", { rate: "planning" });
+const planRoute = secureRoute(POSTHandler, "project", { rate: "planning" });
+export async function POST(
+  request: Request,
+  context: { params: Promise<{ id: string }> },
+) {
+  const response = await planRoute(request, context);
+  for (const [name, value] of Object.entries(privateProjectHeaders))
+    response.headers.set(name, value);
+  return response;
+}

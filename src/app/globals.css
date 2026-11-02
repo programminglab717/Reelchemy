@@ -2071,3 +2071,29 @@ main.account-page {
 .project-download [role="alert"] {
   color: #8b2922;
 }
+
+.conversation-navigation {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px 0;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+}
+.conversation-navigation p {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+.conversation-navigation > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.conversation p {
+  overflow-wrap: anywhere;
+}
+.conversation .message p {
+  white-space: pre-wrap;
+}

@@ -4,11 +4,24 @@ import { timelineSchema } from "@/lib/schema";
 import { failure, body, localMutation } from "@/lib/http";
 import { revisionId, RevisionConflict } from "@/lib/editor";
 import { z } from "zod";
+import {
+  wantsEditorProject,
+  editorProjectResponse,
+  projectResponse,
+  privateProjectHeaders,
+} from "@/lib/project-http";
 type Context = { params: Promise<{ id: string }> };
-async function GETHandler(_: Request, { params }: Context) {
-  const p = getProject((await params).id);
+async function GETHandler(
+  request: Request,
+  { params }: Context,
+  access: Access,
+) {
+  const id = (await params).id;
+  if (wantsEditorProject(request))
+    return editorProjectResponse(id, access.workspace.id);
+  const p = getProject(id);
   return p
-    ? Response.json(p)
+    ? projectResponse(request, p, access.workspace.id)
     : Response.json({ error: "Project not found" }, { status: 404 });
 }
 async function PATCHHandler(req: Request, { params }: Context, access: Access) {
@@ -33,12 +46,22 @@ async function PATCHHandler(req: Request, { params }: Context, access: Access) {
       access.workspace.id,
     );
     return saved
-      ? Response.json(saved)
+      ? projectResponse(req, saved, access.workspace.id)
       : Response.json({ error: "Project not found" }, { status: 404 });
   } catch (e) {
     return failure(e);
   }
 }
 
-export const GET = secureRoute(GETHandler, "project");
-export const PATCH = secureRoute(PATCHHandler, "project");
+const getRoute = secureRoute(GETHandler, "project");
+const patchRoute = secureRoute(PATCHHandler, "project");
+async function privateResponse(response: Promise<Response>) {
+  const result = await response;
+  for (const [name, value] of Object.entries(privateProjectHeaders))
+    result.headers.set(name, value);
+  return result;
+}
+export const GET = (request: Request, context: Context) =>
+  privateResponse(getRoute(request, context));
+export const PATCH = (request: Request, context: Context) =>
+  privateResponse(patchRoute(request, context));

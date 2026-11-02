@@ -1,3 +1,4 @@
+import { projectResponse } from "@/lib/project-http";
 import { secureRoute, type Access } from "@/lib/access";
 import { z, ZodError } from "zod";
 import { restoreOwnedProject } from "@/lib/db";
@@ -29,7 +30,7 @@ async function POSTHandler(req: Request, { params }: Context, access: Access) {
       access.workspace.id,
     );
     return saved
-      ? Response.json(saved)
+      ? projectResponse(req, saved, access.workspace.id)
       : Response.json({ error: "Project not found." }, { status: 404 });
   } catch (error) {
     if (error instanceof SavedVersionUnavailable)

@@ -1,11 +1,7 @@
-import {
-  timelineSchema,
-  type Project,
-  type Timeline,
-  type CreativeBrief,
-} from "./schema";
+import { timelineSchema, type Timeline, type CreativeBrief } from "./schema";
 
-export const revisionId = (p: Project) => p.revisions.at(-1)?.id ?? null;
+export const revisionId = (p: { revisions: readonly { id: string }[] }) =>
+  p.revisions.at(-1)?.id ?? null;
 export class RevisionConflict extends Error {
   constructor() {
     super(

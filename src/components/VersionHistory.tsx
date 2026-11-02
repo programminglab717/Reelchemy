@@ -1,13 +1,9 @@
 "use client";
+import type { EditorProject as Project } from "@/lib/project-view";
 import { useEffect, useRef, useState } from "react";
 import { Player } from "@remotion/player";
 import { Film } from "@/video/Composition";
-import {
-  formats,
-  totalFrames,
-  timelineSchema,
-  type Project,
-} from "@/lib/schema";
+import { formats, totalFrames, timelineSchema } from "@/lib/schema";
 import type {
   SavedVersion,
   SavedVersionPage,

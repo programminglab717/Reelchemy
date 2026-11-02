@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { useAccountFetch } from "./AccountBoundary";
-import type { Project } from "@/lib/schema";
+import type { AssetUpdate } from "@/lib/project-assets";
 import type {
   LibraryItem,
   LibraryPage,
@@ -12,8 +12,8 @@ export function StudioMediaLibrary({
   project,
   onProject,
 }: {
-  project: Project;
-  onProject: (project: Project) => void;
+  project: AssetUpdate;
+  onProject: (project: AssetUpdate) => void;
 }) {
   const request = useAccountFetch();
   const [open, setOpen] = useState(false);

@@ -1,3 +1,7 @@
+import {
+  PROJECT_VIEW_HEADER,
+  EDITOR_PROJECT_VIEW,
+} from "../src/lib/project-view";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -24,6 +28,10 @@ test("private browser requests bind the rendered account and retain multipart, a
         "original-owner",
       );
       assert.equal(new Headers(init?.headers).get("X-Other"), "preserved");
+      assert.equal(
+        new Headers(init?.headers).get(PROJECT_VIEW_HEADER),
+        EDITOR_PROJECT_VIEW,
+      );
       assert.equal(new Headers(init?.headers).get("content-type"), null);
       assert.equal(init?.signal, controller.signal);
       assert.equal(init?.body, form);

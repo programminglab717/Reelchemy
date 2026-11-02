@@ -1,3 +1,4 @@
+import { PROJECT_VIEW_HEADER, EDITOR_PROJECT_VIEW } from "./project-view";
 import {
   ACCOUNT_HEADER,
   ACCOUNT_STATUS_HEADER,
@@ -36,6 +37,7 @@ export function createAccountFetch(
       throw new Error("Private requests must use this studio's API.");
     const headers = new Headers(init?.headers);
     headers.set(ACCOUNT_HEADER, userId);
+    headers.set(PROJECT_VIEW_HEADER, EDITOR_PROJECT_VIEW);
     const response = await transport(target.href, {
       ...init,
       headers,

@@ -1,4 +1,5 @@
 "use client";
+import type { EditorProject as Project } from "@/lib/project-view";
 import { clipAudioTracks } from "@/lib/clip-audio";
 import { CanvasEditor } from "./CanvasEditor";
 import { TimelineEditor } from "./TimelineEditor";
@@ -23,6 +24,8 @@ import { MediaEditor } from "./MediaEditor";
 import { ImportProject, DownloadProject } from "./ProjectPortability";
 import { MediaProcessing } from "./MediaProcessing";
 import { VersionHistory } from "./VersionHistory";
+import { CreativeConversation } from "./CreativeConversation";
+import { savedVersionCount } from "@/lib/project-view";
 import { useAccountFetch } from "./AccountBoundary";
 import { Icon, type IconName } from "./Icon";
 import { useRouter } from "next/navigation";
@@ -33,7 +36,6 @@ import { Film } from "@/video/Composition";
 import {
   formats,
   totalFrames,
-  type Project,
   type ProjectSummary,
   type RenderJob,
   type Timeline,
@@ -708,7 +710,7 @@ export function Studio({
                 />
                 <p>
                   {timeline
-                    ? `${timeline.scenes.length} scenes · ${totalFrames(timeline) / 30}s · ${timeline.format} · ${project.revisions.length} saved versions`
+                    ? `${timeline.scenes.length} scenes · ${totalFrames(timeline) / 30}s · ${timeline.format} · ${savedVersionCount(project)} saved versions`
                     : "Your director is planning the story…"}
                 </p>
               </div>
@@ -918,16 +920,10 @@ export function Studio({
                       </h2>
                       <span>DEMO / CONFIGURABLE</span>
                     </div>
-                    <div className="conversation">
-                      {project.messages.map((m, i) => (
-                        <div key={i} className={`message ${m.role}`}>
-                          <small>
-                            {m.role === "user" ? "YOU" : "DIRECTOR"}
-                          </small>
-                          <p>{m.content}</p>
-                        </div>
-                      ))}
-                    </div>
+                    <CreativeConversation
+                      key={`${project.id}:${project.messageCount ?? project.messages.length}`}
+                      project={project}
+                    />
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();
@@ -1179,9 +1175,15 @@ export function Studio({
                     }}
                   >
                     <option value="">Choose a saved version to restore…</option>
+                    {savedVersionCount(project) > project.revisions.length && (
+                      <option disabled>
+                        Older versions: choose Browse saved versions below
+                      </option>
+                    )}
                     {[...project.revisions].reverse().map((r, i) => (
-                      <option value={r.id} key={r.id}>
-                        Version {project.revisions.length - i} · {r.source}
+                      <option value={r.id} key={`${r.id}:${i}`}>
+                        Version {r.number ?? savedVersionCount(project) - i} ·{" "}
+                        {r.source}
                       </option>
                     ))}
                   </select>
@@ -1193,7 +1195,7 @@ export function Studio({
                     key={project.id}
                     projectId={project.id}
                     latestRevisionId={revisionId(project)}
-                    count={project.revisions.length}
+                    count={savedVersionCount(project)}
                     disabled={busy || recordingPending}
                     canRestore={
                       !busy && !dirty && !recordingPending && !editor.saving

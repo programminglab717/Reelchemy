@@ -7,6 +7,7 @@ import {
   countProjects,
   reviseProject,
 } from "@/lib/db";
+import { projectResponse, privateProjectHeaders } from "@/lib/project-http";
 import { blankTimeline } from "@/lib/editor";
 import { failure, body, localMutation } from "@/lib/http";
 export const runtime = "nodejs";
@@ -69,13 +70,25 @@ async function POSTHandler(req: Request, _ctx: unknown, access: Access) {
       access.workspace.id,
     );
     if (brief.blank) reviseProject(p, blankTimeline(brief), "Blank canvas");
-    return Response.json(p, {
-      status: 201,
-    });
+    return projectResponse(req, p, access.workspace.id, 201);
   } catch (e) {
     return failure(e);
   }
 }
 
-export const GET = secureRoute(GETHandler, "user");
-export const POST = secureRoute(POSTHandler, "user");
+const getRoute = secureRoute(GETHandler, "user");
+const postRoute = secureRoute(POSTHandler, "user");
+async function privateResponse(response: Promise<Response>) {
+  const result = await response;
+  for (const [name, value] of Object.entries(privateProjectHeaders))
+    result.headers.set(name, value);
+  return result;
+}
+export const GET = (
+  request: Request,
+  context: { params: Promise<Record<string, string>> },
+) => privateResponse(getRoute(request, context));
+export const POST = (
+  request: Request,
+  context: { params: Promise<Record<string, string>> },
+) => privateResponse(postRoute(request, context));

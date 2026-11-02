@@ -26,7 +26,9 @@ function key(draft: Pick<BrowserDraft, "userId" | "projectId" | "id">) {
 }
 export function createBrowserDraft(
   userId: string,
-  project: Project,
+  project: Pick<Project, "id" | "timeline"> & {
+    revisions: readonly { id: string }[];
+  },
   id: string,
 ): BrowserDraft {
   return draftSchema.parse({

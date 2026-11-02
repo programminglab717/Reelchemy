@@ -1,10 +1,12 @@
-import { secureRoute } from "@/lib/access";
-import { renameProject } from "@/lib/db";
+import { projectResponse, privateProjectHeaders } from "@/lib/project-http";
+import { secureRoute, type Access } from "@/lib/access";
+import { renameOwnedProject } from "@/lib/db";
 import { body, failure, localMutation } from "@/lib/http";
 import { z } from "zod";
 async function PATCHHandler(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
+  access: Access,
 ) {
   try {
     localMutation(req);
@@ -14,9 +16,16 @@ async function PATCHHandler(
         baseName: z.string().min(1).max(100),
       })
       .parse(await body(req));
-    const p = renameProject((await params).id, name, baseName);
+    const p = renameOwnedProject(
+      (await params).id,
+      name,
+      baseName,
+      access.workspace.id,
+    );
+    if (p === undefined)
+      return Response.json({ error: "Project not found." }, { status: 404 });
     return p
-      ? Response.json(p)
+      ? projectResponse(req, p, access.workspace.id)
       : Response.json(
           {
             error:
@@ -29,4 +38,13 @@ async function PATCHHandler(
     return failure(e);
   }
 }
-export const PATCH = secureRoute(PATCHHandler, "project");
+const renameRoute = secureRoute(PATCHHandler, "project");
+export async function PATCH(
+  request: Request,
+  context: { params: Promise<{ id: string }> },
+) {
+  const response = await renameRoute(request, context);
+  for (const [name, value] of Object.entries(privateProjectHeaders))
+    response.headers.set(name, value);
+  return response;
+}
