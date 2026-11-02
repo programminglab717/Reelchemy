@@ -7,6 +7,7 @@ import { createHash, randomBytes } from "node:crypto";
 import Database from "better-sqlite3";
 import { blankTimeline } from "../src/lib/editor";
 import { ACCOUNT_HEADER } from "../src/lib/account-session";
+import { ProjectStorageLimit } from "../src/lib/project-storage-policy";
 
 const root = await mkdtemp(path.join(tmpdir(), "reelchemy-archive-route-"));
 Object.assign(process.env, {
@@ -119,7 +120,12 @@ test("archive ZIPs and every authorization/error response remain private and act
 test("an invalid saved project returns a private actionable error without altering its history", async () => {
   const p = project();
   p.revisions = Array(10001).fill(null);
-  app.saveProject(p);
+  assert.throws(() => app.saveProject(p), ProjectStorageLimit);
+  // An older writer could persist malformed, over-limit history. Install that
+  // state only in this private fixture; current application writes must refuse it.
+  admin
+    .prepare("UPDATE projects SET data=? WHERE id=?")
+    .run(JSON.stringify(p), p.id);
   const before = hash(p.id);
   const response = await read(p.id);
   assert.equal(response.status, 400);
