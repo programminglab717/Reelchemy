@@ -109,6 +109,10 @@ test("a lost asynchronous upload response retries one attachment, preserves edit
   const keys: string[] = [];
   let first = true;
   await page.route(`**/api/projects/${target.id}/assets`, async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.continue();
+      return;
+    }
     keys.push(route.request().headers()["idempotency-key"]);
     const response = await route.fetch();
     expect(response.status()).toBe(202);
