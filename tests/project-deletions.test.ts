@@ -455,13 +455,19 @@ test("authenticated project deletion is private and the real worker reclaims onl
             202,
           );
           worker = await startWorker();
-          await waitFor(
-            () =>
-              app.ownedProjectDeletion(current.id, owner.workspace)?.state ===
-              "failed",
-            "Unsafe media parent did not reach bounded failure.",
-            25000,
-          );
+          try {
+            await waitFor(
+              () =>
+                app.ownedProjectDeletion(current.id, owner.workspace)?.state ===
+                "failed",
+              "Unsafe media parent did not reach bounded failure.",
+              25000,
+            );
+          } catch {
+            throw new Error(
+              `Unsafe media parent did not reach bounded failure. Private fixture state: ${JSON.stringify(app.ownedProjectDeletion(current.id, owner.workspace))}; worker: ${childrenErrors.get(worker!)?.() || "no diagnostic output"}`,
+            );
+          }
           assert.equal(
             await readFile(canary, "utf8"),
             "do not follow the parent symlink",

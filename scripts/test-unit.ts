@@ -84,16 +84,15 @@ async function run(arguments_: string[]) {
   }
 }
 try {
-  if (
-    args.some((arg) =>
-      [
-        "cache-cli.test.ts",
-        "cache-worker.test.ts",
-        "project-deletions.test.ts",
-        "render-static.test.ts",
-      ].includes(path.basename(arg)),
-    )
-  ) {
+  const nativeSelected = args.some((arg) =>
+    [
+      "cache-cli.test.ts",
+      "cache-worker.test.ts",
+      "project-deletions.test.ts",
+      "render-static.test.ts",
+    ].includes(path.basename(arg)),
+  );
+  if (nativeSelected) {
     // Compile the actual composition once. Native workers exercise the same
     // prepared production path without racing independent cold compilers.
     const build = path.join(dir, "build");
@@ -112,7 +111,10 @@ try {
     "--import",
     "tsx",
     "--test",
-    "--test-concurrency=2",
+    // Render fixtures each own a real single-consumer pipeline. Serialize file
+    // scheduling on the restricted runner; explicit multi-process races inside
+    // those files still execute concurrently and retain their original limits.
+    `--test-concurrency=${nativeSelected ? 1 : 2}`,
     "--test-timeout=120000",
     ...args,
   ]);
