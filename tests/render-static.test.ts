@@ -63,7 +63,9 @@ function pixels(file: string) {
 
 test(
   "static reuse matches real baseline pixels/timing in every format and cleans captures on cancellation",
-  { timeout: 115000 },
+  // Three baseline/optimized pairs at full output size can exceed two minutes
+  // on the constrained verification host, even without another test running.
+  { timeout: 240000 },
   async (t) => {
     const asset = await storeImage(
       await sharp({
