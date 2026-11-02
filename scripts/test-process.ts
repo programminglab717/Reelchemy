@@ -86,17 +86,56 @@ function alive(child: ChildProcess) {
     throw error;
   }
 }
+type Identity = { pid: number; started: string };
+function identity(pid: number) {
+  try {
+    const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
+    const fields = stat.slice(stat.lastIndexOf(")") + 2).split(/\s+/);
+    return { pid, started: fields[19], state: fields[0] };
+  } catch (error) {
+    if (
+      ["ENOENT", "ESRCH"].includes((error as NodeJS.ErrnoException).code || "")
+    )
+      return;
+    throw error;
+  }
+}
+function executing(targets: Identity[]) {
+  return targets.some((target) => {
+    const current = identity(target.pid);
+    return (
+      current &&
+      current.started === target.started &&
+      !["Z", "X"].includes(current.state)
+    );
+  });
+}
 export async function shutdownTestProcesses(
   children: ChildProcess[],
   graceMs = 12000,
 ) {
   const results = await Promise.allSettled(
     children.map(async (child) => {
+      const marker = owned.get(child);
+      if (!marker) throw new Error("Refusing to stop an unowned test process.");
+      const targets: Identity[] =
+        process.platform === "linux"
+          ? markedProcesses(marker)
+              .map(identity)
+              .filter((item): item is NonNullable<typeof item> => !!item)
+          : [];
       signalTestProcess(child, "SIGTERM");
       const deadline = Date.now() + graceMs;
-      while (alive(child) && Date.now() < deadline)
+      while ((alive(child) || executing(targets)) && Date.now() < deadline)
         await new Promise((resolve) => setTimeout(resolve, 50));
-      if (alive(child)) signalTestProcess(child, "SIGKILL");
+      if (alive(child) || executing(targets)) {
+        signalTestProcess(child, "SIGKILL");
+        const killedBy = Date.now() + 2000;
+        while ((alive(child) || executing(targets)) && Date.now() < killedBy)
+          await new Promise((resolve) => setTimeout(resolve, 25));
+        if (alive(child) || executing(targets))
+          throw new Error("Owned test descendants did not stop after SIGKILL.");
+      }
       if (child.exitCode === null && child.signalCode === null)
         await new Promise<void>((resolve) => {
           const timer = setTimeout(resolve, 1000);
