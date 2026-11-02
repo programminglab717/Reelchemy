@@ -51,7 +51,11 @@ import { withPrivateDirectory } from "./private-directory";
 import { removeCachedWaveform } from "./waveform-cache";
 import { ownedMediaCatalogue } from "./media-catalogue";
 import { ProviderUsageStore } from "./provider-usage-store";
-import { ownedVersionPage, ownedVersionSnapshot } from "./project-history";
+import {
+  ownedVersionPage,
+  ownedVersionSnapshot,
+  SavedVersionUnavailable,
+} from "./project-history";
 import {
   mediaProcessingPolicy,
   MediaAnalysisLimit,
@@ -601,6 +605,37 @@ export function reviseProject(p: Project, timeline: Timeline, source: string) {
         source,
       });
       return saveProject(p);
+    })
+    .immediate();
+}
+// The request body may have streamed while another process trashed/deleted
+// the project or changed ownership/media. Bind selection and the forward save
+// to the same immediate writer transaction used by ordinary editor commits.
+export function restoreOwnedProject(
+  projectId: string,
+  selectedId: string,
+  baseRevisionId: string | null,
+  workspaceId: string,
+) {
+  return db
+    .transaction(() => {
+      if (!projectInWorkspace(projectId, workspaceId)) return undefined;
+      const current = getProject(projectId)!;
+      if (revisionId(current) !== baseRevisionId) throw new RevisionConflict();
+      const snapshot = ownedVersionSnapshot(
+        db,
+        projectId,
+        workspaceId,
+        selectedId,
+      );
+      if (!snapshot || !snapshot.mediaAvailable)
+        throw new SavedVersionUnavailable();
+      return reviseOwnedProject(
+        current,
+        snapshot.timeline,
+        `Restored ${selectedId}`,
+        workspaceId,
+      );
     })
     .immediate();
 }
