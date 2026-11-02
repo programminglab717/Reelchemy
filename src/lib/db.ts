@@ -53,6 +53,17 @@ import { ownedMediaCatalogue } from "./media-catalogue";
 import { ownedEditorProject, ownedConversationPage } from "./editor-project";
 import { ProviderUsageStore } from "./provider-usage-store";
 import {
+  migrateProjectStorage,
+  admitProjectData,
+  projectDataUsage,
+} from "./project-storage";
+import { projectStoragePolicy } from "./project-storage-policy";
+import {
+  previewProjectRetention,
+  applyProjectRetention,
+  type RetentionSelection,
+} from "./project-retention";
+import {
   ownedVersionPage,
   ownedVersionSnapshot,
   SavedVersionUnavailable,
@@ -120,6 +131,7 @@ db.transaction(() => {
   }
   migrateMediaReferences(db);
   migrateProjectDeletions(db);
+  migrateProjectStorage(db);
 }).immediate();
 export const mediaProcessing = new MediaProcessingStore(db);
 export const providerUsage = new ProviderUsageStore(db);
@@ -576,10 +588,105 @@ export function listProjectSummaries(
   }));
 }
 export function saveProject(p: Project, workspaceId?: string) {
-  db.prepare(
-    "INSERT INTO projects(id,data,workspace_id) VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data",
-  ).run(p.id, JSON.stringify(p), workspaceId || null);
-  return p;
+  return db
+    .transaction(() => {
+      const data = JSON.stringify(p);
+      const owner = db
+        .prepare("SELECT workspace_id FROM projects WHERE id=?")
+        .get(p.id) as { workspace_id: string | null } | undefined;
+      admitProjectData(
+        db,
+        p.id,
+        owner ? owner.workspace_id : workspaceId || null,
+        {
+          bytes: Buffer.byteLength(data),
+          versions: p.revisions.length,
+          messages: p.messages.length,
+        },
+      );
+      db.prepare(
+        "INSERT INTO projects(id,data,workspace_id) VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data",
+      ).run(p.id, data, workspaceId || null);
+      return p;
+    })
+    .immediate();
+}
+export function studioProjectDataUsage(workspaceId: string) {
+  const policy = projectStoragePolicy();
+  return {
+    ...projectDataUsage(db, workspaceId),
+    limitBytes: policy.studioBytes,
+    limitProjects: policy.studioProjects,
+  };
+}
+export function ownedProjectDataUsage(projectId: string, workspaceId: string) {
+  const row = db
+    .prepare(
+      "SELECT s.bytes,s.versions,s.messages FROM project_data_sizes s JOIN projects p ON p.id=s.project_id WHERE p.id=? AND p.workspace_id=? AND p.trashed_at IS NULL AND NOT EXISTS(SELECT 1 FROM project_deletions d WHERE d.project_id=p.id)",
+    )
+    .get(projectId, workspaceId) as
+    { bytes: number; versions: number; messages: number } | undefined;
+  if (!row) return undefined;
+  const policy = projectStoragePolicy();
+  return {
+    projectId,
+    ...row,
+    limitBytes: policy.projectBytes,
+    limitVersions: policy.versions,
+    limitMessages: policy.messages,
+    studio: studioProjectDataUsage(workspaceId),
+  };
+}
+export function ownedPlanningStorageAvailable(
+  projectId: string,
+  workspaceId: string,
+  messagesAdded: 1 | 2,
+) {
+  return db
+    .transaction(() => {
+      if (!projectInWorkspace(projectId, workspaceId)) return false;
+      const size = db
+        .prepare(
+          "SELECT bytes,versions,messages FROM project_data_sizes WHERE project_id=?",
+        )
+        .get(projectId) as {
+        bytes: number;
+        versions: number;
+        messages: number;
+      };
+      // Refuse exhausted allowances before a provider is contacted. The exact
+      // generated plan is admitted again atomically when its revision is saved.
+      admitProjectData(db, projectId, workspaceId, {
+        bytes: size.bytes + 1,
+        versions: size.versions + 1,
+        messages: size.messages + messagesAdded,
+      });
+      return true;
+    })
+    .immediate();
+}
+export function ownedProjectRetention(
+  projectId: string,
+  workspaceId: string,
+  selection: RetentionSelection,
+) {
+  return previewProjectRetention(db, projectId, workspaceId, selection);
+}
+export function cleanOwnedProjectHistory(
+  projectId: string,
+  workspaceId: string,
+  selection: RetentionSelection,
+  expected: string,
+  requestId: string,
+) {
+  return applyProjectRetention(
+    db,
+    projectId,
+    workspaceId,
+    selection,
+    expected,
+    requestId,
+  );
 }
 export function createProject(brief: CreativeBrief, workspaceId?: string) {
   return saveProject(

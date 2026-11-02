@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { editHistory, revisionId, type EditHistory } from "@/lib/editor";
 import type { Timeline } from "@/lib/schema";
 import type { AssetUpdate } from "@/lib/project-assets";
+import { mergeRetainedHistory } from "@/lib/retained-history-merge";
 import {
   createBrowserDraft,
   writeBrowserDraft,
@@ -140,6 +141,16 @@ export function useProjectEditor(userId: string) {
     },
     [publish],
   );
+  const mergeHistory = useCallback(
+    (p: Project, expected: string | null) => {
+      if (!current.current) return false;
+      const merged = mergeRetainedHistory(current.current, p, expected);
+      if (!merged) return false;
+      publish(merged);
+      return true;
+    },
+    [publish],
+  );
   const save = useCallback(async () => {
     if (flight.current) return flight.current;
     if (blocked.current)
@@ -243,6 +254,7 @@ export function useProjectEditor(userId: string) {
     change,
     mergeAssets,
     mergeName,
+    mergeHistory,
     save,
     getCurrent: () => current.current,
     markConflict: (message: string) => {

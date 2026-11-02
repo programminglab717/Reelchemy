@@ -5,6 +5,7 @@ import { RequestRateError, LimitConfigurationError } from "./limits-policy";
 import { MediaStorageLimitError } from "./media-storage-policy";
 import { ProviderError } from "./provider-error";
 import { ProjectDeletionConflict } from "./project-deletion-policy";
+import { ProjectStorageLimit } from "./project-storage-policy";
 import {
   MediaProcessingCapacity,
   MediaProcessingConflict,
@@ -20,6 +21,22 @@ export class RequestBodyError extends Error {
   }
 }
 export function failure(error: unknown) {
+  if (error instanceof ProjectStorageLimit)
+    return Response.json(
+      {
+        error: error.message,
+        code: error.code,
+        scope: error.scope,
+        kind: error.kind,
+      },
+      {
+        status: error.scope === "service" ? 503 : 413,
+        headers: {
+          "Cache-Control": "private, no-store",
+          "X-Content-Type-Options": "nosniff",
+        },
+      },
+    );
   if (error instanceof MediaAnalysisLimit)
     return Response.json(
       { error: error.message, code: error.code, retryAfter: error.retryAfter },

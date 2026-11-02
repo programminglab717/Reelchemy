@@ -1810,6 +1810,16 @@ main.account-page {
   width: 100%;
   margin-top: 8px;
 }
+.history-cleanup-dialog > label,
+.history-cleanup-dialog [aria-label="History cleanup preview"] > label {
+  display: block;
+  margin: 14px 0;
+}
+.history-cleanup-dialog input[type="checkbox"] {
+  display: inline-block;
+  width: auto;
+  margin: 0 8px 0 0;
+}
 .dialog-actions {
   display: flex;
   flex-wrap: wrap;

@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { dataDir, mediaProcessing } from "../src/lib/db";
 import { mediaProcessingPolicy } from "../src/lib/media-processing-policy";
+import { projectStoragePolicy } from "../src/lib/project-storage-policy";
 import {
   cleanMediaProcessing,
   processMediaTask,
@@ -27,6 +28,7 @@ try {
 }
 const instanceId = randomUUID(),
   policy = mediaProcessingPolicy();
+projectStoragePolicy();
 const diagnostic = `${lock}.${instanceId}.tmp`;
 await writeFile(
   diagnostic,

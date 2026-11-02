@@ -14,6 +14,14 @@ x-media-environment: &media
   REELCHEMY_MEDIA_ANALYSES_PER_STUDIO: ${REELCHEMY_MEDIA_ANALYSES_PER_STUDIO:-4}
   REELCHEMY_MEDIA_RAW_BYTES: ${REELCHEMY_MEDIA_RAW_BYTES:-268435456}
   REELCHEMY_WAVEFORMS_PER_HOUR: ${REELCHEMY_WAVEFORMS_PER_HOUR:-120}
+x-project-environment: &projectdata
+  REELCHEMY_PROJECT_DATA_BYTES: ${REELCHEMY_PROJECT_DATA_BYTES:-33554432}
+  REELCHEMY_STUDIO_DATA_BYTES: ${REELCHEMY_STUDIO_DATA_BYTES:-268435456}
+  REELCHEMY_SERVICE_DATA_BYTES: ${REELCHEMY_SERVICE_DATA_BYTES:-4294967296}
+  REELCHEMY_STUDIO_PROJECTS: ${REELCHEMY_STUDIO_PROJECTS:-500}
+  REELCHEMY_SERVICE_PROJECTS: ${REELCHEMY_SERVICE_PROJECTS:-20000}
+  REELCHEMY_PROJECT_VERSIONS: ${REELCHEMY_PROJECT_VERSIONS:-10000}
+  REELCHEMY_PROJECT_MESSAGES: ${REELCHEMY_PROJECT_MESSAGES:-10000}
 x-runtime: &runtime
   image: reelchemy:local
   build:
@@ -68,7 +76,7 @@ services:
       - studio-artifacts:/app/artifacts
       - studio-auth:/app/private-auth
     environment:
-      <<: [*paths, *auth, *media]
+      <<: [*paths, *auth, *media, *projectdata]
       AI_PROVIDER: ${AI_PROVIDER:-mock}
       AI_BASE_URL: ${AI_BASE_URL:-}
       AI_MODEL: ${AI_MODEL:-}
@@ -104,7 +112,7 @@ services:
       start_period: 30s
       retries: 3
     environment:
-      <<: *media
+      <<: [*media, *projectdata]
       REELCHEMY_DATA_DIR: /app/.data
       RAYON_NUM_THREADS: "2"
   render:

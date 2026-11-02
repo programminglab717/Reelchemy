@@ -24,6 +24,7 @@ import { MediaEditor } from "./MediaEditor";
 import { ImportProject, DownloadProject } from "./ProjectPortability";
 import { MediaProcessing } from "./MediaProcessing";
 import { VersionHistory } from "./VersionHistory";
+import { ProjectHistoryStorage } from "./ProjectHistoryStorage";
 import { CreativeConversation } from "./CreativeConversation";
 import { savedVersionCount } from "@/lib/project-view";
 import { useAccountFetch } from "./AccountBoundary";
@@ -111,6 +112,7 @@ export function Studio({
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [listRefresh, setListRefresh] = useState(0);
+  const [historyCleanup, setHistoryCleanup] = useState(0);
   const listVersion = useRef(0);
   const pendingExport = useRef<{
     projectId: string;
@@ -1192,7 +1194,7 @@ export function Studio({
                     available.
                   </small>
                   <VersionHistory
-                    key={project.id}
+                    key={`${project.id}:${historyCleanup}`}
                     projectId={project.id}
                     latestRevisionId={revisionId(project)}
                     count={savedVersionCount(project)}
@@ -1205,6 +1207,21 @@ export function Studio({
                       remember(saved);
                       setSelected(0);
                       setJob(null);
+                    }}
+                  />
+                  <ProjectHistoryStorage
+                    key={project.id}
+                    projectId={project.id}
+                    latestRevisionId={revisionId(project)}
+                    disabled={busy || recordingPending || editor.saving}
+                    onOpen={() => player.current?.pause()}
+                    onHistory={(fresh, expected) => {
+                      const merged = editor.mergeHistory(fresh, expected);
+                      if (merged) {
+                        setHistoryCleanup((n) => n + 1);
+                        setListRefresh((n) => n + 1);
+                      }
+                      return merged;
                     }}
                   />
                 </section>

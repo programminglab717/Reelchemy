@@ -1,6 +1,11 @@
 import { projectResponse, privateProjectHeaders } from "@/lib/project-http";
 import { secureRoute, type Access } from "@/lib/access";
-import { getProject, reviseOwnedProject, providerUsage } from "@/lib/db";
+import {
+  getProject,
+  reviseOwnedProject,
+  providerUsage,
+  ownedPlanningStorageAvailable,
+} from "@/lib/db";
 import { providerConfiguration } from "@/lib/provider-config";
 import { providerBudgetPolicy } from "@/lib/provider-budget-policy";
 import { totalFrames } from "@/lib/schema";
@@ -30,6 +35,14 @@ async function POSTHandler(
       throw new Error(
         "Scene revisions require an existing timeline and an instruction.",
       );
+    if (
+      !ownedPlanningStorageAvailable(
+        p.id,
+        access.workspace.id,
+        revision ? 2 : 1,
+      )
+    )
+      return Response.json({ error: "Project not found" }, { status: 404 });
     const configuration = providerConfiguration();
     const accounting =
       configuration.provider === "mock"
