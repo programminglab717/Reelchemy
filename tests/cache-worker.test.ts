@@ -55,6 +55,7 @@ async function wait<T>(
 function start() {
   const env: NodeJS.ProcessEnv = {
     ...process.env,
+    NODE_ENV: "production",
     REELCHEMY_AUTH_DIR: "/reelchemy-test-no-auth-access",
   };
   for (const name of Object.keys(env))

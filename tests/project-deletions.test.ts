@@ -67,7 +67,7 @@ async function waitFor(
   throw new Error(message);
 }
 async function startWorker() {
-  const env = { ...process.env };
+  const env: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: "production" };
   for (const name of [
     "BETTER_AUTH_SECRET",
     "REELCHEMY_AUTH_DIR",

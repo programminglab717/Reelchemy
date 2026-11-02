@@ -7,7 +7,7 @@ import path from "node:path";
 import { randomUUID, createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import sharp from "sharp";
-import { bundle } from "@remotion/bundler";
+import { verifyPreparedRenderer } from "../src/lib/prepared-renderer";
 import {
   renderMedia,
   selectComposition,
@@ -76,9 +76,7 @@ test(
       "Synthetic static badge.png",
       "Generated private test fixture",
     );
-    const serveUrl = await bundle({
-      entryPoint: path.resolve("src/video/index.tsx"),
-    });
+    const serveUrl = await verifyPreparedRenderer();
     const browserExecutable = process.env.CHROMIUM_PATH || "/usr/bin/chromium";
     await withRenderBrowser(browserExecutable, async (puppeteerInstance) => {
       for (const format of ["landscape", "portrait", "square"] as const) {

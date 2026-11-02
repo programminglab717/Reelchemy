@@ -42,6 +42,7 @@ function fixture() {
   );
   const env = {
     ...process.env,
+    NODE_ENV: "production" as const,
     REELCHEMY_DATA_DIR: data,
     REELCHEMY_AUTH_DIR: auth,
     REELCHEMY_ARTIFACT_DIR: artifacts,

@@ -3,7 +3,7 @@ import {
   signalTestProcess,
   shutdownTestProcesses,
 } from "./test-process";
-import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { DEFAULT_MEDIA_STORAGE_BYTES } from "../src/lib/media-storage-policy";
@@ -55,26 +55,18 @@ for (const key of [
   delete env[key];
 for (const key of Object.keys(env))
   if (key.startsWith("REELCHEMY_AI_")) delete env[key];
-try {
-  const child = spawnTestProcess(
-    process.execPath,
-    [
-      "--import",
-      "tsx",
-      "--test",
-      "--test-concurrency=2",
-      "--test-timeout=120000",
-      ...args,
-    ],
-    { env, stdio: "inherit" },
-  );
+async function run(arguments_: string[]) {
+  const child = spawnTestProcess(process.execPath, arguments_, {
+    env,
+    stdio: "inherit",
+  });
   const stop = (signal: NodeJS.Signals) => signalTestProcess(child, signal);
   const term = () => stop("SIGTERM"),
     interrupt = () => stop("SIGINT");
   process.on("SIGTERM", term);
   process.on("SIGINT", interrupt);
   try {
-    process.exitCode = await new Promise<number>((resolve, reject) => {
+    return await new Promise<number>((resolve, reject) => {
       child.once("error", reject);
       child.once("close", (code) => resolve(code ?? 1));
     });
@@ -83,6 +75,40 @@ try {
     process.off("SIGINT", interrupt);
     await shutdownTestProcesses([child]);
   }
+}
+try {
+  if (
+    args.some((arg) =>
+      [
+        "cache-cli.test.ts",
+        "cache-worker.test.ts",
+        "project-deletions.test.ts",
+        "render-static.test.ts",
+      ].includes(path.basename(arg)),
+    )
+  ) {
+    // Compile the actual composition once. Native workers exercise the same
+    // prepared production path without racing independent cold compilers.
+    const build = path.join(dir, "build");
+    await mkdir(build);
+    await writeFile(
+      path.join(build, "BUILD_ID"),
+      "private-native-unit-fixture",
+    );
+    env.REELCHEMY_NEXT_DIST_DIR = build;
+    if (
+      (await run(["--import", "tsx", "scripts/check-render-bundle.ts"])) !== 0
+    )
+      throw new Error("Preparing the isolated native-test renderer failed.");
+  }
+  process.exitCode = await run([
+    "--import",
+    "tsx",
+    "--test",
+    "--test-concurrency=2",
+    "--test-timeout=120000",
+    ...args,
+  ]);
 } finally {
   await rm(dir, { recursive: true, force: true });
 }
