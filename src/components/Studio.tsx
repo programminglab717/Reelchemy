@@ -131,6 +131,7 @@ export function Studio({
   );
   const [scenePreview, setScenePreview] = useState(false);
   const [recordingPending, setRecordingPending] = useState(false);
+  const [recordingActive, setRecordingActive] = useState(false);
   const player = useRef<PlayerRef>(null);
   useEffect(() => {
     const version = ++listVersion.current;
@@ -1213,7 +1214,7 @@ export function Studio({
                     key={project.id}
                     projectId={project.id}
                     latestRevisionId={revisionId(project)}
-                    disabled={busy || recordingPending || editor.saving}
+                    disabled={busy || recordingActive || editor.saving}
                     onOpen={() => player.current?.pause()}
                     onHistory={(fresh, expected) => {
                       const merged = editor.mergeHistory(fresh, expected);
@@ -1280,6 +1281,7 @@ export function Studio({
                   key={project.id}
                   canAddVisual={!!scene && scene.layers.length < 20}
                   onRecordingPending={setRecordingPending}
+                  onRecordingActive={setRecordingActive}
                   onRecordStart={() => player.current?.pause()}
                   project={project}
                   onProject={editor.mergeAssets}

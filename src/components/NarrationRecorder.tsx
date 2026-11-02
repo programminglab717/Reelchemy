@@ -17,11 +17,13 @@ export function NarrationRecorder({
   projectId,
   onProject,
   onPendingChange,
+  onActiveChange,
   onStart,
 }: {
   projectId: string;
   onProject: (p: AssetUpdate) => void;
   onPendingChange: (pending: boolean) => void;
+  onActiveChange?: (active: boolean) => void;
   onStart: () => void;
 }) {
   const upload = useMediaSubmission(`/api/projects/${projectId}/assets`);
@@ -44,6 +46,12 @@ export function NarrationRecorder({
   const capture = useRef<Capture | null>(null),
     version = useRef(0),
     draftUrl = useRef<string | null>(null);
+  useEffect(() => {
+    onActiveChange?.(
+      ["permission", "recording", "stopping", "saving"].includes(state),
+    );
+  }, [state, onActiveChange]);
+  useEffect(() => () => onActiveChange?.(false), [onActiveChange]);
   function release() {
     const c = capture.current;
     capture.current = null;

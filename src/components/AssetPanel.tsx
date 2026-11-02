@@ -12,6 +12,7 @@ export function AssetPanel({
   onProject,
   onAdd,
   onRecordingPending,
+  onRecordingActive,
   onRecordStart,
   canAddVisual,
 }: {
@@ -19,6 +20,7 @@ export function AssetPanel({
   onProject: (p: AssetUpdate) => void;
   onAdd: (id: string) => void;
   onRecordingPending: (pending: boolean) => void;
+  onRecordingActive?: (active: boolean) => void;
   onRecordStart: () => void;
   canAddVisual: boolean;
 }) {
@@ -42,6 +44,7 @@ export function AssetPanel({
         projectId={project.id}
         onProject={onProject}
         onPendingChange={onRecordingPending}
+        onActiveChange={onRecordingActive}
         onStart={onRecordStart}
       />
       <VideoUpload projectId={project.id} onProject={onProject} />

@@ -51,6 +51,9 @@ test("synthetic microphone take can be reviewed, recovered after failed upload, 
   await expect(
     page.getByRole("button", { name: "Stop recording", exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Manage saved history", exact: true }),
+  ).toBeDisabled();
   await expect
     .poll(async () =>
       Number(
@@ -68,6 +71,22 @@ test("synthetic microphone take can be reviewed, recovered after failed upload, 
   await expect(
     page.getByLabel("Recorded narration preview", { exact: true }),
   ).toBeVisible();
+  const take = await page
+    .getByLabel("Recorded narration preview", { exact: true })
+    .getAttribute("src");
+  await page
+    .getByRole("button", { name: "Manage saved history", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Manage saved history", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("dialog", { name: "Manage saved history", exact: true })
+    .getByRole("button", { name: "Close", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Recorded narration preview", { exact: true }),
+  ).toHaveAttribute("src", take!);
   await expect(
     page.getByRole("button", { name: "Browse saved versions", exact: true }),
   ).toBeDisabled();

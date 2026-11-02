@@ -156,7 +156,9 @@ test("reviewed history cleanup rejects a stale preview, retries a lost response 
     "Unsaved film stays with me",
   );
   await page.unroute(`**/api/projects/${target.id}`);
-  await page.getByRole("button", { name: "Save now", exact: true }).click();
+  // Redo can schedule autosave before the button is clicked. The save shortcut
+  // safely joins that same in-flight save or starts the explicit retry.
+  await page.keyboard.press("Control+s");
   await expect(
     page.getByRole("status", { name: "Save status", exact: true }),
   ).toHaveText("All changes saved");
