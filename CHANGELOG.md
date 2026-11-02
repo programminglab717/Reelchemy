@@ -319,3 +319,8 @@
 - Reserve shared and per-studio estimated provider spending before a live planning request, with concurrency, payload and retained-ledger limits. Require explicit model/gateway input/output prices; demo planning and manual editing stay independent of provider configuration.
 - Persist provider-reported normal/cached token usage and configured-price estimates using exact integer arithmetic, including unusable storyboards and concurrent-save/Trash outcomes. Keep uncertain request costs held across crashes and rolling-window changes; do not retry paid calls automatically.
 - Add a read-only operator usage report and explicit reconciliation for expired unresolved requests. Keep provider estimates distinct from operator-confirmed charges, preserve immutable settled receipts, and retain no prompts, response bodies, keys or project identifiers in the ledger.
+
+## 0.36.1 — 2026-11-02
+
+- Apply declared-account checks to every bound authentication read/mutation, including session reads, profile/password changes and session revocation. Refuse changed/expired cookies before reading bodies or invoking account actions; preserve ordinary unbound sign-in/verification flows.
+- Give small authentication JSON requests a 15-second receiving deadline and private interrupted-request responses. Close cancelled readers without executing the account change.

@@ -15,7 +15,8 @@ process.env.BETTER_AUTH_SECRET = randomBytes(48).toString("base64url");
 process.env.EMAIL_DELIVERY = "file";
 const { getAuth } = await import("../src/lib/auth");
 const { GET, POST } = await import("../src/app/api/projects/route");
-const { POST: authPOST } = await import("../src/app/api/auth/[...all]/route");
+const { POST: authPOST, GET: authGET } =
+  await import("../src/app/api/auth/[...all]/route");
 const app = await import("../src/lib/db");
 const auth = await getAuth();
 after(async () => {
@@ -154,5 +155,131 @@ test("a stale sign-out cannot revoke or clear the newly signed-in account's sess
   assert.equal(
     (await auth.api.getSession({ headers: { cookie: a.cookie } }))?.user.id,
     a.id,
+  );
+});
+
+test("bound auth session reads never return the newly signed-in account to a stale tab", async () => {
+  const a = await account("auth-read-a"),
+    b = await account("auth-read-b");
+  const stale = await authGET(
+    request(b.cookie, a.id, "GET", "/api/auth/get-session"),
+  );
+  assert.equal(stale.status, 409);
+  assert.equal(stale.headers.get("Cache-Control"), "private, no-store");
+  assert.equal(stale.headers.getSetCookie().length, 0);
+  const text = await stale.text();
+  assert.ok(!text.includes(b.id));
+  assert.ok(!text.includes("auth-read-b@example.test"));
+  assert.equal(JSON.parse(text).code, "ACCOUNT_CHANGED");
+  const own = await authGET(
+    request(b.cookie, b.id, "GET", "/api/auth/get-session"),
+  );
+  assert.equal(own.status, 200);
+  assert.equal((await own.json()).user.id, b.id);
+  const unbound = await authGET(
+    request(b.cookie, undefined, "GET", "/api/auth/get-session"),
+  );
+  assert.equal(unbound.status, 200);
+  assert.equal((await unbound.json()).user.id, b.id);
+});
+
+test("all bound auth mutations reject a changed account before body reads or session/profile changes", async () => {
+  const a = await account("auth-write-a"),
+    b = await account("auth-write-b");
+  for (const endpoint of [
+    "update-user",
+    "change-password",
+    "revoke-other-sessions",
+    "revoke-sessions",
+  ]) {
+    let read = false;
+    const req = new Request(`http://127.0.0.1:3001/api/auth/${endpoint}`, {
+      method: "POST",
+      headers: request(b.cookie, a.id).headers,
+      body: new ReadableStream(
+        {
+          pull() {
+            read = true;
+            throw new Error("A stale auth body must not be read");
+          },
+        },
+        { highWaterMark: 0 },
+      ),
+      duplex: "half",
+    } as RequestInit);
+    const response = await authPOST(req);
+    assert.equal(response.status, 409);
+    assert.equal((await response.json()).code, "ACCOUNT_CHANGED");
+    assert.equal(read, false);
+    assert.equal(response.headers.getSetCookie().length, 0);
+    const session = await auth.api.getSession({
+      headers: { cookie: b.cookie },
+    });
+    assert.equal(session?.user.id, b.id);
+    assert.equal(session?.user.name, "auth-write-b");
+  }
+  const headers = request(b.cookie, b.id).headers;
+  const own = await authPOST(
+    new Request("http://127.0.0.1:3001/api/auth/update-user", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name: "Updated owned profile" }),
+    }),
+  );
+  assert.equal(own.status, 200);
+  assert.equal(
+    (await auth.api.getSession({ headers: { cookie: b.cookie } }))?.user.name,
+    "Updated owned profile",
+  );
+});
+
+test("expired bound auth reads and writes fail privately without reading a body", async () => {
+  for (const [method, handler] of [
+    ["GET", authGET],
+    ["POST", authPOST],
+  ] as const) {
+    const response = await handler(
+      request(
+        "",
+        "expired-account",
+        method,
+        method === "GET" ? "/api/auth/get-session" : "/api/auth/sign-out",
+      ),
+    );
+    assert.equal(response.status, 401);
+    assert.equal((await response.json()).code, "ACCOUNT_EXPIRED");
+    assert.equal(response.headers.get("Cache-Control"), "private, no-store");
+    assert.equal(response.headers.getSetCookie().length, 0);
+  }
+});
+
+test("an interrupted auth JSON body closes its reader and never invokes the requested account change", async () => {
+  const a = await account("auth-interrupted");
+  const controller = new AbortController();
+  controller.abort();
+  let stopped = false;
+  const req = new Request("http://127.0.0.1:3001/api/auth/update-user", {
+    method: "POST",
+    headers: request(a.cookie, a.id).headers,
+    signal: controller.signal,
+    body: new ReadableStream(
+      {
+        cancel() {
+          stopped = true;
+        },
+      },
+      { highWaterMark: 0 },
+    ),
+    duplex: "half",
+  } as RequestInit);
+  const response = await authPOST(req);
+  assert.equal(response.status, 408);
+  assert.equal(stopped, true);
+  assert.deepEqual(await response.json(), {
+    error: "Authentication request did not finish. Try again.",
+  });
+  assert.equal(
+    (await auth.api.getSession({ headers: { cookie: a.cookie } }))?.user.name,
+    "auth-interrupted",
   );
 });

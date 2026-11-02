@@ -1,33 +1,40 @@
 import { getAuth } from "@/lib/auth";
-import { readLimitedBody } from "@/lib/http";
+import { readLimitedBody, RequestBodyError } from "@/lib/http";
 import { ACCOUNT_HEADER, accountMismatch } from "@/lib/account-session";
 export const runtime = "nodejs";
+async function boundAccount(
+  req: Request,
+  auth: Awaited<ReturnType<typeof getAuth>>,
+) {
+  if (!req.headers.has(ACCOUNT_HEADER)) return;
+  const session = await auth.api.getSession({ headers: req.headers });
+  if (!session?.user)
+    return Response.json(
+      { error: "Sign in to continue.", code: "ACCOUNT_EXPIRED" },
+      { status: 401, headers: { "Cache-Control": "private, no-store" } },
+    );
+  return accountMismatch(req.headers, session.user.id);
+}
 export async function GET(req: Request) {
   try {
-    return await (await getAuth()).handler(req);
+    const auth = await getAuth();
+    const mismatch = await boundAccount(req, auth);
+    return mismatch || (await auth.handler(req));
   } catch {
     return Response.json(
       { error: "Authentication service is not configured or available." },
-      { status: 503 },
+      { status: 503, headers: { "Cache-Control": "private, no-store" } },
     );
   }
 }
 export async function POST(req: Request) {
   try {
     const auth = await getAuth();
-    // Check the cookie on this exact sign-out request. A separate preflight
-    // could race another tab changing the cookie before sign-out is sent.
-    if (
-      new URL(req.url).pathname === "/api/auth/sign-out" &&
-      req.headers.has(ACCOUNT_HEADER)
-    ) {
-      const session = await auth.api.getSession({ headers: req.headers });
-      if (session?.user) {
-        const mismatch = accountMismatch(req.headers, session.user.id);
-        if (mismatch) return mismatch;
-      }
-    }
-    const bytes = await readLimitedBody(req, 16000);
+    // Match this exact request's cookie before reading its body or invoking
+    // any auth action. Bound session reads and mutations share one contract.
+    const mismatch = await boundAccount(req, auth);
+    if (mismatch) return mismatch;
+    const bytes = await readLimitedBody(req, 16000, { timeoutMs: 15000 });
     return await auth.handler(
       new Request(req.url, {
         method: "POST",
@@ -35,10 +42,19 @@ export async function POST(req: Request) {
         body: bytes,
       }),
     );
-  } catch {
+  } catch (error) {
+    const interrupted =
+      error instanceof RequestBodyError && error.status === 408;
     return Response.json(
-      { error: "Authentication request could not be processed." },
-      { status: 400 },
+      {
+        error: interrupted
+          ? "Authentication request did not finish. Try again."
+          : "Authentication request could not be processed.",
+      },
+      {
+        status: interrupted ? 408 : 400,
+        headers: { "Cache-Control": "private, no-store" },
+      },
     );
   }
 }

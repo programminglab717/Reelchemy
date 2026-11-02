@@ -1,6 +1,7 @@
 import { browserTest as test, expect, account } from "./fixtures";
 import { readFile } from "node:fs/promises";
 import type { Page } from "@playwright/test";
+import { ACCOUNT_HEADER } from "../../src/lib/account-session";
 
 async function holdDraft(page: Page, title: string) {
   await page.route("**/api/projects/*", async (route) => {
@@ -36,6 +37,25 @@ test("switching accounts stops stale studio requests, preserves the original dra
   await account(request, "Next creator");
   const nextSession = await (await request.get("/api/auth/get-session")).json();
   expect(nextSession.user.id).not.toBe(firstSession.user.id);
+  const oldActor = { [ACCOUNT_HEADER]: firstSession.user.id };
+  const staleSession = await request.get("/api/auth/get-session", {
+    headers: oldActor,
+  });
+  expect(staleSession.status()).toBe(409);
+  expect(staleSession.headers()["cache-control"]).toBe("private, no-store");
+  expect(staleSession.headers()["set-cookie"]).toBeUndefined();
+  const staleDetails = await staleSession.text();
+  expect(staleDetails).not.toContain(nextSession.user.id);
+  expect(JSON.parse(staleDetails).code).toBe("ACCOUNT_CHANGED");
+  const staleUpdate = await request.post("/api/auth/update-user", {
+    headers: oldActor,
+    data: { name: "A stale tab must not rename the next account" },
+  });
+  expect(staleUpdate.status()).toBe(409);
+  expect(staleUpdate.headers()["set-cookie"]).toBeUndefined();
+  expect(
+    (await (await request.get("/api/auth/get-session")).json()).user.name,
+  ).toBe("Next creator");
   const nextProject = await (
     await request.post("/api/projects", {
       data: {
