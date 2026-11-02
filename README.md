@@ -233,7 +233,7 @@ Retry attempts still consume the normal write/export request allowances. A store
 
 ## Isolated unit checks
 
-`npm test` gives media-only tests a fresh private fallback data/artifact/cache root, forces offline demo/file-mail settings, removes inherited provider/SMTP/signing credentials and cleans that fallback root when the suite exits. Individual database/account tests retain their own isolated fixtures. No application `.env` or saved user storage is needed. Use `npm test -- tests/assets.test.ts tests/archive.test.ts` to select files. Each file has a two-minute test timeout; run expensive browser/build/unit checks sequentially on this four-core host. For Chromium-heavy checks here, use the disposable tini verification container to reap browser descendants.
+`npm test` gives media-only tests a fresh private fallback data/artifact/cache root, forces offline demo/file-mail settings, removes inherited provider/SMTP/signing credentials and cleans that fallback root when the suite exits. Individual database/account tests retain their own isolated fixtures. No application `.env` or saved user storage is needed. Use `npm test -- tests/assets.test.ts tests/archive.test.ts` to select files. Tests default to a two-minute timeout; the three-format full-resolution render comparison has a four-minute integration deadline. Run expensive browser/build/unit checks sequentially on this four-core host. For Chromium-heavy checks here, use the disposable tini verification container to reap browser descendants.
 
 ## Compact project libraries (0.20.0)
 
