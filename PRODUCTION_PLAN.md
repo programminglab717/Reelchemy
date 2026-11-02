@@ -192,3 +192,7 @@ Makers can page through private saved-edit metadata, preview a selected retained
 ## Portable retained-history checkpoint — 0.38.0, 2 November 2026
 
 Editable projects with more than 500 versions or 1,000 messages now use an explicitly declared format-3 capability and round-trip up to 10,000 of each within the existing independent byte limits. The exporter validates the portable data and anchored regular media files; unknown server fields do not travel. Failed/cancelled downloads remain recoverable through the UI and do not become error ZIPs. Focused cleanup/ownership/size/canary tests, 251 backend tests, the production build and four selected HTTPS workflows pass. Embedded main-editor history remains a scaling gap. The next code work rechecks active ownership/current media and history selection atomically when a restore body streams across a Trash/concurrent edit, before proceeding with storage/editor scaling.
+
+## Atomic restore checkpoint — 0.38.1, 2 November 2026
+
+Saved-version restore now atomically rechecks active ownership, Trash/deletion intent, CAS revision and current media, with unique bounded snapshot selection and private fixed errors. Regressions reproduced three unsafe responses in the earlier code and pass with the fix. Focused backend and three selected desktop/mobile production HTTPS cases pass. The next independent task is compact main-editor reads/responses and bounded conversation paging; the underlying embedded JSON/history storage still needs a later normalization step.
