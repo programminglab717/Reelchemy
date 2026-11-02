@@ -31,7 +31,7 @@ process.env.BETTER_AUTH_URL = "http://127.0.0.1:3001";
 process.env.BETTER_AUTH_SECRET = randomBytes(48).toString("base64url");
 const app = await import("../src/lib/db");
 const { getAuth } = await import("../src/lib/auth");
-const { POST: upload } =
+const { POST: upload, GET: catalogueGET } =
   await import("../src/app/api/projects/[id]/assets/route");
 const { GET: status } =
   await import("../src/app/api/media-requests/[id]/route");
@@ -504,7 +504,7 @@ function clientTransport(
     response: Response,
   ) => Promise<Response>,
 ) {
-  const counts = { posts: 0 };
+  const counts = { posts: 0, catalogues: 0, projects: 0 };
   const transport: AccountFetch = async (url, init = {}) => {
     const req = request(owner, url, init);
     const uploadMatch = url.match(/^\/api\/projects\/([^/]+)\/assets$/);
@@ -514,11 +514,15 @@ function clientTransport(
     if (uploadMatch && init.method === "POST") {
       counts.posts++;
       response = await upload(req, context(uploadMatch[1]));
+    } else if (uploadMatch) {
+      counts.catalogues++;
+      response = await catalogueGET(req, context(uploadMatch[1]));
     } else if (receiptMatch)
       response = await status(req, context(receiptMatch[1]));
-    else if (projectMatch)
+    else if (projectMatch) {
+      counts.projects++;
       response = await projectGET(req, context(projectMatch[1]));
-    else throw new Error("Unexpected private client test destination");
+    } else throw new Error("Unexpected private client test destination");
     return intercept ? intercept(url, init, response) : response;
   };
   return { transport, counts };
@@ -564,6 +568,9 @@ test("the browser submission transport retries an uncertain accepted upload with
   assert.equal(result.id, p.id);
   assert.equal(result.assets?.length, 1);
   assert.equal(client.counts.posts, 2);
+  assert.equal(client.counts.projects, 0);
+  assert.ok(client.counts.catalogues > 0);
+  assert.deepEqual(Object.keys(result).sort(), ["assets", "id"]);
   assert.equal(keys[0], keys[1]);
   assert.equal(pending.current, null);
   assert.equal(app.getProject(p.id)?.assets?.length, 1);
@@ -574,7 +581,11 @@ test("accepted client requests survive a refresh failure or local wait deadline 
     endpoint = `/api/projects/${p.id}/assets`;
   let failRefresh = true;
   const client = clientTransport(async (url, _init, response) => {
-    if (url === `/api/projects/${p.id}` && failRefresh) {
+    if (
+      url === `/api/projects/${p.id}/assets` &&
+      _init.method !== "POST" &&
+      failRefresh
+    ) {
       failRefresh = false;
       return Response.json(
         { error: "Synthetic result refresh outage" },
@@ -812,4 +823,66 @@ test("client multipart intent remains stable when filenames and rights contain e
   assert.equal(result.assets?.[0].name, "__ Badge__.png");
   assert.equal(result.assets?.[0].license, "I own this\r\nclip");
   assert.equal(client.counts.posts, 1);
+});
+
+test("an open upload client can recover its receipt when a server rollback lacks catalogue GET", async () => {
+  const target = project(),
+    endpoint = `/api/projects/${target.id}/assets`,
+    pending: MediaSubmissionRef = { current: null };
+  const client = clientTransport(async (url, init, response) =>
+    url === endpoint && init.method !== "POST"
+      ? new Response(null, { status: 405 })
+      : response,
+  );
+  const result = await submitMedia(
+    client.transport,
+    endpoint,
+    form(),
+    pending,
+    new AbortController().signal,
+  );
+  assert.equal(result.id, target.id);
+  assert.equal(result.assets?.length, 1);
+  assert.deepEqual(Object.keys(result).sort(), ["assets", "id"]);
+  assert.equal(client.counts.posts, 1);
+  assert.equal(client.counts.projects, 1);
+  assert.ok(client.counts.catalogues > 0);
+  assert.equal(app.getProject(target.id)?.assets?.length, 1);
+});
+
+test("a completed upload retains its receipt until the catalogue contains that exact asset", async () => {
+  const target = project(),
+    endpoint = `/api/projects/${target.id}/assets`,
+    pending: MediaSubmissionRef = { current: null };
+  let missing = true;
+  const client = clientTransport(async (url, init, response) =>
+    missing && url === endpoint && init.method !== "POST"
+      ? Response.json({ id: target.id, assets: [] })
+      : response,
+  );
+  const signal = new AbortController().signal;
+  await assert.rejects(
+    () => submitMedia(client.transport, endpoint, form(), pending, signal),
+    /catalogue could not be refreshed/,
+  );
+  const acceptedId = pending.current?.requestId;
+  assert.ok(acceptedId);
+  assert.equal(app.getProject(target.id)?.assets?.length, 1);
+  assert.equal(client.counts.posts, 1);
+  assert.equal(client.counts.projects, 0);
+  missing = false;
+  const result = await submitMedia(
+    client.transport,
+    endpoint,
+    form(),
+    pending,
+    signal,
+  );
+  assert.equal(
+    result.assets?.[0].id,
+    app.mediaProcessing.get(acceptedId, owner.workspace)?.resultId,
+  );
+  assert.equal(pending.current, null);
+  assert.equal(client.counts.posts, 1);
+  assert.equal(client.counts.projects, 0);
 });

@@ -3,6 +3,7 @@ import { useAccountFetch } from "./AccountBoundary";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { editHistory, revisionId, type EditHistory } from "@/lib/editor";
 import type { Project, Timeline } from "@/lib/schema";
+import type { AssetUpdate } from "@/lib/project-assets";
 import {
   createBrowserDraft,
   writeBrowserDraft,
@@ -119,7 +120,7 @@ export function useProjectEditor(userId: string) {
     [publish, persistDraft],
   );
   const mergeAssets = useCallback(
-    (p: Project) => {
+    (p: AssetUpdate) => {
       if (current.current?.id !== p.id) return;
       const assets = new Map(
         [...(current.current.assets || []), ...(p.assets || [])].map((a) => [

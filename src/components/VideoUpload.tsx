@@ -1,13 +1,13 @@
 "use client";
 import { useMediaSubmission } from "./useMediaSubmission";
 import { useState } from "react";
-import type { Project } from "@/lib/schema";
+import type { AssetUpdate } from "@/lib/project-assets";
 export function VideoUpload({
   projectId,
   onProject,
 }: {
   projectId: string;
-  onProject: (p: Project) => void;
+  onProject: (p: AssetUpdate) => void;
 }) {
   const upload = useMediaSubmission(`/api/projects/${projectId}/assets`);
   const [busy, setBusy] = useState(false),

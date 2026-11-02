@@ -2,6 +2,7 @@
 import { useMediaSubmission } from "./useMediaSubmission";
 import { useState } from "react";
 import type { Project } from "@/lib/schema";
+import type { AssetUpdate } from "@/lib/project-assets";
 import { VideoUpload } from "./VideoUpload";
 import { NarrationRecorder } from "./NarrationRecorder";
 import { MediaStorage } from "./MediaStorage";
@@ -15,7 +16,7 @@ export function AssetPanel({
   canAddVisual,
 }: {
   project: Project;
-  onProject: (p: Project) => void;
+  onProject: (p: AssetUpdate) => void;
   onAdd: (id: string) => void;
   onRecordingPending: (pending: boolean) => void;
   onRecordStart: () => void;

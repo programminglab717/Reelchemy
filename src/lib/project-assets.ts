@@ -1,4 +1,5 @@
 import type { Project, Timeline } from "./schema";
+export type AssetUpdate = Pick<Project, "id" | "assets">;
 export function validAssetId(id: string) {
   return /^[a-f0-9-]{36}$/.test(id);
 }

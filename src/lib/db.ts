@@ -49,6 +49,7 @@ import { MediaProcessingStore } from "./media-processing-store";
 import { MediaInputFiles } from "./media-input-files";
 import { withPrivateDirectory } from "./private-directory";
 import { removeCachedWaveform } from "./waveform-cache";
+import { ownedMediaCatalogue } from "./media-catalogue";
 import {
   mediaProcessingPolicy,
   MediaAnalysisLimit,
@@ -369,6 +370,11 @@ export function saveImportedProject(
 export function mediaLibrary(workspaceId: string, options: LibraryQuery) {
   return db
     .transaction(() => listLibraryMedia(db, workspaceId, options))
+    .deferred();
+}
+export function projectMediaCatalogue(projectId: string, workspaceId: string) {
+  return db
+    .transaction(() => ownedMediaCatalogue(db, projectId, workspaceId))
     .deferred();
 }
 export function reuseOwnedMedia(

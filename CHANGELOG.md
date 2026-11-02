@@ -307,3 +307,9 @@
 ## 0.34.1 — 2026-11-01
 
 - Tighten the processing card's action spacing and omit an empty pagination row after screenshot review, keeping more of the editor visible while preserving background progress and recovery controls.
+
+## 0.35.0 — 2026-11-02
+
+- Refresh a completed upload with a private, bounded media-only response instead of transferring its full timeline, conversations and saved versions. Project opening and archive imports retain their complete project contract.
+- Project only recognized metadata inside SQLite, retain image/audio/video rights and source details, reject damaged legacy values and deduplicate asset identifiers without altering stored data. Preserve actor binding, ownership, Trash and deletion checks on every response.
+- Keep unsaved editor changes while merging the returned media. Retain completed receipts through read failures, and support a coordinated rollback for already-open browsers whose older server lacks the media GET route.

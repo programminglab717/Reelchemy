@@ -1,6 +1,7 @@
 import type { AccountFetch } from "./account-fetch";
 import type { MediaInput, MediaReceipt } from "./media-processing-store";
 import type { Project } from "./schema";
+import type { AssetUpdate } from "./project-assets";
 import { clientWait } from "./client-wait";
 import { mediaUploadName, MEDIA_PROCESSING_EVENT } from "./media-upload-intent";
 
@@ -103,6 +104,24 @@ function failureMessage(result: MediaReceipt) {
     return "Media processing was interrupted twice. Keep your file and retry with a new request.";
   return "This file could not be processed. Check its format, dimensions and duration, then retry or choose another file.";
 }
+export function submitMedia(
+  transport: AccountFetch,
+  endpoint: string,
+  body: FormData,
+  submission: MediaSubmissionRef,
+  signal: AbortSignal,
+  progress?: (message: string) => void,
+  timeoutMs?: number,
+): Promise<AssetUpdate>;
+export function submitMedia(
+  transport: AccountFetch,
+  endpoint: string,
+  body: File,
+  submission: MediaSubmissionRef,
+  signal: AbortSignal,
+  progress?: (message: string) => void,
+  timeoutMs?: number,
+): Promise<Project>;
 export async function submitMedia(
   transport: AccountFetch,
   endpoint: string,
@@ -111,7 +130,7 @@ export async function submitMedia(
   signal: AbortSignal,
   progress: (message: string) => void = () => {},
   timeoutMs = 120000,
-): Promise<Project> {
+): Promise<Project | AssetUpdate> {
   signal.throwIfAborted();
   progress("Checking file…");
   const metadata = await intent(body);
@@ -161,10 +180,21 @@ export async function submitMedia(
       );
     }
     if (response.status === 201) {
+      if (
+        typeof payload?.id !== "string" ||
+        (metadata.operation === "upload" &&
+          (endpoint !== `/api/projects/${payload.id}/assets` ||
+            !Array.isArray(payload.assets)))
+      )
+        throw new Error(
+          "The completed result was incomplete. Keep your file and retry to recover it.",
+        );
       signal.throwIfAborted();
       if (submission.current?.key === current.key) submission.current = null;
       notify();
-      return payload as Project;
+      return metadata.operation === "upload"
+        ? ({ id: payload.id, assets: payload.assets } satisfies AssetUpdate)
+        : (payload as Project);
     }
     if (response.status !== 202)
       throw new Error(
@@ -205,6 +235,7 @@ export async function submitMedia(
       throw new Error(failureMessage(result));
     }
     if (result.state === "completed") {
+      const expectedAssetId = result.resultId;
       const projectId =
         result.operation === "import" ? result.resultId : result.projectId;
       if (
@@ -216,10 +247,23 @@ export async function submitMedia(
         throw new Error(
           "The completed result did not match this project. Refresh the studio to review it.",
         );
-      const response = await transport(`/api/projects/${projectId}`, {
+      const options = {
         cache: "no-store",
-        signal: AbortSignal.any([signal, AbortSignal.timeout(10000)]),
-      });
+        signal: AbortSignal.any([
+          signal,
+          AbortSignal.timeout(metadata.operation === "import" ? 60000 : 10000),
+        ]),
+      } satisfies RequestInit;
+      let response = await transport(
+        metadata.operation === "upload"
+          ? endpoint
+          : `/api/projects/${projectId}`,
+        options,
+      );
+      // An already-open browser may outlive a coordinated server rollback.
+      // Older releases have no catalogue GET but still authorize project GET.
+      if (metadata.operation === "upload" && response.status === 405)
+        response = await transport(`/api/projects/${projectId}`, options);
       const project = await response.json();
       if (!response.ok)
         throw new Error(
@@ -230,10 +274,22 @@ export async function submitMedia(
         throw new Error(
           "The completed project response was incomplete. Retry to recover it.",
         );
+      if (
+        metadata.operation === "upload" &&
+        (!Array.isArray(project.assets) ||
+          !project.assets.some(
+            (asset: { id?: unknown }) => asset?.id === expectedAssetId,
+          ))
+      )
+        throw new Error(
+          "Media is ready but its catalogue could not be refreshed. Retry to recover it.",
+        );
       signal.throwIfAborted();
       if (submission.current?.key === current.key) submission.current = null;
       notify();
-      return project as Project;
+      return metadata.operation === "upload"
+        ? ({ id: projectId, assets: project.assets } satisfies AssetUpdate)
+        : (project as Project);
     }
     progress(
       result.state === "receiving"

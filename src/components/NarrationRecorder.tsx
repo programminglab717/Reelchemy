@@ -2,7 +2,7 @@
 import { useMediaSubmission } from "./useMediaSubmission";
 import { useEffect, useRef, useState } from "react";
 import { encodeRecording } from "@/lib/recording";
-import type { Project } from "@/lib/schema";
+import type { AssetUpdate } from "@/lib/project-assets";
 
 type Capture = {
   context: AudioContext;
@@ -20,7 +20,7 @@ export function NarrationRecorder({
   onStart,
 }: {
   projectId: string;
-  onProject: (p: Project) => void;
+  onProject: (p: AssetUpdate) => void;
   onPendingChange: (pending: boolean) => void;
   onStart: () => void;
 }) {
