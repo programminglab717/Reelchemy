@@ -73,7 +73,12 @@ export function failure(error: unknown) {
       { error: error.message, code: error.code },
       {
         status: error.status,
-        headers: { "Cache-Control": "private, no-store" },
+        headers: {
+          "Cache-Control": "private, no-store",
+          ...(error.retryAfter
+            ? { "Retry-After": String(error.retryAfter) }
+            : {}),
+        },
       },
     );
   if (error instanceof ExportCapacityError)

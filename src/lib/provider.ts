@@ -11,42 +11,63 @@ import { mockPlan } from "./demo-plan";
 import { providerConfiguration } from "./provider-config";
 import { ProviderError } from "./provider-error";
 import { readProviderResponse } from "./provider-response";
+import { providerTokens } from "./provider-usage";
+import type { ProviderAccounting } from "./provider-usage-store";
+import {
+  PROVIDER_OUTPUT_TOKENS,
+  PROVIDER_TIMEOUT_MS,
+} from "./provider-budget-policy";
 export { mockPlan } from "./demo-plan";
 export async function generatePlan(
   brief: CreativeBrief,
   context?: { current: Timeline; instruction: string },
   assets: readonly Asset[] = [],
+  accounting?: ProviderAccounting,
 ): Promise<{ timeline: Timeline; provider: string }> {
   const config = providerConfiguration();
   const { provider } = config;
   if (provider === "mock")
     return { timeline: mockPlan(brief), provider: "mock" };
-  const signal = AbortSignal.timeout(60000);
-  let res: Response;
+  const payload = JSON.stringify(
+    providerPayload(provider, config.model, brief, context, assets),
+  );
+  const lease = accounting?.begin({
+    provider,
+    model: config.model,
+    payloadBytes: Buffer.byteLength(payload),
+  });
+  const signal = AbortSignal.timeout(PROVIDER_TIMEOUT_MS);
+  let data: unknown;
   try {
-    res = await fetch(config.endpoint, {
-      method: "POST",
-      redirect: "error",
-      cache: "no-store",
-      headers: {
-        ...(provider === "anthropic"
-          ? { "x-api-key": config.key, "anthropic-version": "2023-06-01" }
-          : { Authorization: `Bearer ${config.key}` }),
-        "Content-Type": "application/json",
-      },
-      signal,
-      body: JSON.stringify(
-        providerPayload(provider, config.model, brief, context, assets),
-      ),
-    });
-  } catch {
-    throw new ProviderError(signal.aborted ? "timeout" : "unavailable");
+    let res: Response;
+    try {
+      res = await fetch(config.endpoint, {
+        method: "POST",
+        redirect: "error",
+        cache: "no-store",
+        headers: {
+          ...(provider === "anthropic"
+            ? { "x-api-key": config.key, "anthropic-version": "2023-06-01" }
+            : { Authorization: `Bearer ${config.key}` }),
+          "Content-Type": "application/json",
+        },
+        signal,
+        body: payload,
+      });
+    } catch {
+      throw new ProviderError(signal.aborted ? "timeout" : "unavailable");
+    }
+    if (!res.ok) {
+      void res.body?.cancel().catch(() => {});
+      throw new ProviderError("unavailable");
+    }
+    data = await readProviderResponse(res, signal);
+    // Usage is billable even when the generated timeline subsequently fails
+    // validation or loses a concurrent-save/Trash race.
+    lease?.record(providerTokens(provider, data));
+  } finally {
+    lease?.uncertain();
   }
-  if (!res.ok) {
-    void res.body?.cancel().catch(() => {});
-    throw new ProviderError("unavailable");
-  }
-  const data = await readProviderResponse(res, signal);
   let timeline: Timeline;
   try {
     const envelope =
@@ -110,10 +131,15 @@ function providerPayload(
   );
   const content = JSON.stringify({ brief, ...context, assets: catalog });
   return provider === "anthropic"
-    ? { model, max_tokens: 6000, system, messages: [{ role: "user", content }] }
+    ? {
+        model,
+        max_tokens: PROVIDER_OUTPUT_TOKENS,
+        system,
+        messages: [{ role: "user", content }],
+      }
     : {
         model,
-        max_tokens: 6000,
+        max_tokens: PROVIDER_OUTPUT_TOKENS,
         temperature: 0.4,
         response_format: { type: "json_object" },
         messages: [
@@ -127,6 +153,7 @@ export async function reviseScene(
   sceneId: string,
   instruction: string,
   assets: readonly Asset[] = [],
+  accounting?: ProviderAccounting,
 ) {
   const index = current.scenes.findIndex((s) => s.id === sceneId);
   if (index < 0) throw new Error("Scene not found.");
@@ -152,6 +179,7 @@ export async function reviseScene(
         instruction,
       },
       assets,
+      accounting,
     );
     if (result.timeline.scenes.length !== 1)
       throw new ProviderError("response");

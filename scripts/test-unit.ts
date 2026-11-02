@@ -53,6 +53,8 @@ for (const key of [
   "REELCHEMY_AUTH_DIR",
 ])
   delete env[key];
+for (const key of Object.keys(env))
+  if (key.startsWith("REELCHEMY_AI_")) delete env[key];
 try {
   const child = spawnTestProcess(
     process.execPath,

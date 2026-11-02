@@ -1,5 +1,7 @@
 import { secureRoute, type Access } from "@/lib/access";
-import { getProject, reviseOwnedProject } from "@/lib/db";
+import { getProject, reviseOwnedProject, providerUsage } from "@/lib/db";
+import { providerConfiguration } from "@/lib/provider-config";
+import { providerBudgetPolicy } from "@/lib/provider-budget-policy";
 import { totalFrames } from "@/lib/schema";
 import { generatePlan, reviseScene } from "@/lib/provider";
 import { failure, body, localMutation } from "@/lib/http";
@@ -27,6 +29,11 @@ async function POSTHandler(
       throw new Error(
         "Scene revisions require an existing timeline and an instruction.",
       );
+    const configuration = providerConfiguration();
+    const accounting =
+      configuration.provider === "mock"
+        ? undefined
+        : providerUsage.accounting(access.workspace.id, providerBudgetPolicy());
     const { timeline, provider } = sceneId
       ? {
           timeline: await reviseScene(
@@ -34,6 +41,7 @@ async function POSTHandler(
             sceneId,
             revision!,
             p.assets,
+            accounting,
           ),
           provider: process.env.AI_PROVIDER || "mock",
         }
@@ -51,6 +59,7 @@ async function POSTHandler(
             ? { current: p.timeline, instruction: revision }
             : undefined,
           p.assets,
+          accounting,
         );
     p.messages.push({
       role: "assistant",

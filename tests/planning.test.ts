@@ -18,6 +18,9 @@ process.env.AI_PROVIDER = "compatible";
 process.env.AI_BASE_URL = "https://provider.example.test/v1";
 process.env.AI_MODEL = "offline-contract";
 process.env.AI_API_KEY = "synthetic-test-only";
+// Fictional contract prices; the fetch transport below is entirely in-memory.
+process.env.REELCHEMY_AI_INPUT_USD_PER_MILLION = "3";
+process.env.REELCHEMY_AI_OUTPUT_USD_PER_MILLION = "15";
 const originalFetch = globalThis.fetch;
 after(async () => {
   globalThis.fetch = originalFetch;
@@ -66,6 +69,7 @@ function project() {
 function response(timeline: Timeline) {
   return Response.json({
     choices: [{ message: { content: JSON.stringify(timeline) } }],
+    usage: { prompt_tokens: 300, completion_tokens: 150, total_tokens: 450 },
   });
 }
 function plan(p: Project, data: Record<string, unknown> = {}) {

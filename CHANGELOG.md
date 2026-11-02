@@ -313,3 +313,9 @@
 - Refresh a completed upload with a private, bounded media-only response instead of transferring its full timeline, conversations and saved versions. Project opening and archive imports retain their complete project contract.
 - Project only recognized metadata inside SQLite, retain image/audio/video rights and source details, reject damaged legacy values and deduplicate asset identifiers without altering stored data. Preserve actor binding, ownership, Trash and deletion checks on every response.
 - Keep unsaved editor changes while merging the returned media. Retain completed receipts through read failures, and support a coordinated rollback for already-open browsers whose older server lacks the media GET route.
+
+## 0.36.0 — 2026-11-02
+
+- Reserve shared and per-studio estimated provider spending before a live planning request, with concurrency, payload and retained-ledger limits. Require explicit model/gateway input/output prices; demo planning and manual editing stay independent of provider configuration.
+- Persist provider-reported normal/cached token usage and configured-price estimates using exact integer arithmetic, including unusable storyboards and concurrent-save/Trash outcomes. Keep uncertain request costs held across crashes and rolling-window changes; do not retry paid calls automatically.
+- Add a read-only operator usage report and explicit reconciliation for expired unresolved requests. Keep provider estimates distinct from operator-confirmed charges, preserve immutable settled receipts, and retain no prompts, response bodies, keys or project identifiers in the ledger.

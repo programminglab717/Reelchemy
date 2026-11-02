@@ -50,6 +50,7 @@ import { MediaInputFiles } from "./media-input-files";
 import { withPrivateDirectory } from "./private-directory";
 import { removeCachedWaveform } from "./waveform-cache";
 import { ownedMediaCatalogue } from "./media-catalogue";
+import { ProviderUsageStore } from "./provider-usage-store";
 import {
   mediaProcessingPolicy,
   MediaAnalysisLimit,
@@ -115,6 +116,7 @@ db.transaction(() => {
   migrateProjectDeletions(db);
 }).immediate();
 export const mediaProcessing = new MediaProcessingStore(db);
+export const providerUsage = new ProviderUsageStore(db);
 export const mediaInputs = new MediaInputFiles(dataDir);
 export function cleanupUnreferencedMediaOutputs(ids: string[]) {
   return db

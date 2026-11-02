@@ -1,4 +1,34 @@
 const failures = {
+  "budget-configuration": {
+    status: 503,
+    code: "AI_BUDGET_CONFIGURATION",
+    message:
+      "The AI director's usage allowance needs operator attention. Continue editing manually.",
+  },
+  "global-budget": {
+    status: 503,
+    code: "AI_SERVICE_ALLOWANCE",
+    message:
+      "The AI director's service allowance is temporarily unavailable. Try later or continue editing manually.",
+  },
+  "studio-budget": {
+    status: 429,
+    code: "AI_STUDIO_ALLOWANCE",
+    message:
+      "Your studio's AI director allowance is currently exhausted. Try later or continue editing manually.",
+  },
+  "budget-capacity": {
+    status: 503,
+    code: "AI_BUSY",
+    message:
+      "The AI director is busy. Try again shortly or continue editing manually.",
+  },
+  "request-size": {
+    status: 413,
+    code: "AI_REQUEST_SIZE",
+    message:
+      "This storyboard is too large for the AI director's current request allowance. Shorten the instruction or continue editing manually.",
+  },
   configuration: {
     status: 503,
     code: "AI_CONFIGURATION",
@@ -30,7 +60,10 @@ const failures = {
 export class ProviderError extends Error {
   readonly status: number;
   readonly code: string;
-  constructor(kind: keyof typeof failures) {
+  constructor(
+    kind: keyof typeof failures,
+    readonly retryAfter?: number,
+  ) {
     const failure = failures[kind];
     super(failure.message);
     this.name = "ProviderError";

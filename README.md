@@ -27,6 +27,8 @@ Optional server configuration: copy `.env.example` to `.env.local` without commi
 
 For a real model, set `AI_PROVIDER=compatible`, `AI_BASE_URL` to an HTTPS OpenAI-compatible API base, `AI_MODEL`, and `AI_API_KEY` on the server. Ensure that provider host is permitted by environment network settings. Keys are never sent to the browser. The mock path works without provider network access. This adapter expects JSON-object response support; compatibility varies by provider. For native Claude use `AI_PROVIDER=anthropic`, `AI_MODEL`, and `AI_API_KEY`; the default base is `https://api.anthropic.com/v1`.
 
+Live planning also requires explicit input/output USD prices per million tokens for the selected model/gateway. The server reserves estimated cost before network work, with shared and per-studio rolling allowances and concurrency limits. Reported token counts settle that estimate even if a storyboard fails validation or loses a save race. Missing usage, transport failures and interrupted calls retain their reservation until a known receipt or explicit operator reconciliation. Demo planning/manual editing need no prices or key. See [OPERATIONS.md](OPERATIONS.md) for pricing, uncertainty and the read-only usage report; these estimates are separate from customer billing and the provider's invoice.
+
 ## Verify
 
 Run the web server, render worker and ingestion worker before E2E tests:
