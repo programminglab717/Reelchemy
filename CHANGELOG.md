@@ -349,3 +349,7 @@
 - Add shared retained-source byte admission and a census covering historical/export-only and previously indexed legacy media, preserving old data and zero-byte reuse.
 - Capture admitted shared ceilings for restart-safe final attachment; distinguish binary/project capacity failures and preserve completed receipt replay before admission.
 - Add read-only operator storage reporting and durable production browser JSON results. Physical export/backup retention and actual workspace upgrades are separate work.
+
+## 0.44.0 candidate — private streamed downloads
+
+Source media, MP4 downloads, thumbnails and allowlisted evidence now stream through held regular-file descriptors in bounded chunks. Single byte ranges and explicit HEAD are supported, with private no-store/nosniff on every response, including authentication/ownership failures. Linux directory-descriptor traversal refuses symbolic ancestors, directories and files; nonblocking open rejects pipes. Cancellation/abort closes descriptors, changed files fail with a fixed transfer error, and missing exports return private 404. Authentication, actor checks, ownership, Trash and job/evidence eligibility remain enforced. Production acceptance is recorded separately.

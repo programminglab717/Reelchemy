@@ -1,23 +1,25 @@
 import { secureRoute } from "@/lib/access";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { artifactDir, getJob } from "@/lib/db";
+import { validAssetId } from "@/lib/project-assets";
+import {
+  privateFileMissing,
+  privateFileResponse,
+  privateFileRoute,
+} from "@/lib/private-file";
 async function GETHandler(
-  _: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const job = getJob((await params).id);
-  if (job?.status !== "completed")
-    return Response.json({ error: "Export is not available" }, { status: 404 });
-  const buffer = await readFile(path.join(artifactDir, job.id, "video.mp4"));
-  return new Response(buffer, {
-    headers: {
-      "Content-Type": "video/mp4",
-      "Content-Disposition": `attachment; filename="reelchemy-${job.id}.mp4"`,
-      "Content-Length": String(buffer.length),
-      "Cache-Control": "no-store",
-    },
-  });
+  if (job?.status !== "completed" || !validAssetId(job.id))
+    return privateFileMissing();
+  return privateFileResponse(
+    req,
+    artifactDir,
+    [job.id, "video.mp4"],
+    "video/mp4",
+    `attachment; filename="reelchemy-${job.id}.mp4"`,
+  );
 }
-
-export const GET = secureRoute(GETHandler, "job");
+export const GET = privateFileRoute(secureRoute(GETHandler, "job"));
+export const HEAD = GET;

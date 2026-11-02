@@ -1,55 +1,25 @@
 import { secureRoute } from "@/lib/access";
-import { stat } from "node:fs/promises";
-import { createReadStream } from "node:fs";
-import { Readable } from "node:stream";
-import { byteRange } from "@/lib/media-range";
-import path from "node:path";
 import { getProject } from "@/lib/db";
 import { assetDir, validAssetId } from "@/lib/assets";
+import {
+  privateFileMissing,
+  privateFileResponse,
+  privateFileRoute,
+} from "@/lib/private-file";
 async function GETHandler(
   req: Request,
   { params }: { params: Promise<{ id: string; assetId: string }> },
 ) {
   const { id, assetId } = await params;
-  const p = getProject(id);
-  if (!validAssetId(assetId) || !p?.assets?.some((a) => a.id === assetId))
-    return new Response(null, { status: 404 });
-  try {
-    const file = path.join(assetDir, assetId),
-      size = (await stat(file)).size;
-    let range;
-    try {
-      range = byteRange(req.headers.get("range"), size);
-    } catch {
-      return new Response(null, {
-        status: 416,
-        headers: {
-          "Content-Range": `bytes */${size}`,
-          "Cache-Control": "private, no-store",
-        },
-      });
-    }
-    const headers: Record<string, string> = {
-      "Content-Type": p.assets!.find((a) => a.id === assetId)!.mime,
-      "X-Content-Type-Options": "nosniff",
-      "Cache-Control": "private, no-store",
-      "Accept-Ranges": "bytes",
-      "Content-Length": String(range ? range.end - range.start + 1 : size),
-    };
-    if (range)
-      headers["Content-Range"] = `bytes ${range.start}-${range.end}/${size}`;
-    return new Response(
-      Readable.toWeb(
-        createReadStream(file, range || undefined),
-      ) as ReadableStream<Uint8Array>,
-      {
-        status: range ? 206 : 200,
-        headers,
-      },
-    );
-  } catch {
-    return new Response(null, { status: 404 });
-  }
+  const project = getProject(id),
+    asset = project?.assets?.find((a) => a.id === assetId);
+  if (
+    !validAssetId(assetId) ||
+    !asset ||
+    !["image/png", "audio/wav", "video/mp4"].includes(asset.mime)
+  )
+    return privateFileMissing();
+  return privateFileResponse(req, assetDir, [assetId], asset.mime);
 }
-
-export const GET = secureRoute(GETHandler, "project");
+export const GET = privateFileRoute(secureRoute(GETHandler, "project"));
+export const HEAD = GET;
