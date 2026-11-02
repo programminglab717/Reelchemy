@@ -8,9 +8,26 @@ import {
   access,
   rm,
   stat,
+  mkdir,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import {
+  RENDERER_DIRECTORY,
+  sealPreparedRenderer,
+} from "../src/lib/prepared-renderer";
+async function prepare(dir: string) {
+  const build = path.join(dir, "build"),
+    renderer = path.join(build, RENDERER_DIRECTORY);
+  await mkdir(renderer, { recursive: true });
+  await writeFile(path.join(build, "BUILD_ID"), "private-lock-test");
+  await writeFile(path.join(renderer, "index.html"), "<!doctype html>");
+  await writeFile(
+    path.join(renderer, "bundle.js"),
+    "// Synthetic lock test: no rendering.",
+  );
+  await sealPreparedRenderer(renderer, build);
+}
 async function stop(child: ChildProcess) {
   if (child.exitCode !== null || child.signalCode) return;
   const closed = new Promise<void>((resolve) =>
@@ -35,6 +52,7 @@ function start(dir: string) {
         REELCHEMY_DATA_DIR: dir,
         REELCHEMY_ARTIFACT_DIR: path.join(dir, "artifacts"),
         REELCHEMY_RENDER_CACHE_DIR: path.join(dir, "cache"),
+        REELCHEMY_NEXT_DIST_DIR: path.join(dir, "build"),
         AI_PROVIDER: "mock",
       },
       stdio: ["ignore", "ignore", "pipe"],
@@ -79,6 +97,7 @@ test(
     const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-kernel-lock-")),
       workers: ChildProcess[] = [];
     try {
+      await prepare(dir);
       const first = start(dir);
       workers.push(first.child);
       const original = await ready(dir, first);
@@ -128,6 +147,7 @@ test(
     const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-legacy-lock-"));
     let child: ChildProcess | undefined;
     try {
+      await prepare(dir);
       await writeFile(path.join(dir, "worker.lock"), String(process.pid));
       const worker = start(dir);
       child = worker.child;

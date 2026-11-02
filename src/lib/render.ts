@@ -4,7 +4,7 @@ import { renderCachedScenes, type SceneCacheResult } from "./render-cache";
 import { runCommand } from "./process";
 import { muxAudio } from "./audio";
 import { subtitles } from "./captions";
-import { bundle } from "@remotion/bundler";
+import { rendererBundle } from "./renderer-bundle";
 import {
   selectComposition,
   renderStill,
@@ -16,7 +16,6 @@ import path from "node:path";
 import { type Timeline, type QCIssue, totalFrames, formats } from "./schema";
 import { checkLayout, RenderQCError } from "./layout-qc";
 import { repairBounds } from "./qc";
-let bundled: Promise<string> | undefined;
 export async function renderFilm(
   input: Timeline,
   outputDir: string,
@@ -74,12 +73,7 @@ async function renderResolved(
   }
   if (isCancelled()) throw new Error("Render cancelled.");
   onStage("Preparing composition");
-  const serveUrl = await (bundled ??= bundle({
-    entryPoint: path.resolve("src/video/index.tsx"),
-  }).catch((error) => {
-    bundled = undefined;
-    throw error;
-  }));
+  const serveUrl = await rendererBundle();
   if (isCancelled()) throw new Error("Render cancelled.");
   const browserExecutable = process.env.CHROMIUM_PATH || "/usr/bin/chromium";
   return withRenderBrowser(browserExecutable, async (puppeteerInstance) => {

@@ -18,6 +18,7 @@ import { HEARTBEAT_NAME } from "../src/lib/worker-heartbeat";
 import { RenderQCError } from "../src/lib/layout-qc";
 import { transientRenderError } from "../src/lib/retry";
 import { renderFilm } from "../src/lib/render";
+import { preparedRenderer } from "../src/lib/prepared-renderer";
 import { processProjectDeletion } from "../src/lib/project-cleanup";
 const lock = path.join(dataDir, "worker.lock");
 async function main() {
@@ -116,10 +117,12 @@ async function main() {
       heartbeatWriting = false;
     }
   }
-  const timer = setInterval(() => {
-    void beat().catch(() => {});
-  }, 5000);
+  let timer: ReturnType<typeof setInterval> | undefined;
   try {
+    if (process.env.NODE_ENV === "production") await preparedRenderer();
+    timer = setInterval(() => {
+      void beat().catch(() => {});
+    }, 5000);
     recoverJobs();
     await beat();
     let announced = false;

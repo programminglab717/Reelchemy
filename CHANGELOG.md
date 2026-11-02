@@ -330,3 +330,9 @@
 - Browse saved versions in private metadata pages and preview one validated historical film at a time, with its available retained media, timestamps and source labels. Keep the existing quick-restore selector and preserve all stored versions.
 - Bound history metadata and snapshot responses, refuse ambiguous/damaged legacy snapshots, omit unknown fields and verify the owning active project/account on every read. Mark incompatible media before preview/restore.
 - Preserve unsaved current cuts while browsing, isolate preview keyboard commands, pause the main player and guard restoration during saving or pending narration. Recover an uncertain committed restore through the existing revision check and an explicit current-film reload.
+
+## 0.41.0 — 2026-11-02 (candidate)
+
+- Retain a build-bound, content-verified browser composition instead of compiling it on a production worker's first export.
+- Refuse production readiness for missing, corrupt, symlinked or mixed-build renderer assets; preserve the queue and permanent lifecycle inode. Development/test compilation remains available.
+- Disable compiler caching for the build's composition compilation. Video profiles, rendering/QC, scene-cache validation and cancellation controls remain unchanged. See VALIDATION.md for executed acceptance.
