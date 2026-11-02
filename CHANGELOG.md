@@ -337,7 +337,7 @@
 - Refuse production readiness for missing, corrupt, symlinked or mixed-build renderer assets; preserve the queue and permanent lifecycle inode. Development/test compilation remains available.
 - Disable compiler caching for the build's composition compilation. Video profiles, rendering/QC, scene-cache validation and cancellation controls remain unchanged. See VALIDATION.md for executed acceptance.
 
-## 0.42.0 — 2026-11-02 (candidate)
+## 0.42.0 — 2026-11-02
 
 - Add atomic logical project-data/count/version/direction admission with indexed UTF-8 accounting, shared/studio/project policies and preserved readable legacy overages.
 - Add private reviewed saved-history cleanup with exact-data previews, active ownership rechecks, current-film/media/export preservation and bounded exact-once recovery receipts.
