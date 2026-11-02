@@ -1,6 +1,8 @@
 "use client";
 import { useMediaSubmission } from "./useMediaSubmission";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useAccountFetch } from "./AccountBoundary";
+import { archiveDownload } from "@/lib/archive-download";
 import type { Project } from "@/lib/schema";
 export function ImportProject({
   onImport,
@@ -57,6 +59,100 @@ export function ImportProject({
           Retry import
         </button>
       )}
+    </div>
+  );
+}
+
+export function DownloadProject({
+  projectId,
+  disabled,
+  beforeDownload,
+}: {
+  projectId: string;
+  disabled: boolean;
+  beforeDownload: () => Promise<void>;
+}) {
+  const accountFetch = useAccountFetch();
+  const active = useRef<AbortController | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => () => active.current?.abort(), []);
+  async function download() {
+    if (active.current) return;
+    const controller = new AbortController();
+    active.current = controller;
+    setBusy(true);
+    setError("");
+    const deadline = setTimeout(
+      () =>
+        controller.abort(
+          new Error(
+            "Preparing the archive timed out. Your work is still here; retry the download.",
+          ),
+        ),
+      120000,
+    );
+    try {
+      await beforeDownload();
+      controller.signal.throwIfAborted();
+      const response = await accountFetch(
+        `/api/projects/${encodeURIComponent(projectId)}/archive`,
+        { signal: controller.signal },
+      );
+      const blob = await archiveDownload(response);
+      controller.signal.throwIfAborted();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `reelchemy-${projectId}.zip`;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      // Keep the URL alive until the browser has consumed the download click.
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (failure) {
+      if (
+        !controller.signal.aborted ||
+        !(controller.signal.reason instanceof DOMException)
+      )
+        setError(
+          failure instanceof Error
+            ? failure.message
+            : "The editable project could not be downloaded.",
+        );
+    } finally {
+      clearTimeout(deadline);
+      if (active.current === controller) {
+        active.current = null;
+        setBusy(false);
+      }
+    }
+  }
+  return (
+    <div className="project-download">
+      <button
+        type="button"
+        className="subtle"
+        disabled={disabled || busy}
+        onClick={() => void download()}
+      >
+        {busy ? "Preparing editable project…" : "Download editable project"}
+      </button>
+      {busy && (
+        <>
+          <span role="status">
+            Preparing your saved project. You can keep editing.
+          </span>
+          <button
+            type="button"
+            className="subtle"
+            onClick={() => active.current?.abort()}
+          >
+            Cancel download
+          </button>
+        </>
+      )}
+      {error && <p role="alert">{error}</p>}
     </div>
   );
 }

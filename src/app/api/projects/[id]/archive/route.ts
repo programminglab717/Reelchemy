@@ -10,11 +10,12 @@ async function GETHandler(
     const p = getProject((await params).id);
     if (!p)
       return Response.json({ error: "Project not found" }, { status: 404 });
-    return new Response(await exportArchive(p), {
+    const zip = await exportArchive(p);
+    return new Response(zip, {
       headers: {
         "Content-Type": "application/zip",
         "Content-Disposition": `attachment; filename="reelchemy-${p.id}.zip"`,
-        "Cache-Control": "no-store",
+        "Content-Length": String(zip.byteLength),
       },
     });
   } catch (e) {
@@ -22,4 +23,13 @@ async function GETHandler(
   }
 }
 
-export const GET = secureRoute(GETHandler, "project");
+const archiveRoute = secureRoute(GETHandler, "project");
+export async function GET(
+  request: Request,
+  context: { params: Promise<{ id: string }> },
+) {
+  const response = await archiveRoute(request, context);
+  response.headers.set("Cache-Control", "private, no-store");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  return response;
+}

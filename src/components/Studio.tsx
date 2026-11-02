@@ -20,7 +20,7 @@ import { LayerEditor } from "./LayerEditor";
 import { WorkspaceExports } from "./WorkspaceExports";
 import { ExportHistory, QualityEvidence } from "./ExportHistory";
 import { MediaEditor } from "./MediaEditor";
-import { ImportProject } from "./ProjectPortability";
+import { ImportProject, DownloadProject } from "./ProjectPortability";
 import { MediaProcessing } from "./MediaProcessing";
 import { VersionHistory } from "./VersionHistory";
 import { useAccountFetch } from "./AccountBoundary";
@@ -1243,26 +1243,18 @@ export function Studio({
                     versions remain available; the original uploaded media must
                     still be in the project.
                   </small>
-                  <button
-                    className="subtle"
-                    disabled={busy}
-                    onClick={() =>
-                      void run(async () => {
-                        if (dirty) await save();
-                        const link = document.createElement("a");
-                        link.href = `/api/projects/${project.id}/archive`;
-                        link.download = `reelchemy-${project.id}.zip`;
-                        document.body.append(link);
-                        link.click();
-                        link.remove();
-                      })
-                    }
-                  >
-                    Download editable project
-                  </button>
+                  <DownloadProject
+                    key={project.id}
+                    projectId={project.id}
+                    disabled={busy || recordingPending || editor.saving}
+                    beforeDownload={async () => {
+                      if (dirty) await save();
+                    }}
+                  />
                   <small>
                     ZIP includes saved scenes, conversation, versions, and
-                    uploaded assets. Import creates a separate copy.
+                    uploaded assets. Import creates a separate copy. Edits made
+                    while downloading stay in your current project.
                   </small>
                 </section>
                 <AssetPanel

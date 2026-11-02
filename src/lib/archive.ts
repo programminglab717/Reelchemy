@@ -1,9 +1,17 @@
 import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
-import { readFile, stat, unlink } from "node:fs/promises";
+import {
+  constants,
+  openSync,
+  closeSync,
+  fstatSync,
+  readSync,
+  unlinkSync,
+} from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { assertNormalizationActive } from "./media-normalization";
+import { withPrivateDirectory } from "./private-directory";
 import {
   assetDir,
   validAssetId,
@@ -19,6 +27,10 @@ import {
   type Asset,
 } from "./schema";
 const MAX_TOTAL = 150 * 1024 * 1024;
+const MAX_MANIFEST = 10 * 1024 * 1024;
+const MAX_ASSET = 25 * 1024 * 1024;
+const MAX_REVISIONS = 10000;
+const MAX_MESSAGES = 10000;
 const portableProject = z.object({
   id: z.string().max(80),
   name: z.string().min(1).max(100),
@@ -63,7 +75,7 @@ const portableProject = z.object({
         timeline: timelineSchema,
       }),
     )
-    .max(500),
+    .max(MAX_REVISIONS),
   messages: z
     .array(
       z.object({
@@ -71,46 +83,156 @@ const portableProject = z.object({
         content: z.string().max(6000),
       }),
     )
-    .max(1000),
+    .max(MAX_MESSAGES),
+});
+const legacyProject = portableProject.extend({
+  revisions: portableProject.shape.revisions.max(500),
+  messages: portableProject.shape.messages.max(1000),
 });
 const envelopeSchema = z.discriminatedUnion("version", [
   z.object({
     format: z.literal("reelchemy"),
     version: z.literal(1),
-    project: portableProject,
+    project: legacyProject,
   }),
   z.object({
     format: z.literal("reelchemy"),
     version: z.literal(2),
     requiredFeatures: z.tuple([z.literal("layer-rotation-v1")]),
+    project: legacyProject,
+  }),
+  z.object({
+    format: z.literal("reelchemy"),
+    version: z.literal(3),
+    requiredFeatures: z
+      .array(z.enum(["large-history-v1", "layer-rotation-v1"]))
+      .min(1)
+      .max(2)
+      .refine(
+        (features) =>
+          features.includes("large-history-v1") &&
+          new Set(features).size === features.length,
+      ),
     project: portableProject,
   }),
 ]);
+// Reject counts before recursive schema validation can allocate errors for
+// every member of a hostile collection. Manifest bytes have a separate cap.
+function checkCollections(input: unknown, legacy: boolean) {
+  if (!input || typeof input !== "object")
+    throw new Error("Invalid portable project.");
+  const value = input as Record<string, unknown>;
+  for (const [key, limit] of [
+    ["assets", 30],
+    ["revisions", legacy ? 500 : MAX_REVISIONS],
+    ["messages", legacy ? 1000 : MAX_MESSAGES],
+  ] as const)
+    if (Array.isArray(value[key]) && value[key].length > limit)
+      throw new Error(`Portable projects support up to ${limit} ${key}.`);
+}
+function withAssetDirectory<T>(operation: (anchor: string) => T) {
+  return withPrivateDirectory(
+    path.dirname(assetDir),
+    path.basename(assetDir),
+    operation,
+  );
+}
+function readArchivedAsset(anchor: string, id: string, remaining: number) {
+  let fd: number | undefined;
+  try {
+    fd = openSync(
+      path.join(anchor, id),
+      constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+    );
+    const before = fstatSync(fd, { bigint: true });
+    if (!before.isFile() || before.size < 1 || before.size > MAX_ASSET)
+      throw new Error(
+        "Portable assets must be regular files of 25 MB or smaller.",
+      );
+    if (before.size > remaining)
+      throw new Error("Project exceeds the 150 MB portable export limit.");
+    const bytes = Buffer.alloc(Number(before.size));
+    let offset = 0;
+    while (offset < bytes.length) {
+      const count = readSync(fd, bytes, offset, bytes.length - offset, offset);
+      if (!count)
+        throw new Error("An archived asset changed while being read.");
+      offset += count;
+    }
+    const after = fstatSync(fd, { bigint: true });
+    if (
+      before.size !== after.size ||
+      before.mtimeNs !== after.mtimeNs ||
+      before.ctimeNs !== after.ctimeNs
+    )
+      throw new Error("An archived asset changed while being read.");
+    return bytes;
+  } catch {
+    // File-system errors include private paths; none may enter an HTTP response.
+    throw new Error(
+      "An archived asset is missing, unsafe, changed, or exceeds portable limits.",
+    );
+  } finally {
+    if (fd !== undefined) closeSync(fd);
+  }
+}
 export async function exportArchive(project: Project) {
+  checkCollections(project, false);
+  if (Buffer.byteLength(JSON.stringify(project)) > MAX_MANIFEST)
+    throw new Error("Project history is too large for a portable archive.");
+  const input = portableProject.parse(project);
+  if (
+    new Set(input.assets?.map((asset) => asset.id)).size !==
+    (input.assets || []).length
+  )
+    throw new Error("Duplicate asset IDs.");
+  for (const timeline of [
+    input.timeline,
+    ...input.revisions.map((revision) => revision.timeline),
+  ])
+    if (timeline) validateProjectAssets(input, timeline);
+  const largeHistory =
+    input.revisions.length > 500 || input.messages.length > 1000;
   const files: Record<string, Uint8Array> = {};
   const needsRotation = [
-    project.timeline,
-    ...project.revisions.map((r) => r.timeline),
+    input.timeline,
+    ...input.revisions.map((r) => r.timeline),
   ].some((t) => t?.scenes.some((s) => s.layers.some((l) => !!l.rotation)));
   const manifest = strToU8(
     JSON.stringify({
       format: "reelchemy",
-      version: needsRotation ? 2 : 1,
-      ...(needsRotation ? { requiredFeatures: ["layer-rotation-v1"] } : {}),
-      project,
+      version: largeHistory ? 3 : needsRotation ? 2 : 1,
+      ...(largeHistory || needsRotation
+        ? {
+            requiredFeatures: [
+              ...(largeHistory ? ["large-history-v1"] : []),
+              ...(needsRotation ? ["layer-rotation-v1"] : []),
+            ],
+          }
+        : {}),
+      project: input,
     }),
   );
-  if (manifest.length > 10 * 1024 * 1024)
+  if (manifest.length > MAX_MANIFEST)
     throw new Error("Project history is too large for a portable archive.");
   files["project.json"] = manifest;
   let total = manifest.length;
-  for (const asset of project.assets || []) {
-    if (!validAssetId(asset.id)) throw new Error("Invalid project asset.");
-    const file = path.join(assetDir, asset.id);
-    total += (await stat(file)).size;
-    if (total > MAX_TOTAL)
-      throw new Error("Project exceeds the 150 MB portable export limit.");
-    files[`assets/${asset.id}`] = await readFile(file);
+  if (input.assets?.length) {
+    try {
+      withAssetDirectory((anchor) => {
+        for (const asset of input.assets || []) {
+          if (!validAssetId(asset.id))
+            throw new Error("Invalid project asset.");
+          const bytes = readArchivedAsset(anchor, asset.id, MAX_TOTAL - total);
+          total += bytes.length;
+          files[`assets/${asset.id}`] = bytes;
+        }
+      });
+    } catch {
+      throw new Error(
+        "An archived asset is missing, unsafe, changed, or exceeds portable limits.",
+      );
+    }
   }
   const zip = zipSync(files, { level: 6 });
   if (zip.length > 50 * 1024 * 1024)
@@ -135,7 +257,8 @@ export async function importArchive(
       names.add(file.name);
       total += file.originalSize;
       if (
-        file.originalSize > 25 * 1024 * 1024 ||
+        file.originalSize >
+          (file.name === "project.json" ? MAX_MANIFEST : MAX_ASSET) ||
         total > MAX_TOTAL ||
         names.size > 31 ||
         !(
@@ -149,11 +272,14 @@ export async function importArchive(
       return true;
     },
   });
-  if (!files["project.json"] || files["project.json"].length > 10 * 1024 * 1024)
+  if (!files["project.json"] || files["project.json"].length > MAX_MANIFEST)
     throw new Error("Missing or oversized project manifest.");
-  const envelope = envelopeSchema.parse(
-    JSON.parse(strFromU8(files["project.json"])),
-  );
+  const raw: unknown = JSON.parse(strFromU8(files["project.json"]));
+  if (!raw || typeof raw !== "object")
+    throw new Error("Invalid portable archive.");
+  const candidate = raw as Record<string, unknown>;
+  checkCollections(candidate.project, candidate.version !== 3);
+  const envelope = envelopeSchema.parse(raw);
   const input = envelope.project;
   if (
     new Set(input.assets?.map((a) => a.id)).size !== (input.assets || []).length
@@ -229,6 +355,12 @@ export async function importArchive(
       return timeline;
     };
     assertNormalizationActive(options);
+    const revisionCounts = new Map<string, number>();
+    for (const revision of input.revisions)
+      revisionCounts.set(
+        revision.id,
+        (revisionCounts.get(revision.id) || 0) + 1,
+      );
     return {
       ...input,
       id: randomUUID(),
@@ -237,13 +369,31 @@ export async function importArchive(
       timeline: input.timeline ? remap(input.timeline) : null,
       revisions: input.revisions.map((r) => ({
         ...r,
+        // Preserve usable legacy identities; repair ambiguous or unreadable IDs
+        // only in the imported copy so every retained edit can be selected.
+        id:
+          !r.id ||
+          /[\u0000-\u001f\u007f]/.test(r.id) ||
+          revisionCounts.get(r.id)! > 1
+            ? randomUUID()
+            : r.id,
         timeline: remap(r.timeline),
       })),
     };
   } catch (e) {
-    await Promise.all(
-      assets.map((a) => unlink(path.join(assetDir, a.id)).catch(() => {})),
-    );
+    try {
+      withAssetDirectory((anchor) => {
+        for (const asset of assets) {
+          try {
+            unlinkSync(path.join(anchor, asset.id));
+          } catch {
+            /* Durable worker cleanup retries registered outputs. */
+          }
+        }
+      });
+    } catch {
+      /* An unsafe replaced directory must never be followed for cleanup. */
+    }
     throw e;
   }
 }

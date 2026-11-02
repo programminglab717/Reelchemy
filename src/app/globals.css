@@ -2055,3 +2055,19 @@ main.account-page {
     padding: 14px;
   }
 }
+
+.project-download {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+.project-download [role="status"],
+.project-download [role="alert"] {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.project-download [role="alert"] {
+  color: #8b2922;
+}

@@ -545,6 +545,7 @@ export function VersionHistory({
             </p>
             <button
               type="button"
+              className="primary"
               disabled={
                 restoring ||
                 !canRestore ||
