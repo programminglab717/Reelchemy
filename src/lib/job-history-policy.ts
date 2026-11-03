@@ -108,3 +108,10 @@ export class JobHistoryConflict extends Error {
     );
   }
 }
+export class JobHistoryBusy extends Error {
+  constructor() {
+    super(
+      "Finish removing this export's files and wait for rendering or cancellation to stop before retiring its details.",
+    );
+  }
+}

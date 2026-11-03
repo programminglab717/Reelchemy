@@ -103,6 +103,14 @@ export function migrateJobHistoryStorage(db: Database.Database) {
       CREATE TRIGGER IF NOT EXISTS history_request_delete AFTER DELETE ON export_requests BEGIN ${refresh("OLD.job_id")} END;
       CREATE TRIGGER IF NOT EXISTS history_request_immutable BEFORE UPDATE ON export_requests BEGIN SELECT RAISE(ABORT,'Job request receipts cannot change.'); END;
       CREATE TRIGGER IF NOT EXISTS history_retirement_insert AFTER INSERT ON job_history_retirements BEGIN ${refresh("NEW.job_id")} END;
+      CREATE TRIGGER IF NOT EXISTS history_retirement_eligibility BEFORE INSERT ON job_history_retirements WHEN NOT EXISTS(
+        SELECT 1 FROM jobs j JOIN projects p ON p.id=j.project_id JOIN export_storage_entries e ON e.job_id=j.id AND e.project_id=j.project_id AND e.workspace_id IS p.workspace_id
+        WHERE j.id=NEW.job_id AND p.workspace_id=NEW.workspace_id AND p.trashed_at IS NULL
+        AND j.status IN ('completed','failed','cancelled') AND e.retained_bytes=0 AND e.retained_files=0 AND e.reservation_bytes=0 AND e.dirty=0
+        AND NOT EXISTS(SELECT 1 FROM project_deletions WHERE project_id=p.id)
+        AND NOT EXISTS(SELECT 1 FROM render_job_attempts WHERE job_id=j.id)
+        AND NOT EXISTS(SELECT 1 FROM export_file_removals WHERE job_id=j.id AND state<>'completed')
+      ) BEGIN SELECT RAISE(ABORT,'Finish export file removal and native teardown before retiring details.'); END;
     `);
     if (
       !db.prepare("SELECT 1 FROM schema_migrations WHERE id=?").get(migration)
@@ -198,4 +206,29 @@ export function reserveJobHistory(
     workspaceId,
     jobDocumentReservationBytes,
   );
+}
+export function admitJobHistoryRetirement(
+  db: Database.Database,
+  workspaceId: string,
+  beforeBytes: number,
+  afterBytes: number,
+  policy: JobHistoryPolicy,
+) {
+  if (!db.inTransaction) throw new JobHistoryUnavailable();
+  assertJobHistoryComplete(db);
+  count(beforeBytes);
+  count(afterBytes);
+  const own = totals(db, workspaceId),
+    shared = totals(db),
+    delta = afterBytes - beforeBytes;
+  if (own.retired + 1 > policy.studioRetired)
+    throw new JobHistoryLimit("studio", "retired");
+  if (shared.retired + 1 > policy.serviceRetired)
+    throw new JobHistoryLimit("service", "retired");
+  if (delta > 0) {
+    if (own.bytes + own.reserved + delta > policy.studioBytes)
+      throw new JobHistoryLimit("studio", "bytes");
+    if (shared.bytes + shared.reserved + delta > policy.serviceBytes)
+      throw new JobHistoryLimit("service", "bytes");
+  }
 }
