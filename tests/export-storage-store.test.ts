@@ -33,7 +33,7 @@ function fixture(
 ) {
   const db = new Database(":memory:");
   db.exec(
-    "CREATE TABLE projects(id TEXT PRIMARY KEY,workspace_id TEXT,trashed_at TEXT);CREATE TABLE jobs(id TEXT PRIMARY KEY,project_id TEXT,status TEXT);CREATE TABLE project_deletions(project_id TEXT)",
+    "CREATE TABLE projects(id TEXT PRIMARY KEY,workspace_id TEXT,trashed_at TEXT);CREATE TABLE jobs(id TEXT PRIMARY KEY,project_id TEXT,status TEXT);CREATE TABLE project_deletions(project_id TEXT);CREATE TABLE render_job_attempts(job_id TEXT PRIMARY KEY,started_at TEXT)",
   );
   store.migrateExportStorage(db);
   store.migrateExportStorage(db);
@@ -304,5 +304,85 @@ test("SQL render admission refuses untracked/foreign/trashed jobs even when an o
           .prepare("UPDATE jobs SET status='rendering' WHERE id=?")
           .run(own.jobId),
       /reservation is required/,
+    );
+  }));
+
+test("uncertain output keeps its captured reservation and blocks fresh admission until an exact census", () =>
+  fixture(({ db, reserve }) => {
+    const job = reserve(),
+      before = db
+        .prepare("SELECT * FROM export_storage_entries WHERE job_id=?")
+        .get(job.jobId);
+    store.markExportStorageUncertain(db, job.jobId);
+    assert.throws(
+      () => store.exportStorageUsage(db, "owner", policy),
+      ExportStorageUnavailable,
+    );
+    assert.throws(() => reserve("another"), ExportStorageUnavailable);
+    assert.deepEqual(
+      db
+        .prepare("SELECT * FROM export_storage_entries WHERE job_id=?")
+        .get(job.jobId),
+      before,
+    );
+    db.prepare("UPDATE jobs SET status='failed' WHERE id=?").run(job.jobId);
+    store.publishExportCensus(
+      db,
+      [{ ...job, status: "failed", bytes: MiB, files: 2 }],
+      policy,
+    );
+    assert.equal(store.exportStorageUsage(db, "owner", policy).usedBytes, MiB);
+    assert.equal(
+      store.exportStorageUsage(db, "owner", policy).reservedBytes,
+      0,
+    );
+  }));
+
+test("queued cancellation releases a pristine hold, while an interrupted dirty attempt stays charged until measured teardown", () =>
+  fixture(({ db, reserve }) => {
+    const pristine = reserve();
+    db.prepare("UPDATE jobs SET status='cancelled' WHERE id=?").run(
+      pristine.jobId,
+    );
+    assert.equal(
+      store.exportStorageUsage(db, "owner", policy).reservedBytes,
+      0,
+    );
+    const retried = reserve();
+    db.prepare("UPDATE jobs SET status='rendering' WHERE id=?").run(
+      retried.jobId,
+    );
+    db.prepare("UPDATE jobs SET status='queued' WHERE id=?").run(retried.jobId);
+    db.prepare("UPDATE jobs SET status='cancelled' WHERE id=?").run(
+      retried.jobId,
+    );
+    assert.equal(
+      store.exportStorageUsage(db, "owner", policy).reservedBytes,
+      4 * MiB,
+    );
+    store.settleExportStorage(db, retried.jobId, MiB, 1, true);
+    assert.equal(
+      store.exportStorageUsage(db, "owner", policy).reservedBytes,
+      0,
+    );
+    assert.equal(store.exportStorageUsage(db, "owner", policy).usedBytes, MiB);
+    const closedRetry = reserve();
+    db.prepare("UPDATE jobs SET status='rendering' WHERE id=?").run(
+      closedRetry.jobId,
+    );
+    db.prepare("UPDATE jobs SET status='queued' WHERE id=?").run(
+      closedRetry.jobId,
+    );
+    store.settleExportStorage(db, closedRetry.jobId, MiB, 1, false);
+    db.prepare("UPDATE jobs SET status='cancelled' WHERE id=?").run(
+      closedRetry.jobId,
+    );
+    assert.equal(
+      store.exportStorageUsage(db, "owner", policy).reservedBytes,
+      0,
+    );
+    assert.equal(
+      store.exportStorageUsage(db, "owner", policy).usedBytes,
+      2 * MiB,
     );
   }));

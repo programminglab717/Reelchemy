@@ -22,6 +22,7 @@ type Ledger = {
   retained_files: number;
   reservation_bytes: number;
   ceiling_bytes: number;
+  dirty: number;
 };
 type Totals = {
   bytes: number;
@@ -48,9 +49,11 @@ function totals(db: Database.Database, workspaceId?: string): Totals {
 export function migrateExportStorage(db: Database.Database) {
   db.transaction(() => {
     db.exec(`CREATE TABLE IF NOT EXISTS schema_migrations(id TEXT PRIMARY KEY,applied_at TEXT NOT NULL);
- CREATE TABLE IF NOT EXISTS export_storage_entries(job_id TEXT PRIMARY KEY,project_id TEXT NOT NULL,workspace_id TEXT,retained_bytes INTEGER NOT NULL DEFAULT 0 CHECK(retained_bytes>=0 AND retained_bytes<=4398046511104),retained_files INTEGER NOT NULL DEFAULT 0 CHECK(retained_files>=0 AND retained_files<=4096),reservation_bytes INTEGER NOT NULL DEFAULT 0 CHECK(reservation_bytes>=0 AND reservation_bytes<=1073741824),ceiling_bytes INTEGER NOT NULL CHECK(ceiling_bytes>=1048576 AND ceiling_bytes<=1073741824));
+ CREATE TABLE IF NOT EXISTS export_storage_entries(job_id TEXT PRIMARY KEY,project_id TEXT NOT NULL,workspace_id TEXT,retained_bytes INTEGER NOT NULL DEFAULT 0 CHECK(retained_bytes>=0 AND retained_bytes<=4398046511104),retained_files INTEGER NOT NULL DEFAULT 0 CHECK(retained_files>=0 AND retained_files<=4096),reservation_bytes INTEGER NOT NULL DEFAULT 0 CHECK(reservation_bytes>=0 AND reservation_bytes<=1073741824),ceiling_bytes INTEGER NOT NULL CHECK(ceiling_bytes>=1048576 AND ceiling_bytes<=1073741824),dirty INTEGER NOT NULL DEFAULT 0 CHECK(dirty IN (0,1)));
  CREATE INDEX IF NOT EXISTS export_storage_owner_idx ON export_storage_entries(workspace_id);
  CREATE TRIGGER IF NOT EXISTS export_storage_render_admission BEFORE UPDATE OF status ON jobs WHEN NEW.status='rendering' AND NOT EXISTS(SELECT 1 FROM export_storage_entries e JOIN projects p ON p.id=NEW.project_id WHERE e.job_id=NEW.id AND e.project_id=NEW.project_id AND e.workspace_id IS p.workspace_id AND e.reservation_bytes>0 AND p.trashed_at IS NULL AND NOT EXISTS(SELECT 1 FROM project_deletions d WHERE d.project_id=p.id)) BEGIN SELECT RAISE(ABORT,'A captured export storage reservation is required before rendering.'); END;
+ CREATE TRIGGER IF NOT EXISTS export_storage_attempt_started AFTER UPDATE OF status ON jobs WHEN NEW.status='rendering' BEGIN UPDATE export_storage_entries SET dirty=1 WHERE job_id=NEW.id; END;
+ CREATE TRIGGER IF NOT EXISTS export_storage_queued_cancelled AFTER UPDATE OF status ON jobs WHEN OLD.status='queued' AND NEW.status='cancelled' AND NOT EXISTS(SELECT 1 FROM render_job_attempts a WHERE a.job_id=NEW.id) BEGIN UPDATE export_storage_entries SET reservation_bytes=0 WHERE job_id=NEW.id AND dirty=0; END;
  CREATE TRIGGER IF NOT EXISTS export_storage_job_deleted AFTER DELETE ON jobs BEGIN DELETE FROM export_storage_entries WHERE job_id=OLD.id; END;
  CREATE TRIGGER IF NOT EXISTS export_storage_job_moved BEFORE UPDATE OF project_id ON jobs WHEN NEW.project_id IS NOT OLD.project_id AND EXISTS(SELECT 1 FROM export_storage_entries e WHERE e.job_id=OLD.id) BEGIN SELECT RAISE(ABORT,'Export storage ownership cannot move to another project.'); END;
  CREATE TRIGGER IF NOT EXISTS export_storage_project_owner AFTER UPDATE OF workspace_id ON projects WHEN NEW.workspace_id IS NOT OLD.workspace_id BEGIN UPDATE export_storage_entries SET workspace_id=NEW.workspace_id WHERE project_id=NEW.id; END;`);
@@ -216,7 +219,7 @@ export function settleExportStorage(
       if (release && !["completed", "failed", "cancelled"].includes(row.status))
         throw new ExportStorageUnavailable();
       db.prepare(
-        "UPDATE export_storage_entries SET retained_bytes=?,retained_files=?,reservation_bytes=CASE WHEN ? THEN 0 ELSE reservation_bytes END WHERE job_id=?",
+        "UPDATE export_storage_entries SET retained_bytes=?,retained_files=?,dirty=0,reservation_bytes=CASE WHEN ? THEN 0 ELSE reservation_bytes END WHERE job_id=?",
       ).run(bytes, files, release ? 1 : 0, jobId);
     })
     .immediate();
@@ -266,7 +269,7 @@ export function publishExportCensus(
       );
       db.exec("DELETE FROM export_storage_entries");
       const insert = db.prepare(
-        "INSERT INTO export_storage_entries VALUES(?,?,?,?,?,?,?)",
+        "INSERT INTO export_storage_entries VALUES(?,?,?,?,?,?,?,?)",
       );
       for (const row of rows) {
         const f = supplied.get(row.id)!;
@@ -289,6 +292,7 @@ export function publishExportCensus(
                 Math.min(ceiling, policy.reservationBytes)
             : 0,
           ceiling,
+          0,
         );
       }
       // Unbudgeted legacy queues must fit before receiving a captured reservation.
@@ -315,6 +319,27 @@ export function publishExportCensus(
       db.prepare(
         "INSERT INTO schema_migrations VALUES(?,?) ON CONFLICT(id) DO UPDATE SET applied_at=excluded.applied_at",
       ).run(migration, new Date().toISOString());
+    })
+    .immediate();
+}
+
+// An unreadable output tree is never accounted as empty. Preserve the captured
+// hold and stop fresh admission until a complete explicit census establishes it.
+export function markExportStorageUncertain(
+  db: Database.Database,
+  jobId: string,
+) {
+  return db
+    .transaction(() => {
+      if (
+        !db
+          .prepare(
+            "SELECT 1 FROM export_storage_entries e JOIN jobs j ON j.id=e.job_id JOIN projects p ON p.id=j.project_id WHERE e.job_id=? AND e.project_id=j.project_id AND e.workspace_id IS p.workspace_id",
+          )
+          .get(jobId)
+      )
+        throw new ExportStorageUnavailable();
+      db.prepare("DELETE FROM schema_migrations WHERE id=?").run(migration);
     })
     .immediate();
 }
