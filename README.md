@@ -364,3 +364,7 @@ Retained normalized source files now have a shared 8 GiB default ceiling in addi
 ### Reusing a styled layer
 
 Select a layer in Arrange scene, then use **Duplicate layer**, or open its advanced layer controls. The copy starts at the same position above its source; move or restyle it as needed. It retains motion, rotation, media and video audio settings while sharing the original upload. Unlock a protected layer first. The existing 20-layer scene limit applies, and one Undo removes the copy. Undo/redo and autosave retain their normal boundaries.
+
+## Remove a retained export’s files
+
+Open a completed, failed or cancelled export in **Export history** and choose **Review export file removal**. Review the exact count/logical size and download anything needed, then type **REMOVE EXPORT**. Its links become unavailable when confirmation is saved; removal finishes between renders. Retry an interrupted response from the same review. The selected activity record, saved film, versions, unsaved current edits and original media remain; create a fresh MP4 from the saved film when needed. Cleanup cannot be undone. Older backups/downloaded copies have separate retention. [OPERATIONS.md](OPERATIONS.md) describes queue limits, stopped-service upgrades, process guards and snapshot compatibility.

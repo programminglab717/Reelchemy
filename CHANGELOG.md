@@ -365,3 +365,11 @@ Own native Chromium launches before their connection exists, using an immutable 
 ## 0.47.0 candidate — duplicate editable layers
 
 Add a selected-layer duplicate action to the canvas and advanced layer controls. Copies preserve exact styling, rotation, motion keys, source media and video/audio ranges, use independent nested state and insert above their source in one undoable edit. The new copy is selected; undo/redo has a valid selection fallback. Locks and the existing 20-layer bound stay enforced. No source file, upload or studio media charge is duplicated. Production acceptance follows execution in VALIDATION.md.
+
+## 0.48.0 — 2026-11-03 (candidate)
+
+- Added reviewed, typed-confirmation removal of one terminal export’s MP4/captions/thumbnail/QC files. Saved films, versions, original media and export activity metadata remain available; a fresh export uses a new job identifier.
+- Cleanup is a bounded durable queue consumed between renders under the lifetime kernel lock. Cancelled native attempts remain ineligible until teardown; startup waits for marked children surviving an interrupted consumer before recovering leases. Ownership moves/restarts after consent are guarded in SQL, and private file routes refuse new reads immediately. Interrupted confirmation responses replay durable receipts.
+- Bounded reviews hash known flat generated files through pinned no-follow descriptors. Unexpected entries, replaced directories/inodes, stale content, unsupported entries and over-budget trees fail closed. Partial retries validate all remaining files before deleting any; normal rendering gets a turn between cleanup requests.
+- Snapshots retain history/job-only original references, omit export payloads already consented for removal, and complete receipts only in the copy. Those snapshots declare version 2 and `removed-export-files-v1`; snapshots without removals remain version 1 and older snapshots remain readable. Source databases and files are untouched.
+- Reconstructed after environment temporary-storage loss; all source/test work is now incrementally committed in a persistent workspace. Full backend, production build and browser acceptance are in progress. Retained-export budgets, account erasure and historical-backup disposal remain separate work.

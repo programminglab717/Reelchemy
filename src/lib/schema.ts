@@ -319,6 +319,7 @@ export type Export = {
   duration: number;
 };
 export type RenderJob = {
+  files?: import("./export-file-policy").ExportFileRemoval;
   id: string;
   projectId: string;
   status: "queued" | "rendering" | "completed" | "failed" | "cancelled";

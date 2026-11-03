@@ -19,6 +19,7 @@ import { AssetPanel } from "./AssetPanel";
 import { ProjectName } from "./ProjectName";
 import { LayerEditor } from "./LayerEditor";
 import { WorkspaceExports } from "./WorkspaceExports";
+import { ExportFiles } from "./ExportFiles";
 import { ExportHistory, QualityEvidence } from "./ExportHistory";
 import { MediaEditor } from "./MediaEditor";
 import { ImportProject, DownloadProject } from "./ProjectPortability";
@@ -1391,15 +1392,17 @@ export function Studio({
                   <section className="job-panel" aria-live="polite">
                     <div className="job-heading">
                       <strong>
-                        {job.status === "completed"
-                          ? "Your film is ready."
-                          : job.status === "failed"
-                            ? "Export needs attention"
-                            : job.status === "cancelled"
-                              ? "Export cancelled"
-                              : job.status === "queued"
-                                ? "Waiting for the render worker…"
-                                : `${job.stage || "Rendering your story"} · ${Math.round(job.progress * 100)}%`}
+                        {job.files
+                          ? "Export files unavailable"
+                          : job.status === "completed"
+                            ? "Your film is ready."
+                            : job.status === "failed"
+                              ? "Export needs attention"
+                              : job.status === "cancelled"
+                                ? "Export cancelled"
+                                : job.status === "queued"
+                                  ? "Waiting for the render worker…"
+                                  : `${job.stage || "Rendering your story"} · ${Math.round(job.progress * 100)}%`}
                       </strong>
                       {active && (
                         <button
@@ -1431,13 +1434,25 @@ export function Studio({
                         </p>
                       ))}
                     </details>
+                    {!active && (
+                      <ExportFiles
+                        job={job}
+                        onChange={(files) =>
+                          setJob((current) =>
+                            current?.id === job.id
+                              ? { ...current, files }
+                              : current,
+                          )
+                        }
+                      />
+                    )}
                     {job.error && <p role="alert">{job.error}</p>}
                     {job.status === "queued" && (
                       <p>
                         Keep the render worker running alongside the web app.
                       </p>
                     )}
-                    {job.status === "completed" && (
+                    {job.status === "completed" && !job.files && (
                       <>
                         <div className="completed-export">
                           <img

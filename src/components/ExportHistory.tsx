@@ -27,7 +27,9 @@ function ExportHistoryPage({ projectId, current, onSelect }: HistoryProps) {
   const before = cursors[pageIndex];
   const currentId = current?.projectId === projectId ? current.id : undefined;
   const currentStatus =
-    current?.projectId === projectId ? current.status : undefined;
+    current?.projectId === projectId
+      ? `${current.status}:${current.files?.state ?? ""}`
+      : undefined;
   const seenCurrent = useRef(`${currentId}:${currentStatus}`);
   const loadKey = JSON.stringify([before, refresh, currentId, currentStatus]);
   const loading = settled !== loadKey;
@@ -156,7 +158,7 @@ function ExportHistoryPage({ projectId, current, onSelect }: HistoryProps) {
   }
   return (
     <section
-      className="layer-editor"
+      className="layer-editor export-history"
       aria-label="Export history"
       aria-busy={loading || !!opening}
     >
@@ -191,7 +193,11 @@ function ExportHistoryPage({ projectId, current, onSelect }: HistoryProps) {
               {job.createdAt
                 ? `${job.createdAt.slice(0, 16).replace("T", " ")} UTC`
                 : "Unknown date"}{" "}
-              · {job.status} · {job.id.slice(0, 6)}
+              · {job.status}
+              {job.fileState
+                ? ` · files ${job.fileState === "completed" ? "removed" : job.fileState}`
+                : ""}{" "}
+              · {job.id.slice(0, 6)}
             </button>
           ))}
         </div>

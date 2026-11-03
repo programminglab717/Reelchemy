@@ -2,6 +2,20 @@ import Database from "better-sqlite3";
 import { mkdirSync, lstatSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import {
+  migrateExportFileRemovals,
+  getExportFileRemoval,
+  assertExportFileSource,
+  requestExportFileRemoval,
+  acquireExportFileReview,
+  releaseExportFileReview,
+  claimExportFileRemoval,
+  finishExportFileRemoval,
+  failExportFileRemoval,
+  recoverExportFileRemovals,
+  type ExportFileTask,
+} from "./export-file-store";
+import type { ExportFileManifest } from "./export-file-policy";
 import { ownedExportPage } from "./export-history";
 import type {
   Asset,
@@ -128,6 +142,7 @@ db.transaction(() => {
   );
   migrateMediaReferences(db);
   migrateProjectDeletions(db);
+  migrateExportFileRemovals(db);
   if (
     !db
       .prepare("SELECT id FROM schema_migrations WHERE id=?")
@@ -938,15 +953,45 @@ function enqueueJob(project: Project, workspaceId?: string) {
   );
   return job;
 }
+function rawJob(id: string): RenderJob | undefined {
+  const row = db
+    .prepare("SELECT project_id,status,data FROM jobs WHERE id=?")
+    .get(id) as
+    | { project_id: string; status: RenderJob["status"]; data: string }
+    | undefined;
+  if (!row) return;
+  const job = JSON.parse(row.data) as RenderJob;
+  delete job.files;
+  return { ...job, id, projectId: row.project_id, status: row.status };
+}
 export function getJob(id: string): RenderJob | undefined {
-  const row = db.prepare("SELECT data FROM jobs WHERE id=?").get(id) as
-    { data: string } | undefined;
-  return row ? JSON.parse(row.data) : undefined;
+  const job = rawJob(id);
+  if (!job) return;
+  const files = getExportFileRemoval(db, id);
+  return files ? { ...job, files } : job;
+}
+export const ownedExportFileSource = (jobId: string, workspaceId: string) =>
+  assertExportFileSource(db, jobId, workspaceId);
+export const exportFileRemoval = (jobId: string, workspaceId: string) =>
+  getExportFileRemoval(db, jobId, workspaceId);
+export const requestExportFiles = (manifest: ExportFileManifest) =>
+  requestExportFileRemoval(db, manifest);
+export const acquireExportReview = (workspaceId: string) =>
+  acquireExportFileReview(db, workspaceId);
+export const releaseExportReview = (token: string) =>
+  releaseExportFileReview(db, token);
+export const claimExportFiles = () => claimExportFileRemoval(db);
+export const finishExportFiles = (task: ExportFileTask) =>
+  finishExportFileRemoval(db, task);
+export const failExportFiles = (task: ExportFileTask) =>
+  failExportFileRemoval(db, task);
+export function finishJobAttempt(jobId: string) {
+  db.prepare("DELETE FROM render_job_attempts WHERE job_id=?").run(jobId);
 }
 export function updateJob(id: string, patch: Partial<RenderJob>) {
   return db
     .transaction(() => {
-      const job = getJob(id);
+      const job = rawJob(id);
       if (!job) return;
       const updated = { ...job, ...patch };
       if (
@@ -968,11 +1013,23 @@ export function claimJob(): { job: RenderJob; timeline: Timeline } | null {
     .transaction(() => {
       const row = db
         .prepare(
-          "SELECT data,timeline FROM jobs WHERE status='queued' ORDER BY rowid LIMIT 1",
+          "SELECT id,project_id,data,timeline FROM jobs WHERE status='queued' ORDER BY rowid LIMIT 1",
         )
-        .get() as { data: string; timeline: string } | undefined;
+        .get() as
+        | { id: string; project_id: string; data: string; timeline: string }
+        | undefined;
       if (!row) return null;
-      const job = JSON.parse(row.data) as RenderJob;
+      const job = {
+        ...JSON.parse(row.data),
+        id: row.id,
+        projectId: row.project_id,
+        status: "queued",
+      } as RenderJob;
+      delete job.files;
+      db.prepare("INSERT INTO render_job_attempts VALUES(?,?)").run(
+        job.id,
+        new Date().toISOString(),
+      );
       updateJob(job.id, { status: "rendering" });
       return {
         job: { ...job, status: "rendering" as const },
@@ -982,6 +1039,7 @@ export function claimJob(): { job: RenderJob; timeline: Timeline } | null {
     .immediate();
 }
 export function recoverJobs() {
+  recoverExportFileRemovals(db);
   for (const row of db
     .prepare("SELECT id FROM jobs WHERE status='rendering'")
     .all() as { id: string }[]) {
@@ -1124,10 +1182,10 @@ export function listJobs(projectId: string): RenderJob[] {
   return (
     db
       .prepare(
-        "SELECT data FROM jobs WHERE project_id=? ORDER BY rowid DESC LIMIT 30",
+        "SELECT id FROM jobs WHERE project_id=? ORDER BY rowid DESC LIMIT 30",
       )
-      .all(projectId) as { data: string }[]
-  ).map((r) => JSON.parse(r.data));
+      .all(projectId) as { id: string }[]
+  ).map((r) => getJob(r.id)!);
 }
 export function projectExportPage(
   projectId: string,

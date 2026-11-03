@@ -2107,3 +2107,37 @@ main.account-page {
 .conversation .message p {
   white-space: pre-wrap;
 }
+
+.export-files {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px 0;
+  margin: 12px 0;
+  border-block: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.export-files h3 {
+  margin: 0;
+  font-size: 13px;
+}
+.export-files p {
+  margin: 0;
+  color: #515f52;
+}
+.export-files [role="alert"],
+.export-files .remove-export-files {
+  color: #913d29;
+}
+.export-files button {
+  width: fit-content;
+  max-width: 100%;
+  white-space: normal;
+}
+
+.export-history .subtle {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
