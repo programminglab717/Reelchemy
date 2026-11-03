@@ -37,7 +37,11 @@ async function directory(root: string) {
 export async function measureExportFiles(
   root: string,
   jobId: string,
-  options: { working?: boolean; isStopping?: () => boolean } = {},
+  options: {
+    working?: boolean;
+    requireVideo?: boolean;
+    isStopping?: () => boolean;
+  } = {},
 ) {
   if (!z.uuid().safeParse(jobId).success) throw new ExportStorageUnavailable();
   const deadline = Date.now() + 5000,
@@ -104,6 +108,8 @@ export async function measureExportFiles(
           throw new ExportStorageUnavailable();
       }
     }
+    if (options.requireVideo && !seen.has("video.mp4"))
+      throw new ExportStorageUnavailable();
     const pointer = await lstat(path.join(anchor(parent), jobId), {
         bigint: true,
       }),

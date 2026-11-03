@@ -46,10 +46,13 @@ export async function collectExportCensus(
       !["queued", "completed", "failed", "cancelled"].includes(row.status)
     )
       throw new ExportStorageUnavailable();
+    const receipt = removal?.get(row.id) as { state: string } | undefined;
     const measured = await measureExportFiles(root, row.id, {
-        isStopping: () => !!signal?.aborted,
-      }),
-      receipt = removal?.get(row.id) as { state: string } | undefined;
+      isStopping: () => !!signal?.aborted,
+      requireVideo: row.status === "completed" && !receipt,
+    });
+    if (row.status === "completed" && !receipt && measured.files === 0)
+      throw new ExportStorageUnavailable();
     if (receipt?.state === "completed" && measured.files)
       throw new ExportStorageUnavailable();
     result.push({

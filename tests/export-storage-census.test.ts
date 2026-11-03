@@ -1,7 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
-import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
+import {
+  mkdtemp,
+  mkdir,
+  writeFile,
+  readFile,
+  rm,
+  unlink,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -109,4 +116,23 @@ test("payload reappearing after a completed removal is an operator refusal, neve
     f.db.prepare("UPDATE export_file_removals SET state='queued'").run();
     const [pending] = await collectExportCensus(f.db, f.root);
     assert.equal(pending.bytes, 4);
+  }));
+
+test("completed outputs missing their MP4 cannot be recounted as zero or adopted from a wrong artifact root", async () =>
+  fixture(async (f) => {
+    await assert.rejects(
+      collectExportCensus(f.db, path.join(f.root, "wrong-root")),
+      ExportStorageUnavailable,
+    );
+    await unlink(path.join(f.dir, "video.mp4"));
+    await writeFile(path.join(f.dir, "report.json"), "report");
+    await assert.rejects(
+      collectExportCensus(f.db, f.root),
+      ExportStorageUnavailable,
+    );
+    f.db
+      .prepare("INSERT INTO export_file_removals VALUES(?,'queued')")
+      .run(f.jobId);
+    const [pending] = await collectExportCensus(f.db, f.root);
+    assert.equal(pending.bytes, 6);
   }));
