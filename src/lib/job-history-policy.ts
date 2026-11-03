@@ -72,6 +72,7 @@ export type JobHistoryUsage = {
   reservedBytes: number;
   fullJobs: number;
   retiredJobs: number;
+  pendingJobs: number;
   limitBytes: number;
   limitJobs: number;
   limitRetired: number;

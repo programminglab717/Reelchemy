@@ -27,11 +27,12 @@ type Totals = {
   reserved: number;
   full: number;
   retired: number;
+  pending: number;
 };
 function totals(db: Database.Database, workspaceId?: string): Totals {
   const value = db
     .prepare(
-      `SELECT COALESCE(sum(s.bytes),0) AS bytes,COALESCE(sum(max(0,s.reservation_bytes-s.bytes)),0) AS reserved,COALESCE(sum(r.job_id IS NULL),0) AS full,COALESCE(sum(r.job_id IS NOT NULL),0) AS retired FROM job_history_sizes s LEFT JOIN job_history_retirements r ON r.job_id=s.job_id ${workspaceId === undefined ? "" : "WHERE s.workspace_id=?"}`,
+      `SELECT COALESCE(sum(s.bytes),0) AS bytes,COALESCE(sum(max(0,s.reservation_bytes-s.bytes)),0) AS reserved,COALESCE(sum(r.job_id IS NULL),0) AS full,COALESCE(sum(r.job_id IS NOT NULL),0) AS retired,COALESCE(sum(s.reservation_bytes>0),0) AS pending FROM job_history_sizes s LEFT JOIN job_history_retirements r ON r.job_id=s.job_id ${workspaceId === undefined ? "" : "WHERE s.workspace_id=?"}`,
     )
     .get(...(workspaceId === undefined ? [] : [workspaceId])) as Totals;
   Object.values(value).forEach(count);
@@ -146,6 +147,7 @@ export function jobHistoryUsage(
     reservedBytes: t.reserved,
     fullJobs: t.full,
     retiredJobs: t.retired,
+    pendingJobs: t.pending,
     limitBytes: policy.studioBytes,
     limitJobs: policy.studioJobs,
     limitRetired: policy.studioRetired,
@@ -231,4 +233,44 @@ export function admitJobHistoryRetirement(
     if (shared.bytes + shared.reserved + delta > policy.serviceBytes)
       throw new JobHistoryLimit("service", "bytes");
   }
+}
+// Only for newly copied offline backups/restores, after active jobs have been
+// normalized and copied attempt leases removed. Never pass a live installation.
+export function normalizeCopiedJobHistory(db: Database.Database) {
+  assertJobHistoryComplete(db);
+  if (
+    db
+      .prepare(
+        "SELECT 1 FROM jobs WHERE status IN ('queued','rendering') LIMIT 1",
+      )
+      .get() ||
+    db.prepare("SELECT 1 FROM render_job_attempts LIMIT 1").get()
+  )
+    throw new JobHistoryUnavailable();
+  db.transaction(() =>
+    db.exec(
+      `UPDATE job_history_sizes SET bytes=(SELECT ${documentSize} FROM jobs j WHERE j.id=job_history_sizes.job_id),reservation_bytes=0`,
+    ),
+  ).immediate();
+}
+export function verifyJobHistoryAccounting(db: Database.Database) {
+  assertJobHistoryComplete(db);
+  if (db.prepare("SELECT 1 FROM render_job_attempts LIMIT 1").get())
+    throw new JobHistoryUnavailable();
+  if (
+    db
+      .prepare(
+        `SELECT 1 FROM job_history_sizes s JOIN jobs j ON j.id=s.job_id WHERE s.reservation_bytes<>0 OR s.bytes IS NOT (${documentSize}) OR j.status IN ('queued','rendering') LIMIT 1`,
+      )
+      .get()
+  )
+    throw new JobHistoryUnavailable();
+  if (
+    db
+      .prepare(
+        "SELECT 1 FROM jobs j LEFT JOIN job_history_retirements r ON r.job_id=j.id WHERE json_extract(CASE WHEN json_valid(j.data) THEN j.data ELSE '{}' END,'$.retired') IS 1 AND r.job_id IS NULL LIMIT 1",
+      )
+      .get()
+  )
+    throw new JobHistoryUnavailable();
 }
