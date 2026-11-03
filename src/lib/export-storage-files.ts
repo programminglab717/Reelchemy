@@ -53,7 +53,10 @@ export async function measureExportFiles(
   try {
     check();
     parent = await directory(root);
-    if (!parent) return { bytes: 0, files: 0 };
+    if (!parent) {
+      if (options.requireVideo) throw new ExportStorageUnavailable();
+      return { bytes: 0, files: 0 };
+    }
     const parentId = identity(await parent.stat({ bigint: true }));
     try {
       child = await open(
@@ -61,8 +64,10 @@ export async function measureExportFiles(
         constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW,
       );
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT")
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        if (options.requireVideo) throw new ExportStorageUnavailable();
         return { bytes: 0, files: 0 };
+      }
       throw error;
     }
     const childId = identity(await child.stat({ bigint: true })),

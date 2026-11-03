@@ -113,7 +113,7 @@ async function run() {
         "--locked",
         token,
         "--data",
-        data,
+        supplied.data,
         "--artifacts",
         artifacts,
       ],
@@ -158,7 +158,10 @@ async function run() {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
   }
-  if ((await liveNativeRenderJobs(data)).size)
+  if (
+    (await liveNativeRenderJobs(supplied.data)).size ||
+    (supplied.data !== data && (await liveNativeRenderJobs(data)).size)
+  )
     throw new Error(
       "An interrupted native render is still active. Stop it before recounting.",
     );
