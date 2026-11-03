@@ -34,5 +34,11 @@ async function DELETEHandler(req: Request, { params }: Context) {
   }
 }
 
-export const GET = secureRoute(GETHandler, "job");
+const readJob = secureRoute(GETHandler, "job");
+export async function GET(req: Request, context: Context) {
+  const response = await readJob(req, context);
+  response.headers.set("Cache-Control", "private, no-store");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  return response;
+}
 export const DELETE = secureRoute(DELETEHandler, "job");

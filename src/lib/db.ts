@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import { mkdirSync, lstatSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { ownedExportPage } from "./export-history";
 import type {
   Asset,
   Project,
@@ -1127,6 +1128,13 @@ export function listJobs(projectId: string): RenderJob[] {
       )
       .all(projectId) as { data: string }[]
   ).map((r) => JSON.parse(r.data));
+}
+export function projectExportPage(
+  projectId: string,
+  workspaceId: string,
+  cursor: { anchor?: string; before?: string } = {},
+) {
+  return ownedExportPage(db, projectId, workspaceId, cursor);
 }
 export type Workspace = { id: string; ownerId: string; name: string };
 export function ensureWorkspace(userId: string, name: string): Workspace {
