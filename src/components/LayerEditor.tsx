@@ -6,6 +6,7 @@ import { CameraEditor } from "./CameraEditor";
 import { TypographyControls } from "./TypographyControls";
 import { LayerRotation } from "./LayerRotation";
 import { useState } from "react";
+import { duplicateLayer } from "@/lib/layer-edit";
 import {
   layerSchema,
   timelineSchema,
@@ -257,6 +258,26 @@ export function LayerEditor({
                   ))}
                 </select>
               </label>
+              <button
+                className="subtle"
+                aria-label={`Duplicate layer ${layer.id}`}
+                disabled={scene.layers.length >= 20}
+                onClick={() => {
+                  try {
+                    update(
+                      duplicateLayer(timeline, selected, layer.id).timeline,
+                    );
+                  } catch (problem) {
+                    setError(
+                      problem instanceof Error
+                        ? problem.message
+                        : "This layer could not be duplicated.",
+                    );
+                  }
+                }}
+              >
+                Duplicate layer
+              </button>
               <button
                 className="subtle"
                 disabled={scene.layers.length === 0}

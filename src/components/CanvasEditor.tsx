@@ -8,6 +8,7 @@ import { TypographyControls } from "./TypographyControls";
 import { MediaFitControls } from "./MediaFitControls";
 import { layerCorners } from "@/lib/layer-geometry";
 import { LayerRotation } from "./LayerRotation";
+import { duplicateLayer } from "@/lib/layer-edit";
 
 export function CanvasEditor({
   timeline,
@@ -24,6 +25,7 @@ export function CanvasEditor({
   const [selectedId, setSelectedId] = useState(scene.layers[0]?.id);
   const [draft, setDraft] = useState<Layer | null>(null);
   const [snap, setSnap] = useState(true);
+  const [layerError, setLayerError] = useState("");
   const stage = useRef<HTMLDivElement>(null);
   const gesture = useRef<{
     layer: Layer;
@@ -34,7 +36,9 @@ export function CanvasEditor({
     resize: boolean;
     snap: boolean;
   } | null>(null);
-  const layer = scene.layers.find((l) => l.id === selectedId);
+  const layer =
+    scene.layers.find((l) => l.id === selectedId) || scene.layers[0];
+  const activeId = layer?.id;
   const dimensions = formats[timeline.format];
   function update(l: Layer) {
     onChange({
@@ -147,8 +151,8 @@ export function CanvasEditor({
                 key={l.id}
                 type="button"
                 aria-label={`Select layer ${l.id}`}
-                aria-pressed={selectedId === l.id}
-                className={`canvas-layer ${selectedId === l.id ? "selected" : ""} ${l.locked ? "locked" : ""}`}
+                aria-pressed={activeId === l.id}
+                className={`canvas-layer ${activeId === l.id ? "selected" : ""} ${l.locked ? "locked" : ""}`}
                 style={{
                   left: `${l.x * 100}%`,
                   top: `${l.y * 100}%`,
@@ -228,14 +232,11 @@ export function CanvasEditor({
         <div className="canvas-stack" aria-label="Layer stack">
           <h3>Layers · front to back</h3>
           {[...scene.layers].reverse().map((l) => (
-            <div
-              key={l.id}
-              className={selectedId === l.id ? "chosen-layer" : ""}
-            >
+            <div key={l.id} className={activeId === l.id ? "chosen-layer" : ""}>
               <button
                 className="layer-select"
                 aria-label={`Choose ${l.id} in layer stack`}
-                aria-pressed={selectedId === l.id}
+                aria-pressed={activeId === l.id}
                 onClick={() => setSelectedId(l.id)}
               >
                 {l.kind === "text" ? l.text || "Empty text" : l.kind}
@@ -288,6 +289,34 @@ export function CanvasEditor({
                 </fieldset>
               )}
               <div className="layer-fields">
+                <button
+                  className="subtle"
+                  aria-label="Duplicate selected layer"
+                  disabled={
+                    layer.locked || scene.layers.length >= 20 || !!draft
+                  }
+                  onClick={() => {
+                    if (gesture.current) return;
+                    try {
+                      const copied = duplicateLayer(
+                        timeline,
+                        selected,
+                        layer.id,
+                      );
+                      onChange(copied.timeline);
+                      setSelectedId(copied.layerId);
+                      setLayerError("");
+                    } catch (error) {
+                      setLayerError(
+                        error instanceof Error
+                          ? error.message
+                          : "This layer could not be duplicated.",
+                      );
+                    }
+                  }}
+                >
+                  Duplicate layer
+                </button>
                 <button
                   className="subtle"
                   disabled={
@@ -344,6 +373,15 @@ export function CanvasEditor({
                   Center vertically
                 </button>
               </div>
+              {layerError && (
+                <p role="alert" aria-label="Layer action error">
+                  {layerError}
+                </p>
+              )}
+              <small>
+                Duplication keeps position, motion, styling and the original
+                media.
+              </small>
             </div>
           )}
         </div>

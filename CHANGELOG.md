@@ -361,3 +361,7 @@ The editor pages 20 private export summaries and reads one full report only afte
 ## 0.46.0 — 2026-11-03: native browser-start recovery
 
 Own native Chromium launches before their connection exists, using an immutable launcher and private pinned configuration under noexec temporary storage. Failed startup, normal completion and cancellation release only attempt-owned processes and registered native profiles; unknown/replaced entries fail safely. A narrowly recognized connection-start timeout uses the existing single retry, while QC, cancellation, missing executables and unsafe cleanup remain terminal. Actual worker recovery, source/lifecycle preservation and noexec acceptance are recorded in VALIDATION.md; complete current-source backend/build/browser acceptance follows execution.
+
+## 0.47.0 candidate — duplicate editable layers
+
+Add a selected-layer duplicate action to the canvas and advanced layer controls. Copies preserve exact styling, rotation, motion keys, source media and video/audio ranges, use independent nested state and insert above their source in one undoable edit. The new copy is selected; undo/redo has a valid selection fallback. Locks and the existing 20-layer bound stay enforced. No source file, upload or studio media charge is duplicated. Production acceptance follows execution in VALIDATION.md.
