@@ -61,10 +61,6 @@ test("reviewed file removal rejects stale consent, replays a lost response, pres
     ).json();
   await page.goto("/");
   await page.getByRole("button", { name: project.name, exact: true }).click();
-  await page
-    .getByRole("region", { name: "Export history", exact: true })
-    .getByRole("button", { name: new RegExp(selected.slice(0, 6)) })
-    .click();
   await page.route(`**/api/projects/${project.id}`, async (route) =>
     route.request().method() === "PATCH"
       ? route.fulfill({
@@ -79,10 +75,22 @@ test("reviewed file removal rejects stale consent, replays a lost response, pres
   await expect(
     page.getByText("Synthetic cleanup draft outage", { exact: true }),
   ).toBeVisible();
+  // Timeline edits deliberately clear the selected output. Reopen its saved
+  // report only after the local edit settles, avoiding a race with that reset.
+  await page
+    .getByRole("region", { name: "Export history", exact: true })
+    .getByRole("button", { name: new RegExp(selected.slice(0, 6)) })
+    .click();
   const panel = page.getByRole("region", {
     name: "Export file storage",
     exact: true,
   });
+  await expect(
+    panel.getByRole("button", {
+      name: "Review export file removal",
+      exact: true,
+    }),
+  ).toBeVisible();
   await panel
     .getByRole("button", { name: "Review export file removal", exact: true })
     .click();
