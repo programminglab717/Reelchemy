@@ -92,7 +92,10 @@ export function retainedExportPage(
       const items = selected.map((row) => {
         if (
           !z.uuid().safeParse(row.id).success ||
-          !z.uuid().safeParse(row.projectId).success ||
+          typeof row.projectId !== "string" ||
+          !row.projectId.length ||
+          row.projectId.length > 160 ||
+          /[\x00-\x1f\x7f]/.test(row.projectId) ||
           !Number.isSafeInteger(row.bytes) ||
           row.bytes < 0 ||
           !Number.isSafeInteger(row.fileCount) ||

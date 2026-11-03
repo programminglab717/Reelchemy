@@ -14,9 +14,13 @@ test("studio-wide file pages enforce indexed owners, bounded metadata and stable
   );
   migrateExportFileRemovals(db);
   migrateExportStorage(db);
-  const make = (owner = "owner", status = "completed", files = 1) => {
-    const id = randomUUID(),
-      projectId = randomUUID();
+  const make = (
+    owner = "owner",
+    status = "completed",
+    files = 1,
+    projectId: string = randomUUID(),
+  ) => {
+    const id = randomUUID();
     db.prepare("INSERT INTO projects VALUES(?,?,?,NULL)").run(
       projectId,
       JSON.stringify({
@@ -40,7 +44,9 @@ test("studio-wide file pages enforce indexed owners, bounded metadata and stable
     return { id, projectId };
   };
   try {
-    const own = Array.from({ length: 23 }, () => make()),
+    const own = Array.from({ length: 23 }, (_, index) =>
+        index ? make() : make("owner", "completed", 1, "owned-legacy-project"),
+      ),
       foreign = make("foreign"),
       active = make("owner", "queued"),
       empty = make("owner", "failed", 0),
