@@ -276,3 +276,33 @@ test("a legacy terminal overage stays readable and can shrink, but unbudgeted qu
     store.settleExportStorage(db, legacy.jobId, 0, 0, true);
     assert.equal(store.exportStorageUsage(db, "owner", policy).usedBytes, 0);
   }));
+
+test("SQL render admission refuses untracked/foreign/trashed jobs even when an older caller bypasses JS admission", () =>
+  fixture(({ db, make, reserve }) => {
+    const unknown = make();
+    assert.throws(
+      () =>
+        db
+          .prepare("UPDATE jobs SET status='rendering' WHERE id=?")
+          .run(unknown.jobId),
+      /reservation is required/,
+    );
+    db.prepare("DELETE FROM jobs WHERE id=?").run(unknown.jobId);
+    const own = reserve();
+    assert.doesNotThrow(() =>
+      db
+        .prepare("UPDATE jobs SET status='rendering' WHERE id=?")
+        .run(own.jobId),
+    );
+    db.prepare("UPDATE jobs SET status='queued' WHERE id=?").run(own.jobId);
+    db.prepare("UPDATE projects SET trashed_at='now' WHERE id=?").run(
+      own.projectId,
+    );
+    assert.throws(
+      () =>
+        db
+          .prepare("UPDATE jobs SET status='rendering' WHERE id=?")
+          .run(own.jobId),
+      /reservation is required/,
+    );
+  }));
