@@ -258,17 +258,15 @@ test("indexed job ownership overrides forged legacy JSON", async () => {
   const { job } = await completed(),
     foreignProject = app.createProject(brief, foreign.workspace),
     data = app.getJob(job.id)!;
-  inspect
-    .prepare("UPDATE jobs SET data=? WHERE id=?")
-    .run(
-      JSON.stringify({
-        ...data,
-        projectId: foreignProject.id,
-        status: "queued",
-        files: { state: "completed" },
-      }),
-      job.id,
-    );
+  inspect.prepare("UPDATE jobs SET data=? WHERE id=?").run(
+    JSON.stringify({
+      ...data,
+      projectId: foreignProject.id,
+      status: "queued",
+      files: { state: "completed" },
+    }),
+    job.id,
+  );
   assert.equal(app.getJob(job.id)?.projectId, data.projectId);
   assert.equal(app.getJob(job.id)?.status, "completed");
   assert.equal(app.getJob(job.id)?.files, undefined);
