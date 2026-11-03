@@ -50,3 +50,26 @@ test("recovery detects inherited native job/root markers, ignores another studio
     await shutdownTestProcesses([owned, foreign]);
   }
 });
+
+test("a same-UID non-dumpable native child cannot disappear from recovery through proc directory ownership", async () => {
+  const root = path.join(tmpdir(), `private-native-${randomUUID()}`),
+    job = randomUUID();
+  const child = spawnTestProcess(
+    "python3",
+    [
+      "-c",
+      "import ctypes,time; assert ctypes.CDLL(None).prctl(4,0,0,0,0)==0; print('ready',flush=True); time.sleep(30)",
+    ],
+    {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, [renderJobMarker]: job, [renderRootMarker]: root },
+    },
+  );
+  try {
+    await once(child.stdout!, "data");
+    await assert.rejects(liveNativeRenderJobs(root), /cannot be verified/);
+  } finally {
+    child.kill("SIGTERM");
+    await shutdownTestProcesses([child]);
+  }
+});
