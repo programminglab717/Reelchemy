@@ -17,6 +17,7 @@ import {
 } from "./media-storage-policy";
 import { activeExportLimit } from "./export-policy";
 import { projectStoragePolicy } from "./project-storage-policy";
+import { exportStoragePolicy } from "./export-storage-policy";
 export async function readiness() {
   const checks = {
     database: false,
@@ -33,6 +34,7 @@ export async function readiness() {
     activeExportLimit();
     mediaProcessingPolicy();
     projectStoragePolicy();
+    exportStoragePolicy();
     checks.limits = true;
   } catch {}
   try {

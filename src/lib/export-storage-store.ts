@@ -109,6 +109,26 @@ export function exportStorageUsage(
     outputCeilingBytes: policy.reservationBytes,
   };
 }
+export function exportStorageOperatorUsage(
+  db: Database.Database,
+  workspaceId: string | undefined,
+  policy: ExportStoragePolicy,
+) {
+  assertExportStorageComplete(db);
+  const t = totals(db, workspaceId);
+  return {
+    usedBytes: t.bytes,
+    reservedBytes: t.reserved,
+    retainedExports: t.retained,
+    pendingExports: t.pending,
+    chargedExports: t.count,
+    limitBytes:
+      workspaceId === undefined ? policy.serviceBytes : policy.studioBytes,
+    limitExports:
+      workspaceId === undefined ? policy.serviceExports : policy.studioExports,
+    outputCeilingBytes: policy.reservationBytes,
+  };
+}
 export function reserveExportStorage(
   db: Database.Database,
   jobId: string,
@@ -303,19 +323,18 @@ export function publishExportCensus(
         .all() as { workspace_id: string }[];
       for (const { workspace_id } of pending) {
         const t = totals(db, workspace_id);
-        if (
-          t.bytes + t.reserved > policy.studioBytes ||
-          t.count > policy.studioExports
-        )
+        if (t.bytes + t.reserved > policy.studioBytes)
           throw new ExportStorageLimit("studio", "bytes");
+        if (t.count > policy.studioExports)
+          throw new ExportStorageLimit("studio", "exports");
       }
       const shared = totals(db);
-      if (
-        rows.some((r) => r.status === "queued") &&
-        (shared.bytes + shared.reserved > policy.serviceBytes ||
-          shared.count > policy.serviceExports)
-      )
-        throw new ExportStorageLimit("service", "bytes");
+      if (rows.some((r) => r.status === "queued")) {
+        if (shared.bytes + shared.reserved > policy.serviceBytes)
+          throw new ExportStorageLimit("service", "bytes");
+        if (shared.count > policy.serviceExports)
+          throw new ExportStorageLimit("service", "exports");
+      }
       db.prepare(
         "INSERT INTO schema_migrations VALUES(?,?) ON CONFLICT(id) DO UPDATE SET applied_at=excluded.applied_at",
       ).run(migration, new Date().toISOString());

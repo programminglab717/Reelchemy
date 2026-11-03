@@ -31,6 +31,7 @@ import {
   ExportStorageUnavailable,
 } from "./export-storage-policy";
 import { ownedExportPage } from "./export-history";
+import { retainedExportPage } from "./retained-exports";
 import type {
   Asset,
   Project,
@@ -1046,6 +1047,10 @@ export function finishJobAttempt(
 }
 export const exportStorage = (workspaceId: string) =>
   exportStorageUsage(db, workspaceId, exportStoragePolicy());
+export const retainedExports = (
+  workspaceId: string,
+  cursor: { anchor?: string; before?: string } = {},
+) => retainedExportPage(db, workspaceId, cursor);
 export const exportStorageReady = () => assertExportStorageComplete(db);
 export const exportJobCeiling = (jobId: string) =>
   exportOutputCeiling(db, jobId, exportStoragePolicy());

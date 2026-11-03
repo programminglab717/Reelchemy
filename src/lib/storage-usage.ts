@@ -5,6 +5,8 @@ import {
   sharedMediaStorageLimit,
 } from "./media-storage-policy";
 import { mediaProcessingPolicy } from "./media-processing-policy";
+import { exportStoragePolicy } from "./export-storage-policy";
+import { exportStorageOperatorUsage } from "./export-storage-store";
 export class StorageUsageUnavailable extends Error {
   constructor() {
     super(
@@ -102,8 +104,13 @@ export function storageUsage(db: Database.Database, workspaceId?: string) {
               ? { limitReservedBytes: processing.rawBytes }
               : {}),
           },
+          exports: exportStorageOperatorUsage(
+            db,
+            workspaceId,
+            exportStoragePolicy(),
+          ),
           measurement:
-            "Indexed retained project JSON and known source files; excludes exports, caches, backups and physical database/WAL allocation.",
+            "Indexed retained project JSON, known source files and logical export payload/reservations; excludes caches, backups and physical database/WAL allocation. Working exports can briefly exceed their captured ceiling before native cancellation completes.",
         };
       })
       .deferred();

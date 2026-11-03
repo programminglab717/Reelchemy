@@ -20,6 +20,7 @@ import { ProjectName } from "./ProjectName";
 import { LayerEditor } from "./LayerEditor";
 import { WorkspaceExports } from "./WorkspaceExports";
 import { ExportFiles } from "./ExportFiles";
+import { ExportStorage } from "./ExportStorage";
 import { ExportHistory, QualityEvidence } from "./ExportHistory";
 import { MediaEditor } from "./MediaEditor";
 import { ImportProject, DownloadProject } from "./ProjectPortability";
@@ -511,6 +512,18 @@ export function Studio({
         <MediaProcessing
           onOpen={(id) => navigate({ id })}
           disabled={busy || editor.saving}
+        />
+        <ExportStorage
+          refreshKey={
+            job ? `${job.id}:${job.status}:${job.files?.state ?? ""}` : ""
+          }
+          onChange={(receipt) => {
+            setJob((current) =>
+              current?.id === receipt.jobId
+                ? { ...current, files: receipt }
+                : current,
+            );
+          }}
         />
         {!project ? (
           <div className="home">

@@ -9,6 +9,7 @@ import {
   rm,
   lstat,
   symlink,
+  readdir,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -94,6 +95,24 @@ test("census CLI requires explicit storage paths before opening or initializing 
   const result = await command([]);
   assert.equal(result.code, 1);
   assert.match(result.output, /required|Usage/);
+});
+test("an empty or account-only data path is refused before creating lifecycle files", async () => {
+  const root = await mkdtemp(
+    path.join(tmpdir(), "reelchemy-export-wrong-root-"),
+  );
+  try {
+    const data = path.join(root, "private-accounts"),
+      artifacts = path.join(root, "exports");
+    await mkdir(data);
+    await mkdir(artifacts);
+    await writeFile(path.join(data, "auth.sqlite"), "private fixture");
+    const result = await command(["--data", data, "--artifacts", artifacts]);
+    assert.equal(result.code, 1);
+    assert.deepEqual(await readdir(data), ["auth.sqlite"]);
+    assert.deepEqual(await readdir(artifacts), []);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 test("operator recount handles literal path metacharacters, retains source content and both lifetime inodes, and emits only aggregate metadata", async () =>
   fixture(async (f) => {

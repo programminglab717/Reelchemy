@@ -72,6 +72,9 @@ async function run() {
     data = await realpath(supplied.data),
     artifacts = await realpath(supplied.artifacts);
   if (data === artifacts) throw new ExportStorageUnavailable();
+  const candidate = await lstat(path.join(data, "studio.sqlite"));
+  if (!candidate.isFile() || candidate.isSymbolicLink())
+    throw new ExportStorageUnavailable();
   if (!locked) {
     const render = path.join(data, "worker.lifecycle.lock"),
       ingest = path.join(data, "ingest.lifecycle.lock");

@@ -235,6 +235,64 @@ test("queued cancellation frees its pristine hold and actor/origin failures cann
   assert.equal(mismatch.status, 409);
   privateHeaders(mismatch);
 });
+test("retained-file pages use the authenticated studio, refuse foreign cursors and return no report or timeline", async () => {
+  const { GET: list } =
+    await import("../src/app/api/workspace/export-storage/files/route");
+  const saved = project(),
+    job = app.createOwnedJob(saved.id, owner.workspace)!.job;
+  app.updateJob(job.id, { status: "failed" });
+  app.finishJobAttempt(job.id, { bytes: 4, files: 1 });
+  const response = await list(
+    request("/api/workspace/export-storage/files"),
+    context("unused"),
+  );
+  assert.equal(response.status, 200);
+  privateHeaders(response);
+  const page = await response.json();
+  assert.deepEqual(
+    page.items.map((item: { id: string }) => item.id),
+    [job.id],
+  );
+  assert.equal(page.items[0].projectId, saved.id);
+  assert.equal(page.items[0].bytes, 4);
+  for (const field of ["timeline", "report", "workspaceId", "position", "data"])
+    assert.equal(page.items[0][field], undefined);
+  const foreignRead = await list(
+    request("/api/workspace/export-storage/files", "GET", undefined, foreign),
+    context("unused"),
+  );
+  assert.equal(foreignRead.status, 200);
+  assert.equal((await foreignRead.json()).items.length, 0);
+  const tampered = await list(
+    request(
+      `/api/workspace/export-storage/files?anchor=${page.anchor}`,
+      "GET",
+      undefined,
+      foreign,
+    ),
+    context("unused"),
+  );
+  assert.equal(tampered.status, 422);
+  privateHeaders(tampered);
+  assert.equal(
+    (
+      await list(
+        request(
+          `/api/workspace/export-storage/files?workspace=${foreign.workspace}`,
+        ),
+        context("unused"),
+      )
+    ).status,
+    422,
+  );
+  const signedOut = await list(
+    new Request("http://127.0.0.1:3001/api/workspace/export-storage/files"),
+    context("unused"),
+  );
+  assert.equal(signedOut.status, 401);
+  privateHeaders(signedOut);
+  app.finishJobAttempt(job.id, { bytes: 0, files: 0 });
+});
 test("an untracked legacy row fails closed for new export admission while private saved work remains readable", async () => {
   const saved = project(),
     id = randomUUID();
