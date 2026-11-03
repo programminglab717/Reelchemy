@@ -25,6 +25,7 @@ export function ExportStorage({
   onChange: (receipt: ExportFileRemoval) => void;
 }) {
   const request = useAccountFetch(),
+    reviewHeading = useRef<HTMLHeadingElement>(null),
     dialog = useRef<HTMLDialogElement>(null),
     opener = useRef<HTMLButtonElement>(null);
   const [usage, setUsage] = useState<ExportStorageUsage | null>(null),
@@ -43,6 +44,10 @@ export function ExportStorage({
     before = cursors[index],
     loadKey = JSON.stringify([before, revision]);
   const loading = settled !== loadKey;
+  const selectedId = selected?.id;
+  useEffect(() => {
+    if (selectedId) reviewHeading.current?.focus();
+  }, [selectedId]);
   useEffect(() => {
     const abort = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -175,6 +180,23 @@ export function ExportStorage({
   }
   function changed(receipt: ExportFileRemoval) {
     setRemoval(receipt);
+    setSelected((current) =>
+      current?.id === receipt.jobId
+        ? { ...current, fileState: receipt.state }
+        : current,
+    );
+    setPage((current) =>
+      current
+        ? {
+            ...current,
+            items: current.items.map((item) =>
+              item.id === receipt.jobId
+                ? { ...item, fileState: receipt.state }
+                : item,
+            ),
+          }
+        : current,
+    );
     onChange(receipt);
     setRefresh((n) => n + 1);
     if (receipt.state === "completed") {
@@ -250,6 +272,47 @@ export function ExportStorage({
               Close export manager
             </button>
           </div>
+          {selected && (
+            <div className="retained-export-review" key={selected.id}>
+              <h3 ref={reviewHeading} tabIndex={-1}>
+                {selected.projectName} · export {selected.id.slice(0, 8)}
+              </h3>
+              {!removal &&
+                !selected.fileState &&
+                selected.status === "completed" && (
+                  <p>
+                    <a
+                      href={`/api/jobs/${encodeURIComponent(selected.id)}/download`}
+                    >
+                      Download MP4 before removal
+                    </a>
+                  </p>
+                )}
+              <ExportFiles
+                job={{
+                  id: selected.id,
+                  projectId: selected.projectId,
+                  status: selected.status,
+                  files:
+                    removal ??
+                    (selected.fileState
+                      ? {
+                          jobId: selected.id,
+                          projectId: selected.projectId,
+                          state: selected.fileState,
+                          requestedAt: "",
+                          completedAt: null,
+                          error:
+                            selected.fileState === "failed"
+                              ? "Previous cleanup could not finish. Review the current files to retry."
+                              : null,
+                        }
+                      : undefined),
+                }}
+                onChange={changed}
+              />
+            </div>
+          )}
           <div aria-busy={loading}>
             {loading ? (
               <p role="status">Loading retained exports…</p>
@@ -266,7 +329,8 @@ export function ExportStorage({
                       <strong>{item.projectName}</strong>
                       <p>
                         {item.status} · {amount(item.bytes)} · {item.fileCount}{" "}
-                        files · {item.id.slice(0, 8)}
+                        {item.fileCount === 1 ? "file" : "files"} ·{" "}
+                        {item.id.slice(0, 8)}
                       </p>
                       {item.inTrash ? (
                         <p>
@@ -282,6 +346,8 @@ export function ExportStorage({
                         <button
                           className="subtle"
                           onClick={() => {
+                            if (selectedId === item.id)
+                              reviewHeading.current?.focus();
                             setSelected(item);
                             setRemoval(null);
                           }}
@@ -323,47 +389,6 @@ export function ExportStorage({
               </>
             )}
           </div>
-          {selected && (
-            <div className="retained-export-review" key={selected.id}>
-              <h3>
-                {selected.projectName} · export {selected.id.slice(0, 8)}
-              </h3>
-              {!removal &&
-                !selected.fileState &&
-                selected.status === "completed" && (
-                  <p>
-                    <a
-                      href={`/api/jobs/${encodeURIComponent(selected.id)}/download`}
-                    >
-                      Download MP4 before removal
-                    </a>
-                  </p>
-                )}
-              <ExportFiles
-                job={{
-                  id: selected.id,
-                  projectId: selected.projectId,
-                  status: selected.status,
-                  files:
-                    removal ??
-                    (selected.fileState
-                      ? {
-                          jobId: selected.id,
-                          projectId: selected.projectId,
-                          state: selected.fileState,
-                          requestedAt: "",
-                          completedAt: null,
-                          error:
-                            selected.fileState === "failed"
-                              ? "Previous cleanup could not finish. Review the current files to retry."
-                              : null,
-                        }
-                      : undefined),
-                }}
-                onChange={changed}
-              />
-            </div>
-          )}
         </dialog>
       )}
     </section>

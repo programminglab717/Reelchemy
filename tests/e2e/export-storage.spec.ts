@@ -185,6 +185,12 @@ test("full export storage can be reclaimed across projects without losing an uns
       })
       .click();
     await expect(
+      dialog.getByRole("heading", {
+        name: `${retained.name} · export ${real.slice(0, 8)}`,
+        exact: true,
+      }),
+    ).toBeFocused();
+    await expect(
       dialog.getByRole("link", {
         name: "Download MP4 before removal",
         exact: true,
