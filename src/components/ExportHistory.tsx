@@ -191,7 +191,11 @@ function ExportHistoryPage({ projectId, current, onSelect }: HistoryProps) {
               {job.createdAt
                 ? `${job.createdAt.slice(0, 16).replace("T", " ")} UTC`
                 : "Unknown date"}{" "}
-              · {job.status} · {job.id.slice(0, 6)}
+              · {job.status}
+              {job.fileState
+                ? ` · files ${job.fileState === "completed" ? "removed" : job.fileState}`
+                : ""}{" "}
+              · {job.id.slice(0, 6)}
             </button>
           ))}
         </div>

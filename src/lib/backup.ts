@@ -16,6 +16,10 @@ import {
 import path from "node:path";
 import { z } from "zod";
 import { omitPendingDeletionsFromSnapshot } from "./project-deletion-store";
+import {
+  normalizeExportFileRemovalSnapshot,
+  snapshotRemovedExportIds,
+} from "./export-file-store";
 import { normalizeMediaProcessingSnapshot } from "./media-processing-store";
 
 const uuid = /^[a-f0-9-]{36}$/;
@@ -23,7 +27,8 @@ const entryPath =
   /^(?:data\/(?:studio\.sqlite|auth\.sqlite|auth-secret)|data\/assets\/[a-f0-9-]{36}|artifacts\/[a-f0-9-]{36}\/[a-zA-Z0-9][a-zA-Z0-9._-]{0,119})$/;
 const manifestSchema = z.object({
   format: z.literal("reelchemy-backup"),
-  version: z.literal(1),
+  version: z.union([z.literal(1), z.literal(2)]),
+  capabilities: z.tuple([z.literal("removed-export-files-v1")]).optional(),
   createdAt: z.string().datetime(),
   entries: z
     .array(
@@ -169,6 +174,24 @@ function snapshotReferences(db: Database.Database) {
       assets.add(asset.id);
     }
   }
+  for (const table of ["project_media_refs", "job_media_refs"]) {
+    if (
+      !db
+        .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?")
+        .get(table)
+    )
+      continue;
+    const query =
+      table === "project_media_refs"
+        ? "SELECT DISTINCT r.asset_id FROM project_media_refs r JOIN projects p ON p.id=r.project_id"
+        : "SELECT DISTINCT r.asset_id FROM job_media_refs r JOIN jobs j ON j.id=r.job_id JOIN projects p ON p.id=j.project_id";
+    for (const row of db.prepare(query).all() as { asset_id: string }[]) {
+      if (!uuid.test(row.asset_id))
+        throw new Error("Snapshot contains an invalid media reference.");
+      assets.add(row.asset_id);
+    }
+  }
+  const removed = snapshotRemovedExportIds(db);
   const jobs = db.prepare("SELECT id,status FROM jobs").all() as {
     id: string;
     status: string;
@@ -180,7 +203,7 @@ function snapshotReferences(db: Database.Database) {
       owner_id: string;
     }[]
   ).map((w) => w.owner_id);
-  return { assets, jobs, owners };
+  return { assets, jobs, owners, removed };
 }
 // Admin-only filesystem tooling. Stop web, render, ingestion and mail first. We do
 // not copy live SQLite files/WAL bytes or claim cross-database transactionality.
@@ -221,6 +244,7 @@ export async function createBackup(options: {
     try {
       normalizeMediaProcessingSnapshot(studio);
       omitPendingDeletionsFromSnapshot(studio);
+      normalizeExportFileRemovalSnapshot(studio);
       refs = snapshotReferences(studio);
     } finally {
       studio.close();
@@ -257,7 +281,9 @@ export async function createBackup(options: {
         path.join(output, "data/assets", id),
       );
     for (const job of refs.jobs.filter(
-      (j) => j.status === "completed" || j.status === "failed",
+      (j) =>
+        !refs.removed.has(j.id) &&
+        ["completed", "failed", "cancelled"].includes(j.status),
     )) {
       const source = path.join(artifacts, job.id);
       if (!(await exists(source))) {
@@ -286,7 +312,10 @@ export async function createBackup(options: {
       });
     const manifest = manifestSchema.parse({
       format: "reelchemy-backup",
-      version: 1,
+      version: refs.removed.size ? 2 : 1,
+      ...(refs.removed.size
+        ? { capabilities: ["removed-export-files-v1"] }
+        : {}),
       createdAt: new Date().toISOString(),
       entries,
     });
@@ -344,12 +373,26 @@ export async function verifyBackup(root: string): Promise<Manifest> {
   } finally {
     studio.close();
   }
+  if (
+    manifest.version === 2
+      ? manifest.capabilities?.[0] !== "removed-export-files-v1"
+      : manifest.capabilities !== undefined || refs.removed.size > 0
+  )
+    throw new Error(
+      "Backup export-removal capability is missing or inconsistent.",
+    );
+  for (const entry of expected) {
+    const match = /^artifacts\/([a-f0-9-]{36})\//.exec(entry);
+    if (match && refs.removed.has(match[1]))
+      throw new Error("Backup includes files consented for removal.");
+  }
   for (const id of refs.assets)
     if (!expected.has(`data/assets/${id}`))
       throw new Error("Backup is missing a referenced media asset.");
   for (const job of refs.jobs)
     if (
       job.status === "completed" &&
+      !refs.removed.has(job.id) &&
       !expected.has(`artifacts/${job.id}/video.mp4`)
     )
       throw new Error("Backup is missing a completed export.");
@@ -419,6 +462,7 @@ export async function restoreBackup(source: string, destination: string) {
     try {
       studio.transaction(() => {
         normalizeMediaProcessingSnapshot(studio);
+        normalizeExportFileRemovalSnapshot(studio);
         const rows = studio
           .prepare("SELECT id,status,data FROM jobs")
           .all() as { id: string; status: string; data: string }[];
