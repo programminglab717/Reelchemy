@@ -20,6 +20,11 @@ import {
   normalizeExportFileRemovalSnapshot,
   snapshotRemovedExportIds,
 } from "./export-file-store";
+import {
+  snapshotHasExportStorage,
+  normalizeExportStorageSnapshot,
+  verifyExportStorageSnapshot,
+} from "./export-storage-snapshot";
 import { normalizeMediaProcessingSnapshot } from "./media-processing-store";
 
 const uuid = /^[a-f0-9-]{36}$/;
@@ -27,8 +32,12 @@ const entryPath =
   /^(?:data\/(?:studio\.sqlite|auth\.sqlite|auth-secret)|data\/assets\/[a-f0-9-]{36}|artifacts\/[a-f0-9-]{36}\/[a-zA-Z0-9][a-zA-Z0-9._-]{0,119})$/;
 const manifestSchema = z.object({
   format: z.literal("reelchemy-backup"),
-  version: z.union([z.literal(1), z.literal(2)]),
-  capabilities: z.tuple([z.literal("removed-export-files-v1")]).optional(),
+  version: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  capabilities: z
+    .array(z.enum(["removed-export-files-v1", "export-storage-v1"]))
+    .min(1)
+    .max(2)
+    .optional(),
   createdAt: z.string().datetime(),
   entries: z
     .array(
@@ -203,7 +212,13 @@ function snapshotReferences(db: Database.Database) {
       owner_id: string;
     }[]
   ).map((w) => w.owner_id);
-  return { assets, jobs, owners, removed };
+  return {
+    assets,
+    jobs,
+    owners,
+    removed,
+    budget: snapshotHasExportStorage(db),
+  };
 }
 // Admin-only filesystem tooling. Stop web, render, ingestion and mail first. We do
 // not copy live SQLite files/WAL bytes or claim cross-database transactionality.
@@ -303,6 +318,19 @@ export async function createBackup(options: {
         await copyPrivate(path.join(source, file), path.join(output, relative));
       }
     }
+    if (refs.budget) {
+      const copy = openVerified(path.join(output, "data/studio.sqlite"), {
+        allowSnapshotWrites: true,
+      });
+      try {
+        await normalizeExportStorageSnapshot(
+          copy,
+          path.join(output, "artifacts"),
+        );
+      } finally {
+        copy.close();
+      }
+    }
     const entries: Manifest["entries"] = [];
     for (const file of (await listedFiles(output)).sort())
       entries.push({
@@ -312,9 +340,14 @@ export async function createBackup(options: {
       });
     const manifest = manifestSchema.parse({
       format: "reelchemy-backup",
-      version: refs.removed.size ? 2 : 1,
-      ...(refs.removed.size
-        ? { capabilities: ["removed-export-files-v1"] }
+      version: refs.budget ? 3 : refs.removed.size ? 2 : 1,
+      ...(refs.removed.size || refs.budget
+        ? {
+            capabilities: [
+              ...(refs.removed.size ? ["removed-export-files-v1"] : []),
+              ...(refs.budget ? ["export-storage-v1"] : []),
+            ],
+          }
         : {}),
       createdAt: new Date().toISOString(),
       entries,
@@ -373,14 +406,38 @@ export async function verifyBackup(root: string): Promise<Manifest> {
   } finally {
     studio.close();
   }
+  const required = [
+    ...(refs.removed.size || (!refs.budget && manifest.version === 2)
+      ? ["removed-export-files-v1"]
+      : []),
+    ...(refs.budget ? ["export-storage-v1"] : []),
+  ];
   if (
-    manifest.version === 2
-      ? manifest.capabilities?.[0] !== "removed-export-files-v1"
-      : manifest.capabilities !== undefined || refs.removed.size > 0
+    manifest.version !==
+      (refs.budget ? 3 : refs.removed.size || manifest.version === 2 ? 2 : 1) ||
+    (required.length === 0
+      ? manifest.capabilities !== undefined
+      : manifest.capabilities?.length !== required.length ||
+        required.some(
+          (cap) =>
+            !manifest.capabilities?.includes(
+              cap as "removed-export-files-v1" | "export-storage-v1",
+            ),
+        ) ||
+        new Set(manifest.capabilities).size !== required.length)
   )
     throw new Error(
-      "Backup export-removal capability is missing or inconsistent.",
+      "Backup export accounting/removal capability is missing or inconsistent.",
     );
+  if (refs.budget) {
+    const copy = openVerified(path.join(root, "data/studio.sqlite"));
+    try {
+      verifyExportStorageSnapshot(copy, manifest.entries);
+    } finally {
+      copy.close();
+    }
+  }
+
   for (const entry of expected) {
     const match = /^artifacts\/([a-f0-9-]{36})\//.exec(entry);
     if (match && refs.removed.has(match[1]))
@@ -464,10 +521,19 @@ export async function restoreBackup(source: string, destination: string) {
         normalizeMediaProcessingSnapshot(studio);
         normalizeExportFileRemovalSnapshot(studio);
         const rows = studio
-          .prepare("SELECT id,status,data FROM jobs")
-          .all() as { id: string; status: string; data: string }[];
+          .prepare("SELECT id,project_id,status,data FROM jobs")
+          .all() as {
+          id: string;
+          project_id: string;
+          status: string;
+          data: string;
+        }[];
         for (const row of rows) {
           const job = JSON.parse(row.data);
+          job.id = row.id;
+          job.projectId = row.project_id;
+          job.status = row.status;
+          delete job.files;
           if (["queued", "rendering"].includes(row.status)) {
             job.status = "failed";
             job.progress = 0;
@@ -475,7 +541,11 @@ export async function restoreBackup(source: string, destination: string) {
             job.error =
               "Restored from backup. Start a new export from the saved project.";
           }
-          if (job.report?.export)
+          if (
+            job.report?.export &&
+            typeof job.report.export === "object" &&
+            !Array.isArray(job.report.export)
+          )
             job.report.export.path = path.join(
               root,
               "artifacts",
@@ -487,6 +557,11 @@ export async function restoreBackup(source: string, destination: string) {
             .run(job.status, JSON.stringify(job), row.id);
         }
       })();
+      if (snapshotHasExportStorage(studio))
+        await normalizeExportStorageSnapshot(
+          studio,
+          path.join(root, "artifacts"),
+        );
     } finally {
       studio.close();
     }
