@@ -113,12 +113,21 @@ test("compact export pages reach an older real MP4, recover read failures and pr
         });
       return route.continue();
     });
+    const saveRefused = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === `/api/projects/${project.id}` &&
+        response.request().method() === "PATCH",
+    );
     await page
       .getByLabel("Scene title", { exact: true })
       .fill("My unsaved film stays here");
+    expect((await saveRefused).status()).toBe(503);
+    await expect(
+      page.getByRole("alert").filter({ hasText: "Synthetic save outage" }),
+    ).toBeVisible();
     await expect(
       page.getByRole("status", { name: "Save status", exact: true }),
-    ).toContainText("kept");
+    ).toHaveText("Unsaved changes");
     await history
       .getByRole("button", { name: "Older exports", exact: true })
       .click();
