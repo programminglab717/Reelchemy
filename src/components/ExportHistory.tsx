@@ -158,7 +158,7 @@ function ExportHistoryPage({ projectId, current, onSelect }: HistoryProps) {
   }
   return (
     <section
-      className="layer-editor"
+      className="layer-editor export-history"
       aria-label="Export history"
       aria-busy={loading || !!opening}
     >
