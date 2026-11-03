@@ -78,7 +78,7 @@ async function run() {
     await lockFile(render);
     await lockFile(ingest);
     const token = randomUUID(),
-      environment = { ...process.env, [internal]: token };
+      environment: NodeJS.ProcessEnv = { ...process.env, [internal]: token };
     for (const name of Object.keys(environment))
       if (
         name.startsWith("AI_") ||
