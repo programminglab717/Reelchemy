@@ -175,6 +175,28 @@ test("reviewed file removal rejects stale consent, replays a lost response, pres
   ).toBeEnabled();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(panel.getByRole("status")).toContainText("Export files removed");
+  await testInfo.attach("mobile-layout", {
+    contentType: "application/json",
+    body: JSON.stringify(
+      await page.evaluate(() => ({
+        width: window.innerWidth,
+        scroll: document.documentElement.scrollWidth,
+        overflow: [...document.querySelectorAll("body *")]
+          .map((element) => ({
+            tag: element.tagName,
+            class: element.className,
+            text: element.textContent?.trim().slice(0, 80),
+            left: element.getBoundingClientRect().left,
+            right: element.getBoundingClientRect().right,
+          }))
+          .filter(
+            (item) => item.right > window.innerWidth + 1 || item.left < -1,
+          ),
+      })),
+      null,
+      2,
+    ),
+  });
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
