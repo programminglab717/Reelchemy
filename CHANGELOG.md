@@ -377,4 +377,4 @@ Add a selected-layer duplicate action to the canvas and advanced layer controls.
 ## 0.48.1 — 2026-11-03
 
 - The production regression found that a process-inspection refusal during cancellation stopped the render consumer and left its next export queued. Inspection now validates PID-start/state around reads and rechecks an exiting task; stopped zombies cannot be treated as executing, while live unreadable tasks still fail closed. Bounded diagnostics record only PID/error code.
-- All 361 backend/native tests, static checks and production build guards pass. Three repetitions of the exact cancellation/follow-up-MP4 case and three cleanup/rotation production cases pass. A complete 73-case production browser rerun is in progress; the earlier interrupted run remains recorded in VALIDATION.md.
+- All 361 backend/native tests, static checks and production build guards pass. Three repetitions of the exact cancellation/follow-up-MP4 case and three cleanup/rotation production cases pass. The complete 73-case production browser rerun passes in 26.3 minutes with no skipped/flaky/unexpected results; the earlier interrupted run remains recorded in VALIDATION.md.
