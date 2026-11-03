@@ -8,6 +8,10 @@ import {
   readRetiredJob,
   retainedRetirementSourcesSql,
 } from "../src/lib/job-history-references";
+import {
+  migrateMediaReferences,
+  rebuildMediaReferences,
+} from "../src/lib/media-references";
 test("retired source manifests pin exact indexed owners and job-only media through old writes/rebuild attempts, then release only after job deletion", () => {
   const db = new Database(":memory:"),
     projectId = "owned-legacy-film",
@@ -128,4 +132,95 @@ test("ambiguous, oversized or unsorted retired-source manifests are refused befo
     { ...input, unexpected: true },
   ])
     assert(!retiredJobManifest.safeParse(value).success);
+});
+test("retirement strips a full timeline atomically while new reference triggers and explicit rebuilds retain its job-only originals", () => {
+  const db = new Database(":memory:"),
+    jobId = randomUUID(),
+    source = randomUUID(),
+    projectId = "legacy-source-film";
+  db.exec(
+    "CREATE TABLE projects(id TEXT PRIMARY KEY,data TEXT,workspace_id TEXT);CREATE TABLE jobs(id TEXT PRIMARY KEY,project_id TEXT,status TEXT,data TEXT,timeline TEXT)",
+  );
+  const timeline = JSON.stringify({
+      scenes: [{ layers: [{ assetId: source }] }],
+    }),
+    data = JSON.stringify({
+      id: jobId,
+      projectId,
+      status: "failed",
+      report: { detail: "RETIRE_THIS_FULL_REPORT" },
+    }),
+    shell = JSON.stringify({
+      id: jobId,
+      projectId,
+      status: "failed",
+      retired: true,
+      report: null,
+    });
+  db.prepare("INSERT INTO projects VALUES(?,'{}','owner')").run(projectId);
+  db.prepare("INSERT INTO jobs VALUES(?,?,'failed',?,?)").run(
+    jobId,
+    projectId,
+    data,
+    timeline,
+  );
+  migrateMediaReferences(db);
+  const manifest = retiredJobManifest.parse({
+    format: "reelchemy-retired-export-v1",
+    jobId,
+    projectId,
+    workspaceId: "owner",
+    retiredAt: new Date().toISOString(),
+    digest: "c".repeat(64),
+    sourceIds: [source],
+  });
+  try {
+    db.transaction(() => {
+      db.prepare("INSERT INTO job_history_retirements VALUES(?,?,?,?,?)").run(
+        jobId,
+        projectId,
+        "owner",
+        JSON.stringify(manifest),
+        shell,
+      );
+      db.prepare("UPDATE jobs SET data=?,timeline='null' WHERE id=?").run(
+        shell,
+        jobId,
+      );
+    }).immediate();
+    const expected = [{ job_id: jobId, asset_id: source }];
+    assert.deepEqual(
+      db.prepare("SELECT * FROM job_media_refs").all(),
+      expected,
+    );
+    assert.deepEqual(readRetiredJob(db, jobId), manifest);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      rebuildMediaReferences(db);
+      migrateMediaReferences(db);
+      assert.deepEqual(
+        db.prepare("SELECT * FROM job_media_refs").all(),
+        expected,
+      );
+      assert.equal(
+        (
+          db.prepare("SELECT timeline FROM jobs WHERE id=?").get(jobId) as {
+            timeline: string;
+          }
+        ).timeline,
+        "null",
+      );
+    }
+    assert.throws(() => db.exec("DELETE FROM job_media_refs"));
+    assert.equal(
+      (
+        db.prepare("SELECT data FROM jobs WHERE id=?").get(jobId) as {
+          data: string;
+        }
+      ).data,
+      shell,
+    );
+    assert(!shell.includes("RETIRE_THIS_FULL_REPORT"));
+  } finally {
+    db.close();
+  }
 });
