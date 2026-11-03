@@ -354,6 +354,6 @@
 
 Source media, MP4 downloads, thumbnails and allowlisted evidence now stream through held regular-file descriptors in bounded chunks. Single byte ranges and explicit HEAD are supported, with private no-store/nosniff on every response, including authentication/ownership failures. Linux directory-descriptor traversal refuses symbolic ancestors, directories and files; nonblocking open rejects pipes. Cancellation/abort closes descriptors, changed files fail with a fixed transfer error, and missing exports return private 404. Authentication, actor checks, ownership, Trash and job/evidence eligibility remain enforced. Production acceptance is recorded separately.
 
-## 0.45.0 candidate — compact export history
+## 0.45.0 — 2026-11-03: compact export history
 
 The editor pages 20 private export summaries and reads one full report only after selection. Newer/older navigation has a stable anchored view, explicit refresh, read/open retry and bounded requests while current edits remain in the editor. Authenticated encryption binds opaque page cursors to the studio, project, purpose and snapshot without exposing shared sequence numbers. Legacy full-list API behavior remains available. This does not remove exports or enforce retained-export budgets. Acceptance follows execution in VALIDATION.md.
