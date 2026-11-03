@@ -88,6 +88,7 @@ try {
   const nativeSelected = args.some((arg) =>
     [
       "cache-cli.test.ts",
+      "browser-startup-worker.test.ts",
       "cache-worker.test.ts",
       "project-deletions.test.ts",
       "render-static.test.ts",

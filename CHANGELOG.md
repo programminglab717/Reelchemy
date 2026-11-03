@@ -357,3 +357,7 @@ Source media, MP4 downloads, thumbnails and allowlisted evidence now stream thro
 ## 0.45.0 — 2026-11-03: compact export history
 
 The editor pages 20 private export summaries and reads one full report only after selection. Newer/older navigation has a stable anchored view, explicit refresh, read/open retry and bounded requests while current edits remain in the editor. Authenticated encryption binds opaque page cursors to the studio, project, purpose and snapshot without exposing shared sequence numbers. Legacy full-list API behavior remains available. This does not remove exports or enforce retained-export budgets. Acceptance follows execution in VALIDATION.md.
+
+## 0.46.0 candidate — native browser-start recovery
+
+Own native Chromium launches before their connection exists, using an immutable launcher and private pinned configuration under noexec temporary storage. Failed startup, normal completion and cancellation release only attempt-owned processes and registered native profiles; unknown/replaced entries fail safely. A narrowly recognized connection-start timeout uses the existing single retry, while QC, cancellation, missing executables and unsafe cleanup remain terminal. Actual worker recovery, source/lifecycle preservation and noexec acceptance are recorded in VALIDATION.md; complete current-source backend/build/browser acceptance follows execution.

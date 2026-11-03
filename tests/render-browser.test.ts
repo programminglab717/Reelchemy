@@ -21,6 +21,19 @@ test(
         process.env.CHROMIUM_PATH || "/usr/bin/chromium",
         async (browser) => {
           owned = browser;
+          // The vendor's reduced CDP types omit this standard command. Check
+          // its actual response before inspecting the effective user agent.
+          const getVersion = browser.connection.send.bind(
+            browser.connection,
+          ) as (method: "Browser.getVersion") => Promise<{ value: unknown }>;
+          const version = await getVersion("Browser.getVersion");
+          assert(
+            version.value &&
+              typeof version.value === "object" &&
+              "userAgent" in version.value &&
+              typeof version.value.userAgent === "string",
+          );
+          assert(!version.value.userAgent.includes("ReelchemyRenderAttempt"));
           closed = new Promise<void>((resolve) =>
             browser.connection.transport.websocket.addEventListener(
               "close",
