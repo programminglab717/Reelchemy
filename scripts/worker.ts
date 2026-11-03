@@ -23,6 +23,7 @@ import { preparedRenderer } from "../src/lib/prepared-renderer";
 import { processExportFileRemoval } from "../src/lib/export-file-cleanup";
 import {
   liveNativeRenderJobs,
+  RenderProcessInspectionError,
   renderJobMarker,
   renderRootMarker,
 } from "../src/lib/render-attempt-processes";
@@ -307,6 +308,14 @@ async function main() {
   }
 }
 main().catch((e) => {
+  if (e instanceof RenderProcessInspectionError)
+    console.error(
+      JSON.stringify({
+        event: "render.process.inspection.failed",
+        pid: e.processId,
+        code: e.reason,
+      }),
+    );
   console.error(e.message);
   process.exitCode = 1;
 });
