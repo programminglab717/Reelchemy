@@ -16,6 +16,20 @@ import {
   type ExportFileTask,
 } from "./export-file-store";
 import type { ExportFileManifest } from "./export-file-policy";
+import {
+  migrateExportStorage,
+  reserveExportStorage,
+  exportStorageUsage,
+  assertExportStorageComplete,
+  exportOutputCeiling,
+  settleExportStorage,
+  markExportStorageUncertain,
+  releaseKnownTerminalHolds,
+} from "./export-storage-store";
+import {
+  exportStoragePolicy,
+  ExportStorageUnavailable,
+} from "./export-storage-policy";
 import { ownedExportPage } from "./export-history";
 import type {
   Asset,
@@ -143,6 +157,7 @@ db.transaction(() => {
   migrateMediaReferences(db);
   migrateProjectDeletions(db);
   migrateExportFileRemovals(db);
+  migrateExportStorage(db);
   if (
     !db
       .prepare("SELECT id FROM schema_migrations WHERE id=?")
@@ -951,6 +966,13 @@ function enqueueJob(project: Project, workspaceId?: string) {
     JSON.stringify(job),
     JSON.stringify(project.timeline),
   );
+  reserveExportStorage(
+    db,
+    job.id,
+    project.id,
+    workspaceForProject(project.id) ?? null,
+    exportStoragePolicy(),
+  );
   return job;
 }
 function rawJob(id: string): RenderJob | undefined {
@@ -982,11 +1004,76 @@ export const releaseExportReview = (token: string) =>
   releaseExportFileReview(db, token);
 export const claimExportFiles = () => claimExportFileRemoval(db);
 export const finishExportFiles = (task: ExportFileTask) =>
-  finishExportFileRemoval(db, task);
+  db
+    .transaction(() => {
+      const exists = db
+        .prepare("SELECT 1 FROM export_storage_entries WHERE job_id=?")
+        .get(task.jobId);
+      if (exists) settleExportStorage(db, task.jobId, 0, 0, true);
+      else
+        db.prepare(
+          "DELETE FROM schema_migrations WHERE id='export-storage-census-v1'",
+        ).run();
+      return finishExportFileRemoval(db, task);
+    })
+    .immediate();
 export const failExportFiles = (task: ExportFileTask) =>
   failExportFileRemoval(db, task);
-export function finishJobAttempt(jobId: string) {
-  db.prepare("DELETE FROM render_job_attempts WHERE job_id=?").run(jobId);
+export function finishJobAttempt(
+  jobId: string,
+  footprint?: { bytes: number; files: number },
+) {
+  return db
+    .transaction(() => {
+      if (footprint) {
+        const status = (
+          db.prepare("SELECT status FROM jobs WHERE id=?").get(jobId) as
+            { status: string } | undefined
+        )?.status;
+        if (!status) throw new ExportStorageUnavailable();
+        settleExportStorage(
+          db,
+          jobId,
+          footprint.bytes,
+          footprint.files,
+          ["completed", "failed", "cancelled"].includes(status),
+        );
+      }
+      db.prepare("DELETE FROM render_job_attempts WHERE job_id=?").run(jobId);
+      releaseKnownTerminalHolds(db);
+    })
+    .immediate();
+}
+export const exportStorage = (workspaceId: string) =>
+  exportStorageUsage(db, workspaceId, exportStoragePolicy());
+export const exportStorageReady = () => assertExportStorageComplete(db);
+export const exportJobCeiling = (jobId: string) =>
+  exportOutputCeiling(db, jobId, exportStoragePolicy());
+export const uncertainExportStorage = (jobId: string) =>
+  markExportStorageUncertain(db, jobId);
+export const releaseFinishedExportHolds = () => releaseKnownTerminalHolds(db);
+export const exportStorageRecoveryJobs = () =>
+  db
+    .prepare(
+      "SELECT e.job_id AS id,j.status,EXISTS(SELECT 1 FROM export_file_removals r WHERE r.job_id=j.id) AS removing FROM export_storage_entries e JOIN jobs j ON j.id=e.job_id WHERE e.dirty=1 OR (e.reservation_bytes>0 AND j.status IN ('completed','failed','cancelled')) ORDER BY e.job_id",
+    )
+    .all() as { id: string; status: string; removing: number }[];
+export function settleRecoveredExport(
+  jobId: string,
+  footprint: { bytes: number; files: number },
+) {
+  const status = (
+    db.prepare("SELECT status FROM jobs WHERE id=?").get(jobId) as
+      { status: string } | undefined
+  )?.status;
+  if (!status) throw new ExportStorageUnavailable();
+  return settleExportStorage(
+    db,
+    jobId,
+    footprint.bytes,
+    footprint.files,
+    ["completed", "failed", "cancelled"].includes(status),
+  );
 }
 export function updateJob(id: string, patch: Partial<RenderJob>) {
   return db

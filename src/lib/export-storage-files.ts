@@ -43,6 +43,7 @@ export async function measureExportFiles(
     isStopping?: () => boolean;
   } = {},
 ) {
+  if (process.platform !== "linux") throw new ExportStorageUnavailable();
   if (!z.uuid().safeParse(jobId).success) throw new ExportStorageUnavailable();
   const deadline = Date.now() + 5000,
     check = () => {
