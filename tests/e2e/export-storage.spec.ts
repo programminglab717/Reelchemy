@@ -55,21 +55,19 @@ test("full export storage can be reclaimed across projects without losing an uns
     admin
       .transaction(() => {
         for (const id of ids) {
-          admin
-            .prepare("INSERT INTO jobs VALUES(?,?,'failed',?,?)")
-            .run(
+          admin.prepare("INSERT INTO jobs VALUES(?,?,'failed',?,?)").run(
+            id,
+            retained.id,
+            JSON.stringify({
               id,
-              retained.id,
-              JSON.stringify({
-                id,
-                projectId: retained.id,
-                status: "failed",
-                createdAt: new Date().toISOString(),
-                issues: [],
-                report: { privateCanary: "PRIVATE_RETAINED_REPORT" },
-              }),
-              JSON.stringify(retained.timeline),
-            );
+              projectId: retained.id,
+              status: "failed",
+              createdAt: new Date().toISOString(),
+              issues: [],
+              report: { privateCanary: "PRIVATE_RETAINED_REPORT" },
+            }),
+            JSON.stringify(retained.timeline),
+          );
           admin
             .prepare(
               "INSERT INTO export_storage_entries VALUES(?,?,?,0,1,0,536870912,0)",

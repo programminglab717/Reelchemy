@@ -51,7 +51,12 @@ export function ExportStorage({
         const response = await request("/api/workspace/export-storage", {
           signal: AbortSignal.any([abort.signal, AbortSignal.timeout(15000)]),
         });
-        if (!response.ok) throw new Error();
+        if (!response.ok) {
+          const failure = await response.json().catch(() => null);
+          if (failure?.code === "EXPORT_STORAGE_UNAVAILABLE")
+            throw new Error("operator-review");
+          throw new Error();
+        }
         const value: ExportStorageUsage = await response.json();
         if (
           !value ||
@@ -75,10 +80,12 @@ export function ExportStorage({
         setUsageError("");
         if (value.pendingExports > 0)
           timer = setTimeout(() => void load(), 3000);
-      } catch {
+      } catch (failure) {
         if (!abort.signal.aborted)
           setUsageError(
-            "Export storage is unavailable. Refresh to retry; you can keep editing.",
+            failure instanceof Error && failure.message === "operator-review"
+              ? "Export storage needs attention from the studio operator before another export can start. Your edits and existing downloads are kept."
+              : "Export storage is unavailable. Refresh to retry; you can keep editing.",
           );
       }
     }

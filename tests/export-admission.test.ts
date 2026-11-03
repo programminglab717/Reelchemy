@@ -37,10 +37,10 @@ const cookie = login.headers
   .map((c) => c.split(";")[0])
   .join("; ");
 const owner = db.ensureWorkspace(signup.user.id, "Owner").id;
-function project() {
+function project(workspaceId = owner) {
   const p = db.createProject(
     { prompt: "Approved video", duration: 5, format: "landscape" },
-    owner,
+    workspaceId,
   );
   return db.reviseProject(p, blankTimeline(p.brief), "Initial");
 }
@@ -257,7 +257,14 @@ test("independent web processes atomically admit one snapshot and replay it even
   assert.equal(new Set(results.map((r) => r.job.id)).size, 1);
   assert.equal(results.filter((r) => !r.replayed).length, 1);
   assert.equal(db.listJobs(p.id).length, 1);
-  const filling = Array.from({ length: 4 }, () => db.createJob(p));
+  const otherProjects = ["queue-filler-a", "queue-filler-b"].map((user) => {
+    const workspace = db.ensureWorkspace(user, user).id;
+    return { workspace, project: project(workspace) };
+  });
+  const filling = Array.from({ length: 4 }, (_, index) => {
+    const other = otherProjects[index % 2];
+    return db.createOwnedJob(other.project.id, other.workspace)!.job;
+  });
   assert.equal(
     db.createOwnedJob(p.id, owner, { key, baseRevisionId: revisionId(p) })?.job
       .id,
