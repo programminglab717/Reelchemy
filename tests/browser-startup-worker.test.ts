@@ -3,6 +3,11 @@ import assert from "node:assert/strict";
 import { mkdtemp, writeFile, readFile, stat, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { once } from "node:events";
+import {
+  renderJobMarker,
+  renderRootMarker,
+} from "../src/lib/render-attempt-processes";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import Database from "better-sqlite3";
@@ -90,6 +95,22 @@ test(
         ["BETTER_AUTH_SECRET", "BETTER_AUTH_URL", "EMAIL_FROM"].includes(name)
       )
         delete env[name];
+    const interrupted = app.createOwnedJob(saved.id, workspace)!.job;
+    app.claimJob();
+    app.updateJob(interrupted.id, { status: "cancelled" });
+    const surviving = spawnTestProcess(
+      process.execPath,
+      ["-e", "process.stdout.write('ready\\n');setInterval(()=>{},1000)"],
+      {
+        env: {
+          ...env,
+          [renderJobMarker]: interrupted.id,
+          [renderRootMarker]: data,
+        },
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+    await once(surviving.stdout!, "data");
     const worker = spawnTestProcess(
       process.execPath,
       ["--import", "tsx", "scripts/worker-entrypoint.ts"],
@@ -138,6 +159,32 @@ test(
     }
     let lifecycle: Awaited<ReturnType<typeof stat>> | undefined;
     try {
+      await wait(
+        () => output.includes("PREVIOUS_NATIVE_ATTEMPT_ACTIVE"),
+        "Consumer did not wait for its interrupted native attempt",
+        15000,
+      );
+      assert.equal(
+        (
+          inspect
+            .prepare(
+              "SELECT count(*) AS n FROM render_job_attempts WHERE job_id=?",
+            )
+            .get(interrupted.id) as { n: number }
+        ).n,
+        1,
+      );
+      assert.equal(
+        JSON.parse(
+          await readFile(path.join(data, "worker-heartbeat.json"), "utf8"),
+        ).ready,
+        false,
+      );
+      assert.throws(
+        () => app.ownedExportFileSource(interrupted.id, workspace),
+        /cancellation to finish/,
+      );
+      await shutdownTestProcesses([surviving]);
       await wait(
         async () =>
           recentHeartbeat(
@@ -201,7 +248,7 @@ test(
       finished = true;
     } finally {
       if (!finished) diagnostic();
-      await shutdownTestProcesses([worker]);
+      await shutdownTestProcesses([worker, surviving]);
       try {
         if (lifecycle)
           assert.equal(
