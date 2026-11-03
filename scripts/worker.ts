@@ -5,6 +5,7 @@ import {
   artifactDir,
   dataDir,
   claimJob,
+  finishJobAttempt,
   getJob,
   updateJob,
   recoverJobs,
@@ -19,6 +20,12 @@ import { RenderQCError } from "../src/lib/layout-qc";
 import { transientRenderError } from "../src/lib/retry";
 import { renderFilm } from "../src/lib/render";
 import { preparedRenderer } from "../src/lib/prepared-renderer";
+import { processExportFileRemoval } from "../src/lib/export-file-cleanup";
+import {
+  liveNativeRenderJobs,
+  renderJobMarker,
+  renderRootMarker,
+} from "../src/lib/render-attempt-processes";
 import { processProjectDeletion } from "../src/lib/project-cleanup";
 const lock = path.join(dataDir, "worker.lock");
 async function main() {
@@ -123,6 +130,22 @@ async function main() {
     timer = setInterval(() => {
       void beat().catch(() => {});
     }, 5000);
+    let reportedInterrupted = false;
+    while (!stopping && (await liveNativeRenderJobs(dataDir)).size) {
+      cacheReady = false;
+      await beat();
+      if (!reportedInterrupted) {
+        console.error(
+          JSON.stringify({
+            event: "render.recovery.waiting",
+            code: "PREVIOUS_NATIVE_ATTEMPT_ACTIVE",
+          }),
+        );
+        reportedInterrupted = true;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    if (stopping) return;
     recoverJobs();
     await beat();
     let announced = false;
@@ -131,6 +154,8 @@ async function main() {
         maintenanceDue = true;
         continue;
       }
+      if (kernelManaged) await processExportFileRemoval(() => stopping);
+      if (stopping) break;
       if (
         kernelManaged &&
         (maintenanceDue || Date.now() - lastMaintenance >= 60000)
@@ -183,6 +208,8 @@ async function main() {
           Math.min(900000, Number(process.env.RENDER_JOB_TIMEOUT_MS) || 600000),
         );
       try {
+        process.env[renderJobMarker] = job.id;
+        process.env[renderRootMarker] = dataDir;
         recordJobStage(job.id, "Starting export");
         const report = await renderFilm(
           timeline,
@@ -254,6 +281,17 @@ async function main() {
             error: message,
           }),
         );
+      } finally {
+        delete process.env[renderJobMarker];
+        delete process.env[renderRootMarker];
+        if ((await liveNativeRenderJobs(dataDir)).has(job.id)) {
+          cacheReady = false;
+          await beat();
+          throw new Error(
+            "The previous native export attempt is still active. Rendering and cleanup require operator review.",
+          );
+        }
+        finishJobAttempt(job.id);
       }
     }
   } finally {

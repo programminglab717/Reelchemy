@@ -11,7 +11,7 @@ async function GETHandler(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const job = getJob((await params).id);
-  if (job?.status !== "completed" || !validAssetId(job.id))
+  if (job?.status !== "completed" || job.files || !validAssetId(job.id))
     return privateFileMissing();
   return privateFileResponse(
     req,

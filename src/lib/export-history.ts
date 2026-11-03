@@ -7,6 +7,7 @@ import {
 } from "./export-history-cursor";
 export type ExportSummary = Pick<RenderJob, "id" | "projectId" | "status"> & {
   createdAt: string | null;
+  fileState?: import("./export-file-policy").ExportFileState;
 };
 export type ExportPage = {
   items: ExportSummary[];
@@ -76,9 +77,14 @@ export function ownedExportPage(
           )
           .get(projectId, anchor) as { value: number }
       ).value;
+      const hasRemovalTable = !!db
+        .prepare(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name='export_file_removals'",
+        )
+        .get();
       const rows = db
         .prepare(
-          `SELECT j.rowid AS cursor,
+          `SELECT j.rowid AS cursor, ${hasRemovalTable ? "(SELECT r.state FROM export_file_removals r WHERE r.job_id=j.id)" : "NULL"} AS fileState,
       CASE WHEN length(CAST(j.id AS BLOB))<=640 THEN j.id ELSE NULL END AS id,
       CASE WHEN j.status IN ('queued','rendering','completed','failed','cancelled') THEN j.status ELSE NULL END AS status,
       CASE WHEN json_type(${document},'$.createdAt')='text' AND length(CAST(${date} AS BLOB))<=40 THEN ${date} ELSE NULL END AS createdAt
@@ -106,6 +112,7 @@ export function ownedExportPage(
           id: row.id,
           projectId,
           status: row.status,
+          ...(row.fileState ? { fileState: row.fileState } : {}),
           createdAt: z.iso.datetime({ offset: true }).safeParse(row.createdAt)
             .success
             ? new Date(row.createdAt!).toISOString()
