@@ -53,7 +53,7 @@ export function migrateExportStorage(db: Database.Database) {
  CREATE INDEX IF NOT EXISTS export_storage_owner_idx ON export_storage_entries(workspace_id);
  CREATE TRIGGER IF NOT EXISTS export_storage_render_admission BEFORE UPDATE OF status ON jobs WHEN NEW.status='rendering' AND NOT EXISTS(SELECT 1 FROM export_storage_entries e JOIN projects p ON p.id=NEW.project_id WHERE e.job_id=NEW.id AND e.project_id=NEW.project_id AND e.workspace_id IS p.workspace_id AND e.reservation_bytes>0 AND p.trashed_at IS NULL AND NOT EXISTS(SELECT 1 FROM project_deletions d WHERE d.project_id=p.id)) BEGIN SELECT RAISE(ABORT,'A captured export storage reservation is required before rendering.'); END;
  CREATE TRIGGER IF NOT EXISTS export_storage_attempt_started AFTER UPDATE OF status ON jobs WHEN NEW.status='rendering' BEGIN UPDATE export_storage_entries SET dirty=1 WHERE job_id=NEW.id; END;
- CREATE TRIGGER IF NOT EXISTS export_storage_queued_cancelled AFTER UPDATE OF status ON jobs WHEN OLD.status='queued' AND NEW.status='cancelled' AND NOT EXISTS(SELECT 1 FROM render_job_attempts a WHERE a.job_id=NEW.id) BEGIN UPDATE export_storage_entries SET reservation_bytes=0 WHERE job_id=NEW.id AND dirty=0; END;
+ CREATE TRIGGER IF NOT EXISTS export_storage_pristine_terminal AFTER UPDATE OF status ON jobs WHEN OLD.status='queued' AND NEW.status IN ('cancelled','failed','completed') AND NOT EXISTS(SELECT 1 FROM render_job_attempts a WHERE a.job_id=NEW.id) BEGIN UPDATE export_storage_entries SET reservation_bytes=0 WHERE job_id=NEW.id AND dirty=0; END;
  CREATE TRIGGER IF NOT EXISTS export_storage_job_deleted AFTER DELETE ON jobs BEGIN DELETE FROM export_storage_entries WHERE job_id=OLD.id; END;
  CREATE TRIGGER IF NOT EXISTS export_storage_job_moved BEFORE UPDATE OF project_id ON jobs WHEN NEW.project_id IS NOT OLD.project_id AND EXISTS(SELECT 1 FROM export_storage_entries e WHERE e.job_id=OLD.id) BEGIN SELECT RAISE(ABORT,'Export storage ownership cannot move to another project.'); END;
  CREATE TRIGGER IF NOT EXISTS export_storage_project_owner AFTER UPDATE OF workspace_id ON projects WHEN NEW.workspace_id IS NOT OLD.workspace_id BEGIN UPDATE export_storage_entries SET workspace_id=NEW.workspace_id WHERE project_id=NEW.id; END;`);
@@ -342,4 +342,14 @@ export function markExportStorageUncertain(
       db.prepare("DELETE FROM schema_migrations WHERE id=?").run(migration);
     })
     .immediate();
+}
+
+// Once a stable footprint is known and the native attempt lease has gone,
+// terminal work no longer needs its remaining hold. Retained bytes stay charged.
+export function releaseKnownTerminalHolds(db: Database.Database) {
+  return db
+    .prepare(
+      `UPDATE export_storage_entries AS e SET reservation_bytes=0 WHERE e.dirty=0 AND e.reservation_bytes>0 AND NOT EXISTS(SELECT 1 FROM render_job_attempts a WHERE a.job_id=e.job_id) AND EXISTS(SELECT 1 FROM jobs j JOIN projects p ON p.id=j.project_id WHERE j.id=e.job_id AND j.project_id=e.project_id AND p.workspace_id IS e.workspace_id AND j.status IN ('completed','failed','cancelled'))`,
+    )
+    .run().changes;
 }

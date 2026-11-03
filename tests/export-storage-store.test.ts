@@ -386,3 +386,31 @@ test("queued cancellation releases a pristine hold, while an interrupted dirty a
       2 * MiB,
     );
   }));
+
+test("known terminal work releases only its hold after the lease ends; dirty or live attempts stay charged", () =>
+  fixture(({ db, reserve }) => {
+    const job = reserve();
+    db.prepare("UPDATE jobs SET status='rendering' WHERE id=?").run(job.jobId);
+    db.prepare("INSERT INTO render_job_attempts VALUES(?,'fixture')").run(
+      job.jobId,
+    );
+    db.prepare("UPDATE jobs SET status='failed' WHERE id=?").run(job.jobId);
+    assert.equal(store.releaseKnownTerminalHolds(db), 0);
+    store.settleExportStorage(db, job.jobId, MiB, 1, false);
+    assert.equal(store.releaseKnownTerminalHolds(db), 0);
+    db.prepare("DELETE FROM render_job_attempts WHERE job_id=?").run(job.jobId);
+    assert.equal(store.releaseKnownTerminalHolds(db), 1);
+    assert.equal(store.exportStorageUsage(db, "owner", policy).usedBytes, MiB);
+    assert.equal(
+      store.exportStorageUsage(db, "owner", policy).reservedBytes,
+      0,
+    );
+    const pristine = reserve();
+    db.prepare("UPDATE jobs SET status='failed' WHERE id=?").run(
+      pristine.jobId,
+    );
+    assert.equal(
+      store.exportStorageUsage(db, "owner", policy).reservedBytes,
+      0,
+    );
+  }));

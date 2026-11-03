@@ -28,7 +28,8 @@
     "ai:usage": "tsx scripts/ai-usage.ts",
     "ai:reconcile": "tsx scripts/ai-reconcile.ts",
     "cache:prune": "tsx scripts/cache-maintenance.ts",
-    "storage:usage": "tsx scripts/storage-usage.ts"
+    "storage:usage": "tsx scripts/storage-usage.ts",
+    "exports:recount": "tsx scripts/export-storage-census.ts"
   },
   "dependencies": {
     "@remotion/bundler": "4.0.539",
