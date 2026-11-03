@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useAccountFetch } from "./AccountBoundary";
 import { ExportFiles } from "./ExportFiles";
 import type { ExportStorageUsage } from "@/lib/export-storage-policy";
@@ -326,11 +325,11 @@ export function ExportStorage({
                 !selected.fileState &&
                 selected.status === "completed" && (
                   <p>
-                    <Link
+                    <a
                       href={`/api/jobs/${encodeURIComponent(selected.id)}/download`}
                     >
                       Download MP4 before removal
-                    </Link>
+                    </a>
                   </p>
                 )}
               <ExportFiles

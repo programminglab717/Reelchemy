@@ -170,12 +170,20 @@ test(
       assert.equal(app.exportStorage(workspace).retainedExports, 0);
       assert.equal(hash(await readFile(sourceFile)), sourceHash);
       assert.equal(hash(JSON.stringify(app.getProject(saved.id))), filmHash);
+      // A new admission may capture the newly configured allowance; the old
+      // oversized job above must still have respected its original 1 MiB hold.
+      Object.assign(process.env, {
+        REELCHEMY_EXPORT_RESERVATION_BYTES: String(64 * MiB),
+        REELCHEMY_EXPORT_STUDIO_BYTES: String(64 * MiB),
+        REELCHEMY_EXPORT_SERVICE_BYTES: String(128 * MiB),
+      });
       const small = app.reviseProject(
           app.createProject(brief, workspace),
           blankTimeline(brief),
           "Fresh simple film",
         ),
         next = app.createOwnedJob(small.id, workspace)!.job;
+      assert.equal(app.exportJobCeiling(next.id), 64 * MiB);
       await wait(() => {
         const current = app.getJob(next.id)!;
         if (current.status === "failed")
@@ -214,7 +222,7 @@ test(
         { timeout: 10000 },
       );
       const final = await measureExportFiles(artifacts, next.id);
-      assert(final.bytes <= MiB);
+      assert(final.bytes <= 64 * MiB);
       assert.equal(app.exportStorage(workspace).usedBytes, final.bytes);
       assert.equal(app.exportStorage(workspace).reservedBytes, 0);
       assert.equal(
