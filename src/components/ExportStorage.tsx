@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useAccountFetch } from "./AccountBoundary";
 import { ExportFiles } from "./ExportFiles";
+import { JobHistoryStorage } from "./JobHistoryStorage";
+import type { JobHistoryRetirement } from "@/lib/job-history-retention";
 import type { ExportStorageUsage } from "@/lib/export-storage-policy";
 import type {
   RetainedExport,
@@ -20,9 +22,11 @@ const token = (value: unknown) =>
 export function ExportStorage({
   refreshKey,
   onChange,
+  onRetired,
 }: {
   refreshKey: string;
   onChange: (receipt: ExportFileRemoval) => void;
+  onRetired: (receipt: JobHistoryRetirement) => void;
 }) {
   const request = useAccountFetch(),
     reviewHeading = useRef<HTMLHeadingElement>(null),
@@ -252,6 +256,7 @@ export function ExportStorage({
       )}
       {!usage && !usageError && <p role="status">Loading export storage…</p>}
       {usageError && <p role="alert">{usageError}</p>}
+      <JobHistoryStorage refreshKey={refreshKey} onRetired={onRetired} />
       {open && (
         <dialog
           ref={dialog}

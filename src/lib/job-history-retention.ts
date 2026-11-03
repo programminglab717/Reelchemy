@@ -256,3 +256,30 @@ export function applyJobHistoryRetirement(
     })
     .immediate();
 }
+export function downloadJobHistory(
+  db: Database.Database,
+  id: string,
+  workspaceId: string,
+) {
+  return db
+    .transaction(() => {
+      if (!owns(db, id, workspaceId)) return;
+      const row = db
+        .prepare(
+          `SELECT project_id AS projectId,CASE WHEN length(CAST(data AS BLOB))<=${maximumJobDocumentBytes} THEN data END AS data,CASE WHEN length(CAST(timeline AS BLOB))<=${maximumJobTimelineBytes} THEN timeline END AS timeline FROM jobs WHERE id=?`,
+        )
+        .get(id) as
+        | { projectId: string; data: string | null; timeline: string | null }
+        | undefined;
+      if (!row || row.data === null || row.timeline === null)
+        throw new JobHistoryUnavailable();
+      try {
+        JSON.parse(row.data);
+        JSON.parse(row.timeline);
+      } catch {
+        throw new JobHistoryUnavailable();
+      }
+      return `{"format":"reelchemy-export-activity-v1","jobId":${JSON.stringify(id)},"projectId":${JSON.stringify(row.projectId)},"details":${row.data},"timeline":${row.timeline}}`;
+    })
+    .deferred();
+}

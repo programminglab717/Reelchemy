@@ -82,6 +82,7 @@ export function migrateJobHistoryStorage(db: Database.Database) {
   db.transaction(() => {
     db.exec(`CREATE TABLE IF NOT EXISTS schema_migrations(id TEXT PRIMARY KEY,applied_at TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS export_requests(project_id TEXT NOT NULL,request_key TEXT NOT NULL,job_id TEXT NOT NULL,request_version TEXT NOT NULL,PRIMARY KEY(project_id,request_key));
+      CREATE INDEX IF NOT EXISTS job_history_request_job_idx ON export_requests(job_id);
       CREATE TABLE IF NOT EXISTS job_history_sizes(job_id TEXT PRIMARY KEY,project_id TEXT NOT NULL,workspace_id TEXT,bytes INTEGER NOT NULL CHECK(bytes>=0 AND bytes<=4398046511104),reservation_bytes INTEGER NOT NULL CHECK(reservation_bytes>=0 AND reservation_bytes<=${jobDocumentReservationBytes}));
       CREATE INDEX IF NOT EXISTS job_history_sizes_owner_idx ON job_history_sizes(workspace_id);
       CREATE TRIGGER IF NOT EXISTS history_job_insert_bound BEFORE INSERT ON jobs WHEN ${size("NEW.data")}>${maximumJobDocumentBytes} OR ${size("NEW.timeline")}>${maximumJobTimelineBytes} BEGIN SELECT RAISE(ABORT,'Job details exceed their captured document bound.'); END;
@@ -151,6 +152,28 @@ export function jobHistoryUsage(
     limitBytes: policy.studioBytes,
     limitJobs: policy.studioJobs,
     limitRetired: policy.studioRetired,
+    reservationBytes: jobDocumentReservationBytes,
+  };
+}
+export function jobHistoryOperatorUsage(
+  db: Database.Database,
+  workspaceId: string | undefined,
+  policy: JobHistoryPolicy,
+) {
+  assertJobHistoryComplete(db);
+  const t = totals(db, workspaceId);
+  return {
+    bytes: t.bytes,
+    reservedBytes: t.reserved,
+    fullJobs: t.full,
+    retiredJobs: t.retired,
+    pendingJobs: t.pending,
+    limitBytes:
+      workspaceId === undefined ? policy.serviceBytes : policy.studioBytes,
+    limitJobs:
+      workspaceId === undefined ? policy.serviceJobs : policy.studioJobs,
+    limitRetired:
+      workspaceId === undefined ? policy.serviceRetired : policy.studioRetired,
     reservationBytes: jobDocumentReservationBytes,
   };
 }

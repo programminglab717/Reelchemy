@@ -11,6 +11,8 @@ for (const page of [
   "/api/workspace/storage",
   "/api/workspace/export-storage",
   "/api/workspace/export-storage/files",
+  "/api/workspace/job-history",
+  "/api/workspace/job-history/records",
   "/api/workspace/exports",
   "/api/workspace/deletions",
   "/api/workspace/assets",

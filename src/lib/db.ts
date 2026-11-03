@@ -38,9 +38,11 @@ import {
 } from "./job-history-store";
 import { jobHistoryPolicy } from "./job-history-policy";
 import { readRetiredJob } from "./job-history-references";
+import { ownedJobHistoryPage } from "./job-history-page";
 import {
   previewJobHistoryRetirement,
   applyJobHistoryRetirement,
+  downloadJobHistory,
 } from "./job-history-retention";
 import { retainedExportPage } from "./retained-exports";
 import type {
@@ -1025,6 +1027,10 @@ export const jobProjectId = (id: string) =>
   )?.project_id;
 export const jobHistoryStorage = (workspaceId: string) =>
   jobHistoryUsage(db, workspaceId, jobHistoryPolicy());
+export const jobHistoryRecords = (
+  workspaceId: string,
+  cursor: { anchor?: string; before?: string } = {},
+) => ownedJobHistoryPage(db, workspaceId, cursor);
 export const previewOwnedJobHistory = (id: string, workspaceId: string) =>
   previewJobHistoryRetirement(db, id, workspaceId, jobHistoryPolicy());
 export const retireOwnedJobHistory = (
@@ -1032,6 +1038,8 @@ export const retireOwnedJobHistory = (
   workspaceId: string,
   digest: string,
 ) => applyJobHistoryRetirement(db, id, workspaceId, digest, jobHistoryPolicy());
+export const downloadOwnedJobHistory = (id: string, workspaceId: string) =>
+  downloadJobHistory(db, id, workspaceId);
 export const ownedExportFileSource = (jobId: string, workspaceId: string) =>
   assertExportFileSource(db, jobId, workspaceId);
 export const exportFileRemoval = (jobId: string, workspaceId: string) =>

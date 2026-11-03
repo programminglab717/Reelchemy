@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
 import {
   migrateMediaReferences,
   rebuildMediaReferences,
@@ -21,6 +21,7 @@ import {
 import {
   previewJobHistoryRetirement,
   applyJobHistoryRetirement,
+  downloadJobHistory,
 } from "../src/lib/job-history-retention";
 import {
   jobHistoryPolicy,
@@ -28,6 +29,8 @@ import {
   JobHistoryLimit,
   JobHistoryBusy,
 } from "../src/lib/job-history-policy";
+import { ownedJobHistoryPage } from "../src/lib/job-history-page";
+import { encodeExportCursor } from "../src/lib/export-history-cursor";
 const policy = { ...jobHistoryPolicy({}), studioRetired: 1, serviceRetired: 2 };
 function fixture(
   run: (f: {
@@ -115,6 +118,11 @@ test("reviewed activity retirement keeps source/owner/idempotency records, repla
       "owner",
       policy,
     )!.preview!;
+    assert.equal(downloadJobHistory(db, first.id, "foreign"), undefined);
+    const archive = JSON.parse(downloadJobHistory(db, first.id, "owner")!);
+    assert.equal(archive.jobId, first.id);
+    assert(archive.details.report.private.includes("OLD_DETAIL_"));
+    assert(JSON.stringify(archive.timeline).includes(first.source));
     assert(review.reclaimedBytes > 60000);
     assert.equal(review.sourceFiles, 1);
     const original = (
@@ -257,4 +265,76 @@ test("retirement waits for actual file settlement and native leases; Trash and d
       ).n,
       0,
     );
+  }));
+
+test("activity pages transfer only bounded own metadata and bind stable encrypted cursors to the workspace and distinct history domain", () =>
+  fixture(({ db, make }) => {
+    process.env.BETTER_AUTH_SECRET = randomBytes(48).toString("base64url");
+    const own = Array.from({ length: 26 }, () => make()),
+      foreign = make("foreign");
+    db.prepare("UPDATE projects SET trashed_at='fixture' WHERE id=?").run(
+      own[25].projectId,
+    );
+    settleExportStorage(db, own[24].id, 7, 1, true);
+    const first = ownedJobHistoryPage(db, "owner");
+    assert.equal(first.items.length, 20);
+    assert(first.nextBefore);
+    assert.equal(first.unavailable, 0);
+    assert(first.items[0].inTrash);
+    assert.equal(first.items[0].eligible, false);
+    assert.equal(first.items[1].eligible, false);
+    assert(first.items[2].eligible);
+    assert.deepEqual(
+      first.items.map((value) => value.id),
+      own
+        .slice(6)
+        .reverse()
+        .map((value) => value.id),
+    );
+    const late = make(),
+      second = ownedJobHistoryPage(db, "owner", {
+        anchor: first.anchor,
+        before: first.nextBefore,
+      });
+    assert.deepEqual(
+      second.items.map((value) => value.id),
+      own
+        .slice(0, 6)
+        .reverse()
+        .map((value) => value.id),
+    );
+    assert.equal(second.nextBefore, null);
+    const payload = JSON.stringify([first, second]);
+    assert(Buffer.byteLength(payload) < 16000);
+    for (const marker of [
+      foreign.id,
+      late.id,
+      own[0].source,
+      "OLD_DETAIL_",
+      "timeline",
+      "report",
+      "workspaceId",
+      "position",
+    ])
+      assert(!payload.includes(marker), marker);
+    assert.throws(() =>
+      ownedJobHistoryPage(db, "foreign", {
+        anchor: first.anchor,
+        before: first.nextBefore!,
+      }),
+    );
+    assert.throws(() =>
+      ownedJobHistoryPage(db, "owner", { before: first.nextBefore! }),
+    );
+    assert.throws(() =>
+      ownedJobHistoryPage(db, "owner", {
+        anchor: encodeExportCursor(
+          "studio-job-history:v1",
+          "owner",
+          "anchor",
+          [27],
+        ),
+      }),
+    );
+    assert.equal(ownedJobHistoryPage(db, "foreign").items[0].id, foreign.id);
   }));
