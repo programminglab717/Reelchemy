@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { once } from "node:events";
+import { readFile } from "node:fs/promises";
 import {
   spawnTestProcess,
   shutdownTestProcesses,
@@ -71,5 +72,41 @@ test("a same-UID non-dumpable native child cannot disappear from recovery throug
   } finally {
     child.kill("SIGTERM");
     await shutdownTestProcesses([child]);
+  }
+});
+
+test("an unreaped non-dumpable zombie cannot block recovery because it has stopped executing", async () => {
+  const parent = spawnTestProcess(
+    "python3",
+    [
+      "-c",
+      "import os,ctypes,time; p=os.fork();\nif p==0:\n ctypes.CDLL(None).prctl(4,0,0,0,0); os._exit(0)\nprint(p,flush=True); time.sleep(30)",
+    ],
+    { stdio: ["ignore", "pipe", "pipe"], env: { ...process.env } },
+  );
+  try {
+    const [bytes] = await once(parent.stdout!, "data"),
+      pid = Number(bytes.toString().trim());
+    assert(Number.isSafeInteger(pid) && pid > 1);
+    const deadline = Date.now() + 4000;
+    let state = "";
+    while (state !== "Z") {
+      const stat = await readFile(`/proc/${pid}/stat`, "utf8");
+      state = stat.slice(stat.lastIndexOf(")") + 2).split(" ")[0];
+      if (Date.now() > deadline)
+        assert.fail("Synthetic child did not reach its unreaped state.");
+      if (state !== "Z")
+        await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert.deepEqual(
+      [
+        ...(await liveNativeRenderJobs(
+          path.join(tmpdir(), `zombie-studio-${randomUUID()}`),
+        )),
+      ],
+      [],
+    );
+  } finally {
+    await shutdownTestProcesses([parent]);
   }
 });
