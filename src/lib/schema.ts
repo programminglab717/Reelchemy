@@ -319,6 +319,7 @@ export type Export = {
   duration: number;
 };
 export type RenderJob = {
+  retired?: boolean;
   files?: import("./export-file-policy").ExportFileRemoval;
   id: string;
   projectId: string;

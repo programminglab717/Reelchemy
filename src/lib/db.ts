@@ -31,6 +31,17 @@ import {
   ExportStorageUnavailable,
 } from "./export-storage-policy";
 import { ownedExportPage } from "./export-history";
+import {
+  migrateJobHistoryStorage,
+  reserveJobHistory,
+  jobHistoryUsage,
+} from "./job-history-store";
+import { jobHistoryPolicy } from "./job-history-policy";
+import { readRetiredJob } from "./job-history-references";
+import {
+  previewJobHistoryRetirement,
+  applyJobHistoryRetirement,
+} from "./job-history-retention";
 import { retainedExportPage } from "./retained-exports";
 import type {
   Asset,
@@ -159,6 +170,7 @@ db.transaction(() => {
   migrateProjectDeletions(db);
   migrateExportFileRemovals(db);
   migrateExportStorage(db);
+  migrateJobHistoryStorage(db);
   if (
     !db
       .prepare("SELECT id FROM schema_migrations WHERE id=?")
@@ -960,6 +972,13 @@ function enqueueJob(project: Project, workspaceId?: string) {
       },
     ],
   };
+  reserveJobHistory(
+    db,
+    job.id,
+    project.id,
+    workspaceForProject(project.id) ?? null,
+    jobHistoryPolicy(),
+  );
   db.prepare("INSERT INTO jobs VALUES (?,?,?,?,?)").run(
     job.id,
     project.id,
@@ -985,14 +1004,34 @@ function rawJob(id: string): RenderJob | undefined {
   if (!row) return;
   const job = JSON.parse(row.data) as RenderJob;
   delete job.files;
+  delete job.retired;
   return { ...job, id, projectId: row.project_id, status: row.status };
 }
 export function getJob(id: string): RenderJob | undefined {
   const job = rawJob(id);
   if (!job) return;
   const files = getExportFileRemoval(db, id);
-  return files ? { ...job, files } : job;
+  const retired = readRetiredJob(db, id);
+  return {
+    ...job,
+    ...(files ? { files } : {}),
+    ...(retired ? { retired: true } : {}),
+  };
 }
+export const jobProjectId = (id: string) =>
+  (
+    db.prepare("SELECT project_id FROM jobs WHERE id=?").get(id) as
+      { project_id: string } | undefined
+  )?.project_id;
+export const jobHistoryStorage = (workspaceId: string) =>
+  jobHistoryUsage(db, workspaceId, jobHistoryPolicy());
+export const previewOwnedJobHistory = (id: string, workspaceId: string) =>
+  previewJobHistoryRetirement(db, id, workspaceId, jobHistoryPolicy());
+export const retireOwnedJobHistory = (
+  id: string,
+  workspaceId: string,
+  digest: string,
+) => applyJobHistoryRetirement(db, id, workspaceId, digest, jobHistoryPolicy());
 export const ownedExportFileSource = (jobId: string, workspaceId: string) =>
   assertExportFileSource(db, jobId, workspaceId);
 export const exportFileRemoval = (jobId: string, workspaceId: string) =>

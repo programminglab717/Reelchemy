@@ -2,7 +2,7 @@ import { getAuth } from "./auth";
 import {
   ensureWorkspace,
   projectInWorkspace,
-  getJob,
+  jobProjectId,
   takeRequestLimit,
   type Workspace,
 } from "./db";
@@ -53,7 +53,7 @@ export function secureRoute<P extends Params>(
       params = await context.params;
     let projectId: string | undefined;
     if (resource === "project") projectId = params.id;
-    else if (resource === "job") projectId = getJob(params.id)?.projectId;
+    else if (resource === "job") projectId = jobProjectId(params.id);
     if (
       resource !== "user" &&
       (!projectId ||
