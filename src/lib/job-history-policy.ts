@@ -5,7 +5,7 @@ import { LimitConfigurationError } from "./limits-policy";
 export const maximumJobDocumentBytes = 4 * 1024 ** 2;
 export const maximumJobTimelineBytes = 4 * 1024 ** 2;
 export const jobDocumentReservationBytes =
-  maximumJobDocumentBytes + maximumJobTimelineBytes;
+  maximumJobDocumentBytes + maximumJobTimelineBytes + 4096;
 export const maximumIndexedJobs = 100000;
 export type JobHistoryPolicy = ReturnType<typeof jobHistoryPolicy>;
 export function jobHistoryPolicy(
