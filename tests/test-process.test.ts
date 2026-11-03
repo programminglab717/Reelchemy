@@ -52,8 +52,8 @@ test(
         () => "",
       );
       assert(
-        !status || /^State:\s*Z/m.test(status),
-        "detached descendant must no longer execute",
+        !status || /^State:\s*[ZX](?:\s|$)/m.test(status),
+        `detached descendant must no longer execute (${status.match(/^State:.*$/m)?.[0] ?? "missing"})`,
       );
       process.kill(unrelated, 0);
       assert.throws(

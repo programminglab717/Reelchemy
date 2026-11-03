@@ -56,6 +56,14 @@ test("compact export pages reach an older real MP4, recover read failures and pr
         }),
         JSON.stringify(project.timeline),
       );
+    // Synthetic historical rows have no files. Index that known empty fixture
+    // state so this read-only history case does not leave the shared test
+    // installation requiring an offline legacy export census.
+    admin
+      .prepare(
+        "INSERT INTO export_storage_entries(job_id,project_id,workspace_id,retained_bytes,retained_files,reservation_bytes,ceiling_bytes,dirty) SELECT ?,p.id,p.workspace_id,0,0,0,536870912,0 FROM projects p WHERE p.id=?",
+      )
+      .run(id, project.id);
   }
   try {
     admin

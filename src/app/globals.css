@@ -1815,6 +1815,34 @@ main.account-page {
   display: block;
   margin: 14px 0;
 }
+.export-storage {
+  margin: 20px clamp(16px, 4vw, 48px);
+  padding: 12px 16px;
+}
+.export-storage .panel-heading {
+  padding: 0;
+  border: 0;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.export-storage button,
+.export-storage-dialog button {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.export-storage-dialog .retained-export-list {
+  list-style: none;
+  padding: 0;
+}
+.export-storage-dialog .retained-export-list li,
+.retained-export-review {
+  border-top: 1px solid var(--line);
+  padding: 16px 0;
+}
+.export-storage-dialog .export-files {
+  margin-top: 12px;
+}
 .history-cleanup-dialog input[type="checkbox"] {
   display: inline-block;
   width: auto;

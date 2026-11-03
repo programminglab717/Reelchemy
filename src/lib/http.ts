@@ -1,3 +1,7 @@
+import {
+  ExportStorageLimit,
+  ExportStorageUnavailable,
+} from "./export-storage-policy";
 import { ZodError } from "zod";
 import { RevisionConflict } from "./editor";
 import { ExportRequestConflict, ExportCapacityError } from "./export-policy";
@@ -21,6 +25,31 @@ export class RequestBodyError extends Error {
   }
 }
 export function failure(error: unknown) {
+  if (
+    error instanceof ExportStorageLimit ||
+    error instanceof ExportStorageUnavailable
+  )
+    return Response.json(
+      {
+        error: error.message,
+        code: error.code,
+        ...(error instanceof ExportStorageLimit
+          ? { scope: error.scope, kind: error.kind }
+          : {}),
+      },
+      {
+        status:
+          error instanceof ExportStorageLimit && error.scope === "studio"
+            ? 413
+            : 503,
+        headers: {
+          "Cache-Control": "private, no-store",
+          "X-Content-Type-Options": "nosniff",
+          "Retry-After": "30",
+        },
+      },
+    );
+
   if (error instanceof ProjectStorageLimit)
     return Response.json(
       {

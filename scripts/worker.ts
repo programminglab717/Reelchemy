@@ -6,6 +6,12 @@ import {
   dataDir,
   claimJob,
   finishJobAttempt,
+  exportStorageReady,
+  exportJobCeiling,
+  uncertainExportStorage,
+  exportStorageRecoveryJobs,
+  settleRecoveredExport,
+  releaseFinishedExportHolds,
   getJob,
   updateJob,
   recoverJobs,
@@ -20,6 +26,8 @@ import { RenderQCError } from "../src/lib/layout-qc";
 import { transientRenderError } from "../src/lib/retry";
 import { renderFilm } from "../src/lib/render";
 import { preparedRenderer } from "../src/lib/prepared-renderer";
+import { beginExportMeter } from "../src/lib/export-storage-meter";
+import { measureExportFiles } from "../src/lib/export-storage-files";
 import { processExportFileRemoval } from "../src/lib/export-file-cleanup";
 import {
   liveNativeRenderJobs,
@@ -105,6 +113,8 @@ async function main() {
   const heartbeatTemp = `${heartbeat}.${process.pid}.tmp`;
   let heartbeatWriting = false;
   let cacheReady = !kernelManaged;
+  let storageReady = false;
+  let reportedStorage = false;
   let maintenanceDue = true;
   let lastMaintenance = 0;
   async function beat() {
@@ -116,7 +126,7 @@ async function main() {
         JSON.stringify({
           at: new Date().toISOString(),
           instanceId,
-          ready: cacheReady,
+          ready: cacheReady && storageReady,
         }),
         { mode: 0o600 },
       );
@@ -147,7 +157,28 @@ async function main() {
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
     if (stopping) return;
+    // Producers have stopped and the lifetime lock is held. Account for any
+    // interrupted output before the old attempt leases are recovered.
+    for (const { id, status, removing } of exportStorageRecoveryJobs()) {
+      try {
+        settleRecoveredExport(
+          id,
+          await measureExportFiles(artifactDir, id, {
+            requireVideo: status === "completed" && !removing,
+          }),
+        );
+      } catch {
+        uncertainExportStorage(id);
+      }
+    }
     recoverJobs();
+    releaseFinishedExportHolds();
+    try {
+      exportStorageReady();
+      storageReady = true;
+    } catch {
+      storageReady = false;
+    }
     await beat();
     let announced = false;
     while (!stopping) {
@@ -190,6 +221,25 @@ async function main() {
           continue;
         }
       }
+      try {
+        exportStorageReady();
+        storageReady = true;
+        reportedStorage = false;
+      } catch {
+        storageReady = false;
+        await beat();
+        if (!reportedStorage) {
+          console.error(
+            JSON.stringify({
+              event: "export.storage.blocked",
+              code: "EXPORT_STORAGE_UNAVAILABLE",
+            }),
+          );
+          reportedStorage = true;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        continue;
+      }
       if (!announced) {
         console.log("Reelchemy render worker ready");
         announced = true;
@@ -208,7 +258,27 @@ async function main() {
           60000,
           Math.min(900000, Number(process.env.RENDER_JOB_TIMEOUT_MS) || 600000),
         );
+      let meter: Awaited<ReturnType<typeof beginExportMeter>> | undefined;
+      let footprint: { bytes: number; files: number } | undefined;
+      let nativeClosed = false;
+      const verifyClosed = async () => {
+        if (nativeClosed) return;
+        if ((await liveNativeRenderJobs(dataDir)).has(job.id)) {
+          cacheReady = false;
+          await beat();
+          throw new Error(
+            "The previous native export attempt is still active. Rendering and cleanup require operator review.",
+          );
+        }
+        nativeClosed = true;
+      };
       try {
+        meter = await beginExportMeter(
+          artifactDir,
+          job.id,
+          exportJobCeiling(job.id),
+        );
+        meter.assertWithinBudget();
         process.env[renderJobMarker] = job.id;
         process.env[renderRootMarker] = dataDir;
         recordJobStage(job.id, "Starting export");
@@ -220,12 +290,16 @@ async function main() {
           },
           () =>
             stopping ||
+            meter?.cancelled === true ||
             Date.now() > deadline ||
             getJob(job.id)?.status === "cancelled",
           (stage) => recordJobStage(job.id, stage),
           workspaceForProject(job.projectId) || "legacy",
         );
-        updateJob(job.id, {
+        await verifyClosed();
+        footprint = await meter.stop();
+        meter.assertWithinBudget();
+        const completed = updateJob(job.id, {
           status: "completed",
           progress: 1,
           report,
@@ -234,12 +308,16 @@ async function main() {
         });
         console.log(
           JSON.stringify({
-            event: "render.complete",
+            event:
+              completed?.status === "completed"
+                ? "render.complete"
+                : "render.cancelled",
             jobId: job.id,
             export: report.export,
           }),
         );
-      } catch (error) {
+      } catch (caught) {
+        const error = meter?.error ?? caught;
         const message =
           Date.now() > deadline
             ? "Export exceeded its total time limit."
@@ -248,6 +326,7 @@ async function main() {
               : "Render failed";
         if (
           stopping &&
+          !meter?.error &&
           retryJob(
             job.id,
             "Worker stopped; export will restart from its saved timeline.",
@@ -285,14 +364,19 @@ async function main() {
       } finally {
         delete process.env[renderJobMarker];
         delete process.env[renderRootMarker];
-        if ((await liveNativeRenderJobs(dataDir)).has(job.id)) {
-          cacheReady = false;
-          await beat();
-          throw new Error(
-            "The previous native export attempt is still active. Rendering and cleanup require operator review.",
-          );
+        await verifyClosed();
+        if (!footprint) {
+          try {
+            footprint = meter
+              ? await meter.stop()
+              : await measureExportFiles(artifactDir, job.id);
+          } catch {
+            uncertainExportStorage(job.id);
+            storageReady = false;
+            await beat();
+          }
         }
-        finishJobAttempt(job.id);
+        finishJobAttempt(job.id, footprint);
       }
     }
   } finally {

@@ -6,7 +6,10 @@ import type {
   ExportFilePreview,
   ExportFileRemoval,
 } from "@/lib/export-file-policy";
-type Props = { job: RenderJob; onChange: (receipt: ExportFileRemoval) => void };
+type Props = {
+  job: Pick<RenderJob, "id" | "projectId" | "status" | "files">;
+  onChange: (receipt: ExportFileRemoval) => void;
+};
 export function ExportFiles(props: Props) {
   return <ExportFilesReview key={props.job.id} {...props} />;
 }

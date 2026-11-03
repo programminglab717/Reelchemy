@@ -23,6 +23,12 @@ x-project-environment: &projectdata
   REELCHEMY_SERVICE_PROJECTS: ${REELCHEMY_SERVICE_PROJECTS:-20000}
   REELCHEMY_PROJECT_VERSIONS: ${REELCHEMY_PROJECT_VERSIONS:-10000}
   REELCHEMY_PROJECT_MESSAGES: ${REELCHEMY_PROJECT_MESSAGES:-10000}
+x-export-environment: &exportfiles
+  REELCHEMY_EXPORT_RESERVATION_BYTES: ${REELCHEMY_EXPORT_RESERVATION_BYTES:-536870912}
+  REELCHEMY_EXPORT_STUDIO_BYTES: ${REELCHEMY_EXPORT_STUDIO_BYTES:-2147483648}
+  REELCHEMY_EXPORT_SERVICE_BYTES: ${REELCHEMY_EXPORT_SERVICE_BYTES:-8589934592}
+  REELCHEMY_EXPORT_STUDIO_COUNT: ${REELCHEMY_EXPORT_STUDIO_COUNT:-100}
+  REELCHEMY_EXPORT_SERVICE_COUNT: ${REELCHEMY_EXPORT_SERVICE_COUNT:-2000}
 x-runtime: &runtime
   image: reelchemy:local
   build:
@@ -77,7 +83,7 @@ services:
       - studio-artifacts:/app/artifacts
       - studio-auth:/app/private-auth
     environment:
-      <<: [*paths, *auth, *media, *projectdata]
+      <<: [*paths, *auth, *media, *projectdata, *exportfiles]
       AI_PROVIDER: ${AI_PROVIDER:-mock}
       AI_BASE_URL: ${AI_BASE_URL:-}
       AI_MODEL: ${AI_MODEL:-}
@@ -131,7 +137,7 @@ services:
       start_period: 30s
       retries: 3
     environment:
-      <<: *paths
+      <<: [*paths, *exportfiles]
       RENDER_CONCURRENCY: ${RENDER_CONCURRENCY:-2}
       REELCHEMY_SCENE_CACHE_BYTES: ${REELCHEMY_SCENE_CACHE_BYTES:-1073741824}
       REELCHEMY_SCENE_CACHE_BYTES_PER_STUDIO: ${REELCHEMY_SCENE_CACHE_BYTES_PER_STUDIO:-268435456}
