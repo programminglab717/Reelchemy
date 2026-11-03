@@ -27,7 +27,9 @@ function ExportHistoryPage({ projectId, current, onSelect }: HistoryProps) {
   const before = cursors[pageIndex];
   const currentId = current?.projectId === projectId ? current.id : undefined;
   const currentStatus =
-    current?.projectId === projectId ? current.status : undefined;
+    current?.projectId === projectId
+      ? `${current.status}:${current.files?.state ?? ""}`
+      : undefined;
   const seenCurrent = useRef(`${currentId}:${currentStatus}`);
   const loadKey = JSON.stringify([before, refresh, currentId, currentStatus]);
   const loading = settled !== loadKey;
