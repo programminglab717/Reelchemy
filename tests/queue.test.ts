@@ -34,6 +34,7 @@ test("queue snapshots survive retries/recovery and terminal jobs cannot be resur
   db.recordJobStage(job.id, "Checking layout");
   assert.equal(db.getJob(job.id)?.events?.at(-1)?.stage, "Checking layout");
   assert(db.retryJob(job.id, "Browser crashed"));
+  db.finishJobAttempt(job.id);
   assert.equal(db.getJob(job.id)?.retryCount, 1);
   assert.deepEqual(db.claimJob()!.timeline, claimed.timeline);
   assert.equal(db.retryJob(job.id, "Browser crashed again"), false);
@@ -111,4 +112,25 @@ test("stale project revisions cannot overwrite a later timeline or newly uploade
   );
   assert.equal(db.getProject(p.id)?.timeline?.scenes[0].title, "New version");
   assert.equal(db.getProject(p.id)?.revisions.length, 2);
+});
+
+test("a cancelled claimed attempt remains ineligible until native teardown finishes", () => {
+  const workspace = db.ensureWorkspace(
+      "cleanup-attempt-owner",
+      "Cleanup owner",
+    ),
+    p = db.createProject(
+      { prompt: "Attempt cleanup guard", duration: 5, format: "landscape" },
+      workspace.id,
+    );
+  db.reviseProject(p, mockPlan(p.brief), "Initial");
+  const job = db.createJob(p);
+  assert.equal(db.claimJob()?.job.id, job.id);
+  db.updateJob(job.id, { status: "cancelled" });
+  assert.throws(
+    () => db.ownedExportFileSource(job.id, workspace.id),
+    /cancellation to finish/,
+  );
+  db.finishJobAttempt(job.id);
+  assert.equal(db.ownedExportFileSource(job.id, workspace.id)?.projectId, p.id);
 });
