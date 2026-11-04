@@ -43,7 +43,10 @@ test(
           "-f",
           "lavfi",
           "-i",
-          "testsrc2=size=96x64:rate=30:duration=6",
+          // Each source frame has a distinct broad color marker; the other
+          // half has a spatial gradient for fit/crop checks. A one-frame trim
+          // error must not hide behind slowly moving test-pattern details.
+          "nullsrc=size=96x64:rate=30:duration=6,geq=r='if(lt(X,W/2),mod(N*73,256),255*X/W)':g='if(lt(X,W/2),mod(N*151,256),255*Y/H)':b='if(lt(X,W/2),mod(N*197,256),255*(X+Y)/(W+H))'",
           "-c:v",
           "libx264",
           "-threads",
