@@ -26,10 +26,12 @@ export function DeletionProgress({
   receipt,
   initialStatus,
   onStatus,
+  onChooseReceipt,
 }: {
   receipt: DeletionReceipt;
   initialStatus?: DeletionStatus;
   onStatus?: (status: DeletionStatus) => void;
+  onChooseReceipt?: () => void;
 }) {
   const [status, setStatus] = useState(initialStatus),
     [error, setError] = useState(""),
@@ -140,7 +142,13 @@ export function DeletionProgress({
       </div>
       <nav>
         <Link href="/sign-in">Go to sign in</Link>
-        <Link href="/account/deletion">Open another receipt</Link>
+        {onChooseReceipt ? (
+          <button type="button" onClick={onChooseReceipt}>
+            Choose another receipt
+          </button>
+        ) : (
+          <Link href="/account/deletion">Open another receipt</Link>
+        )}
       </nav>
     </section>
   );

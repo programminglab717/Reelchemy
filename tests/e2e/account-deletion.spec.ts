@@ -194,6 +194,16 @@ test("saved deletion receipt closes stale studio tabs, removes real media/MP4 an
         scroll: document.documentElement.scrollWidth,
       })),
     ).toEqual({ width: 390, scroll: 390 });
+    for (const name of [
+      "Download deletion receipt",
+      "Permanently delete my account",
+      "Check saved request",
+    ]) {
+      const button = await page
+        .getByRole("button", { name, exact: true })
+        .boundingBox();
+      expect(button?.height).toBeGreaterThanOrEqual(44);
+    }
     await page.screenshot({
       path: info.outputPath("account-deletion-confirm-mobile.png"),
       fullPage: true,
@@ -274,6 +284,15 @@ test("saved deletion receipt closes stale studio tabs, removes real media/MP4 an
       page.getByRole("heading", { name: "Account deleted", exact: true }),
     ).toBeVisible();
     expect(new URL(page.url()).search).toBe("");
+    await page
+      .getByRole("button", { name: "Choose another receipt", exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", {
+        name: "Check account deletion",
+        exact: true,
+      }),
+    ).toBeVisible();
     await stale.close();
   } finally {
     await other.close();
@@ -312,6 +331,9 @@ test("a lost deletion reply recovers the same receipt after the browser signs in
     .getByRole("button", { name: "Permanently delete my account", exact: true })
     .click();
   await expect(page.getByRole("main").getByRole("alert")).toBeVisible();
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "Keep your receipt and check the saved request before retrying.",
+  );
   expect(nextId).not.toBe(aSession.user.id);
   expect(keptProject).toBeDefined();
   const nextDraft = await draft(page, nextId, keptProject!);

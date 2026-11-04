@@ -83,8 +83,8 @@ export function AccountSettings({
               </p>
               <p>
                 Previously downloaded copies and older stored backups are
-                handled separately. The deletion journal prevents an older
-                backup from reopening your account.
+                handled separately. Restoring an older backup will not reopen
+                your account.
               </p>
               {!receipt ? (
                 <button
@@ -167,9 +167,15 @@ export function AccountSettings({
                         approved(status);
                       } catch (error) {
                         setError(
-                          error instanceof Error && !("issues" in error)
-                            ? error.message
-                            : "Deletion could not be confirmed. Keep your receipt and check its status before retrying.",
+                          error instanceof TypeError ||
+                            (error instanceof Error &&
+                              ["AbortError", "TimeoutError"].includes(
+                                error.name,
+                              ))
+                            ? "The deletion reply was interrupted. Keep your receipt and check the saved request before retrying."
+                            : error instanceof Error && !("issues" in error)
+                              ? error.message
+                              : "Deletion could not be confirmed. Keep your receipt and check its status before retrying.",
                         );
                       } finally {
                         setBusy(false);

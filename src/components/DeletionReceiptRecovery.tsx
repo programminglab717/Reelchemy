@@ -13,7 +13,11 @@ export function DeletionReceiptRecovery() {
     <main className="account-page">
       <section className="account-card account-settings">
         {receipt ? (
-          <DeletionProgress key={receipt.requestId} receipt={receipt} />
+          <DeletionProgress
+            key={receipt.requestId}
+            receipt={receipt}
+            onChooseReceipt={() => setReceipt(null)}
+          />
         ) : (
           <>
             <h1>Check account deletion</h1>
@@ -55,11 +59,6 @@ export function DeletionReceiptRecovery() {
         <nav>
           <Link href="/">Back to studio</Link>
           <Link href="/sign-in">Sign in</Link>
-          {receipt && (
-            <button type="button" onClick={() => setReceipt(null)}>
-              Choose another receipt
-            </button>
-          )}
         </nav>
       </section>
     </main>

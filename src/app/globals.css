@@ -2224,3 +2224,64 @@ main.account-page {
 .deletion-request-id {
   font-size: 12px;
 }
+.account-settings button {
+  min-height: 44px;
+  padding: 10px 14px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ink);
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.account-settings button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.account-settings button:hover:not(:disabled) {
+  border-color: var(--ink);
+}
+.account-settings button.danger {
+  color: white;
+  background: #993825;
+  border-color: #993825;
+}
+.account-settings button.danger:hover:not(:disabled) {
+  background: #7c2d1e;
+  border-color: #7c2d1e;
+}
+.account-settings input:not([type="checkbox"]) {
+  min-height: 44px;
+}
+.account-settings .deletion-receipt-check {
+  min-height: 44px;
+}
+.account-settings .deletion-receipt-check input {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+.account-settings nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 6px 0;
+  align-self: center;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.account-settings input[type="file"] {
+  padding: 8px;
+}
+.account-settings input[type="file"]::file-selector-button {
+  min-height: 30px;
+  margin-right: 8px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+}
