@@ -15,6 +15,7 @@ for (const variant of [
     async () => {
       const root = mkdtempSync(path.join(tmpdir(), "reelchemy-mail-race-")),
         children: ChildProcess[] = [],
+        completions: Promise<unknown>[] = [],
         saved = process.env.REELCHEMY_AUTH_DIR;
       try {
         const workers = Array.from({ length: 6 }, (_, index) => {
@@ -64,6 +65,8 @@ for (const variant of [
                 : reject(new Error(errors || "Synthetic mail writer failed.")),
             );
           });
+          void completed.catch(() => {});
+          completions.push(completed);
           return { child, ready, completed };
         });
         await Promise.all(workers.map((worker) => worker.ready));
@@ -87,6 +90,7 @@ for (const variant of [
         for (const child of children)
           if (child.exitCode === null && !child.signalCode)
             child.kill("SIGKILL");
+        await Promise.allSettled(completions);
         if (saved === undefined) delete process.env.REELCHEMY_AUTH_DIR;
         else process.env.REELCHEMY_AUTH_DIR = saved;
         rmSync(root, { recursive: true, force: true });
