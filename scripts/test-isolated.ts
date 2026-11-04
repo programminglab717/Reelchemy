@@ -4,7 +4,15 @@ import {
   signalTestProcess,
   shutdownTestProcesses,
 } from "./test-process";
-import { mkdtemp, open, mkdir, cp, rm, access } from "node:fs/promises";
+import {
+  mkdtemp,
+  open,
+  mkdir,
+  cp,
+  rm,
+  access,
+  readFile,
+} from "node:fs/promises";
 import path from "node:path";
 import { constants } from "node:fs";
 import { randomBytes } from "node:crypto";
@@ -12,6 +20,7 @@ import { tmpdir } from "node:os";
 import { testTls } from "./test-tls";
 import { DEFAULT_MEDIA_STORAGE_BYTES } from "../src/lib/media-storage-policy";
 import { initializePrivacyVault } from "../src/lib/privacy-vault";
+import { recentHeartbeat } from "../src/lib/worker-heartbeat";
 const production = process.argv.includes("--production");
 if (production && process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0")
   throw new Error(
@@ -117,6 +126,8 @@ try {
     REELCHEMY_PRIVACY_DIR: vault.directory,
     REELCHEMY_PRIVACY_ID: vault.id,
     REELCHEMY_PRIVACY_KEY_FINGERPRINT: vault.keyFingerprint,
+    REELCHEMY_ERASURE_PENDING_COUNT: "100",
+    REELCHEMY_ERASURE_JOURNAL_COUNT: "1000000",
     REELCHEMY_ARTIFACT_DIR: path.join(dir, "artifacts"),
     REELCHEMY_RENDER_CACHE_DIR: path.join(dir, "cache"),
     REELCHEMY_NEXT_DIST_DIR: ".next",
@@ -153,7 +164,21 @@ try {
     "--port",
     String(port),
   ]);
-  const worker = start(["--import", "tsx", "scripts/worker-entrypoint.ts"]);
+  const renderEnv = { ...env };
+  for (const key of Object.keys(renderEnv))
+    if (
+      key.startsWith("BETTER_AUTH_") ||
+      key.startsWith("SMTP_") ||
+      key.startsWith("AI_") ||
+      key.startsWith("EMAIL_") ||
+      key.startsWith("REELCHEMY_PRIVACY_") ||
+      key === "REELCHEMY_AUTH_DIR"
+    )
+      delete renderEnv[key];
+  const worker = start(
+    ["--import", "tsx", "scripts/worker-entrypoint.ts"],
+    renderEnv,
+  );
   const ingestEnv: NodeJS.ProcessEnv = {
     NODE_ENV: env.NODE_ENV,
     ...Object.fromEntries(
@@ -212,8 +237,38 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 300));
   }
   if (!ready) throw new Error("Test services did not become ready.");
+  // Development creates the auth schema during first web readiness. Start the
+  // private consumer only after that migration, using its credential-free child.
+  const privacy = start(["--import", "tsx", "scripts/privacy-entrypoint.ts"]);
+  const privacyDeadline = Date.now() + 20000;
+  let privacyReady = false;
+  while (Date.now() < privacyDeadline) {
+    if (interrupted || privacy.exitCode !== null)
+      throw new Error("Private cleanup exited before readiness.");
+    try {
+      const heartbeat = JSON.parse(
+        await readFile(
+          path.join(
+            env.REELCHEMY_AUTH_DIR!,
+            "privacy-worker",
+            "heartbeat.json",
+          ),
+          "utf8",
+        ),
+      );
+      if (
+        heartbeat.kind === "reelchemy-privacy-worker-v1" &&
+        recentHeartbeat(heartbeat)
+      ) {
+        privacyReady = true;
+        break;
+      }
+    } catch {}
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  if (!privacyReady) throw new Error("Private cleanup did not become ready.");
   console.log(
-    `Isolated ${production ? "production HTTPS" : "development"} account and render services ready.`,
+    `Isolated ${production ? "production HTTPS" : "development"} account, render and private cleanup services ready.`,
   );
   if (interrupted) throw new Error("Isolated tests interrupted.");
   tests = spawnTestProcess(
