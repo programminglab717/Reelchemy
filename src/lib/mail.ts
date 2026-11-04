@@ -2,11 +2,12 @@ import path from "node:path";
 import nodemailer from "nodemailer";
 import { authStorageDirectory } from "./auth-storage";
 import { enqueueMail, claimMail, settleMail, type Mail } from "./mail-outbox";
-import { MAIL_BATCH_SIZE, MailUnavailable } from "./mail-policy";
+import { MAIL_BATCH_SIZE, MailUnavailable, mailPolicy } from "./mail-policy";
 export type { Mail } from "./mail-outbox";
 export function mailConfig(
   env: Record<string, string | undefined> = process.env,
 ) {
+  mailPolicy(env);
   const delivery =
     env.EMAIL_DELIVERY || (env.NODE_ENV === "production" ? "smtp" : "file");
   if (delivery === "file" && env.NODE_ENV === "production")
@@ -17,6 +18,18 @@ export function mailConfig(
     throw new Error(
       "Production email delivery requires SMTP_HOST and EMAIL_FROM.",
     );
+  if (delivery === "smtp") {
+    const port = env.SMTP_PORT;
+    if (port && (!/^[1-9][0-9]{0,4}$/.test(port) || Number(port) > 65535))
+      throw new MailUnavailable();
+    if (
+      /[\r\n\0]/.test(env.SMTP_HOST!) ||
+      env.SMTP_HOST!.length > 253 ||
+      /[\r\n\0]/.test(env.EMAIL_FROM!) ||
+      env.EMAIL_FROM!.length > 512
+    )
+      throw new MailUnavailable();
+  }
   return delivery;
 }
 export function mailDir() {

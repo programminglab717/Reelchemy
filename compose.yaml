@@ -35,6 +35,9 @@ x-export-environment: &exportfiles
   REELCHEMY_JOB_SERVICE_COUNT: ${REELCHEMY_JOB_SERVICE_COUNT:-20000}
   REELCHEMY_JOB_STUDIO_RETIRED: ${REELCHEMY_JOB_STUDIO_RETIRED:-5000}
   REELCHEMY_JOB_SERVICE_RETIRED: ${REELCHEMY_JOB_SERVICE_RETIRED:-80000}
+x-mail-environment: &mailqueue
+  REELCHEMY_MAIL_PENDING_COUNT: ${REELCHEMY_MAIL_PENDING_COUNT:-1000}
+  REELCHEMY_MAIL_PENDING_BYTES: ${REELCHEMY_MAIL_PENDING_BYTES:-16777216}
 x-runtime: &runtime
   image: reelchemy:local
   build:
@@ -89,7 +92,7 @@ services:
       - studio-artifacts:/app/artifacts
       - studio-auth:/app/private-auth
     environment:
-      <<: [*paths, *auth, *media, *projectdata, *exportfiles]
+      <<: [*paths, *auth, *media, *projectdata, *exportfiles, *mailqueue]
       AI_PROVIDER: ${AI_PROVIDER:-mock}
       AI_BASE_URL: ${AI_BASE_URL:-}
       AI_MODEL: ${AI_MODEL:-}
@@ -156,12 +159,17 @@ services:
     cpus: 0.5
     mem_limit: 256m
     pids_limit: 64
+    stop_grace_period: 65s
     healthcheck:
-      disable: true
+      test: [CMD, node, --import, tsx, scripts/check-mail.ts]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
     volumes:
       - studio-auth:/app/private-auth
     environment:
-      <<: *paths
+      <<: [*paths, *mailqueue]
       EMAIL_DELIVERY: smtp
       REELCHEMY_AUTH_DIR: /app/private-auth
       SMTP_HOST: ${SMTP_HOST:?Set an SMTP host}
