@@ -34,7 +34,8 @@
     "privacy:init": "tsx scripts/privacy-vault.ts init",
     "privacy:status": "tsx scripts/privacy-vault.ts status",
     "privacy:worker": "tsx scripts/privacy-entrypoint.ts",
-    "privacy:retry": "tsx scripts/privacy-retry.ts"
+    "privacy:retry": "tsx scripts/privacy-retry.ts",
+    "benchmark:video": "tsx scripts/benchmark-video.ts"
   },
   "dependencies": {
     "@remotion/bundler": "4.0.539",
