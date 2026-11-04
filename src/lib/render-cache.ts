@@ -23,6 +23,7 @@ import { staticScenePlan } from "./static-scene";
 import { renderStaticScene } from "./render-static";
 import { videoCompositePlan } from "./video-composite-plan";
 import { renderVideoComposite } from "./render-video-composite";
+import { renderMediaResources } from "./render-resources";
 import { openSceneCacheNamespace } from "./cache-retention";
 export type SceneCacheResult = {
   sceneId: string;
@@ -105,6 +106,7 @@ async function fingerprint() {
     "src/lib/static-scene.ts",
     "src/lib/video-composite-plan.ts",
     "src/lib/render-video-composite.ts",
+    "src/lib/render-resources.ts",
     "src/lib/render-browser.ts",
     "src/lib/schema.ts",
     "src/lib/text-style.ts",
@@ -342,6 +344,7 @@ async function renderScenesInDirectory(
         } else
           await renderMedia({
             ...rendering,
+            ...renderMediaResources,
             inputProps: { timeline: local, assetSources },
             codec: "h264",
             muted: true,

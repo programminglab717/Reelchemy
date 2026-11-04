@@ -5,6 +5,7 @@ import type { Timeline } from "./schema";
 import type { StaticScenePlan } from "./static-scene";
 import type { RenderBrowser } from "./render-browser";
 import { runCommand, CommandCancelledError } from "./process";
+import { renderMediaResources } from "./render-resources";
 
 export async function renderStaticScene(options: {
   timeline: Timeline;
@@ -33,6 +34,7 @@ export async function renderStaticScene(options: {
     for (const [index, frame] of plan.capturedFrames.entries()) {
       check();
       await renderStill({
+        ...renderMediaResources,
         composition: options.composition,
         serveUrl: options.serveUrl,
         inputProps: {

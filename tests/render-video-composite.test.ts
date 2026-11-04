@@ -18,6 +18,7 @@ import { renderVideoComposite } from "../src/lib/render-video-composite";
 import { withRenderBrowser } from "../src/lib/render-browser";
 import { verifyPreparedRenderer } from "../src/lib/prepared-renderer";
 import { CommandCancelledError } from "../src/lib/process";
+import { renderMediaResources } from "../src/lib/render-resources";
 
 test(
   "footage compositing matches every encoded frame across trims, captions, alpha, depth and native-HD fit/crop; cache and cancellation preserve sources",
@@ -177,6 +178,7 @@ test(
             const baseline = path.join(root, `${variant}-baseline.mp4`),
               optimized = path.join(root, `${variant}-composite.mp4`);
             await renderMedia({
+              ...renderMediaResources,
               ...options,
               composition,
               outputLocation: baseline,

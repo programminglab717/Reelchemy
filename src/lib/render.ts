@@ -21,6 +21,7 @@ import {
 } from "./schema";
 import { checkLayout, RenderQCError } from "./layout-qc";
 import { repairBounds } from "./qc";
+import { renderMediaResources } from "./render-resources";
 export async function renderFilm(
   input: Timeline,
   outputDir: string,
@@ -187,6 +188,7 @@ async function renderResolved(
         if (isCancelled()) throw new Error("Render cancelled.");
         const name = `scene-${i + 1}-${label}.png`;
         await renderStill({
+          ...renderMediaResources,
           ...options,
           composition,
           frame: start + offset,
@@ -220,6 +222,7 @@ async function renderResolved(
       onProgress(0.88 + (0.1 * (i + 1)) / timeline.scenes.length);
     }
     await renderStill({
+      ...renderMediaResources,
       ...options,
       composition,
       frame: Math.min(25, totalFrames(timeline) - 1),

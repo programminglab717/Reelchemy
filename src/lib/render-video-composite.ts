@@ -4,6 +4,7 @@ import path from "node:path";
 import { videoDimensions, type Timeline } from "./schema";
 import type { VideoCompositePlan } from "./video-composite-plan";
 import type { RenderBrowser } from "./render-browser";
+import { renderMediaResources } from "./render-resources";
 import {
   runCommand,
   CommandCancelledError,
@@ -55,6 +56,7 @@ export async function renderVideoComposite(options: {
         compositePass: { videoLayerId: plan.video.id, part },
       };
       await renderStill({
+        ...renderMediaResources,
         // A selected composition contains its resolved props. Updating only
         // inputProps would leave those resolved component props unchanged.
         composition: { ...options.composition, props },
