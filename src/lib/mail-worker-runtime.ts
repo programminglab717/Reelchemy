@@ -64,8 +64,11 @@ export async function runMailWorker(send?: (mail: Mail) => Promise<void>) {
     if (heartbeatError) throw new Error("Account mail heartbeat unavailable.");
   } finally {
     clearInterval(timer);
-    process.off("SIGTERM", stop);
-    process.off("SIGINT", stop);
-    stopMailWorkerState(identity);
+    try {
+      stopMailWorkerState(identity);
+    } finally {
+      process.off("SIGTERM", stop);
+      process.off("SIGINT", stop);
+    }
   }
 }

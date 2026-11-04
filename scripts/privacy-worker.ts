@@ -57,12 +57,15 @@ async function run() {
       });
     }
   } finally {
-    process.off("SIGTERM", stop);
-    process.off("SIGINT", stop);
     try {
       stopPrivacyWorkerState(identity);
     } finally {
-      opened.close();
+      try {
+        opened.close();
+      } finally {
+        process.off("SIGTERM", stop);
+        process.off("SIGINT", stop);
+      }
     }
   }
 }
