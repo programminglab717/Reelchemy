@@ -291,7 +291,7 @@ export function verifyJobHistoryAccounting(db: Database.Database) {
   if (
     db
       .prepare(
-        "SELECT 1 FROM jobs j LEFT JOIN job_history_retirements r ON r.job_id=j.id WHERE json_extract(CASE WHEN json_valid(j.data) THEN j.data ELSE '{}' END,'$.retired') IS 1 AND r.job_id IS NULL LIMIT 1",
+        `SELECT 1 FROM jobs j LEFT JOIN job_history_retirements r ON r.job_id=j.id WHERE json_extract(CASE WHEN length(CAST(j.data AS BLOB))<=${maximumJobDocumentBytes} THEN CASE WHEN json_valid(j.data) THEN j.data ELSE '{}' END ELSE '{}' END,'$.retired') IS 1 AND r.job_id IS NULL LIMIT 1`,
       )
       .get()
   )

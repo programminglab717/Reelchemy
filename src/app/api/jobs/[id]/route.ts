@@ -3,10 +3,14 @@ import { getJob, updateJob } from "@/lib/db";
 import { failure, localMutation } from "@/lib/http";
 type Context = { params: Promise<{ id: string }> };
 async function GETHandler(_: Request, { params }: Context) {
-  const job = getJob((await params).id);
-  return job
-    ? Response.json(job)
-    : Response.json({ error: "Job not found" }, { status: 404 });
+  try {
+    const job = getJob((await params).id);
+    return job
+      ? Response.json(job)
+      : Response.json({ error: "Job not found" }, { status: 404 });
+  } catch (error) {
+    return failure(error);
+  }
 }
 async function DELETEHandler(req: Request, { params }: Context) {
   try {

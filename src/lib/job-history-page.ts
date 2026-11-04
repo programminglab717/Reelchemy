@@ -1,5 +1,6 @@
 import type Database from "better-sqlite3";
 import { z } from "zod";
+import { boundedProjectLabelSql } from "./project-label";
 import type { RenderJob } from "./schema";
 import {
   encodeExportCursor,
@@ -61,7 +62,7 @@ export function ownedJobHistoryPage(
       const rows = db
         .prepare(
           `SELECT j.rowid AS position,j.id,j.project_id AS projectId,j.status,s.bytes,p.trashed_at IS NOT NULL AS inTrash,
-      CASE WHEN length(CAST(p.data AS BLOB))<=4194304 THEN CASE WHEN json_valid(p.data) THEN substr(json_extract(p.data,'$.name'),1,100) END END AS projectName,
+      ${boundedProjectLabelSql} AS projectName,
       e.job_id IS NOT NULL AND e.retained_bytes=0 AND e.retained_files=0 AND e.reservation_bytes=0 AND e.dirty=0 AND s.reservation_bytes=0 AND p.trashed_at IS NULL
       AND NOT EXISTS(SELECT 1 FROM render_job_attempts WHERE job_id=j.id) AND NOT EXISTS(SELECT 1 FROM export_file_removals WHERE job_id=j.id AND state<>'completed') AS eligible
       FROM jobs j JOIN projects p ON p.id=j.project_id JOIN job_history_sizes s ON s.job_id=j.id AND s.project_id=j.project_id AND s.workspace_id IS p.workspace_id

@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
 import type { RenderJob } from "./schema";
 import { z } from "zod";
+import { maximumJobDocumentBytes } from "./job-history-policy";
 import {
   encodeExportCursor,
   decodeExportCursor,
@@ -20,7 +21,7 @@ export type ExportPage = {
 export class ExportHistoryUnavailable extends Error {}
 const active =
   "p.id=? AND p.workspace_id=? AND p.trashed_at IS NULL AND NOT EXISTS(SELECT 1 FROM project_deletions d WHERE d.project_id=p.id)";
-const document = "CASE WHEN json_valid(j.data) THEN j.data ELSE '{}' END";
+const document = `CASE WHEN length(CAST(j.data AS BLOB))<=${maximumJobDocumentBytes} THEN CASE WHEN json_valid(j.data) THEN j.data ELSE '{}' END ELSE '{}' END`;
 const date = `json_extract(${document},'$.createdAt')`;
 export function ownedExportPage(
   db: Database.Database,
