@@ -133,7 +133,6 @@ test("journal capacity refusal withdraws only an unapproved dispatch hold and pr
           createErasureReceipt(),
         ),
       AccountErasureCapacity,
-      AccountErasureConflict,
     );
     assert(!ownerHasErasureApproval(vault, context.accountId));
     assert.deepEqual(readFileSync(file), bytes);
