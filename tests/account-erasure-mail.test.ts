@@ -30,6 +30,7 @@ import {
 import { createErasureReceipt } from "../src/lib/account-erasure-approval";
 import {
   AccountErasureCapacity,
+  AccountErasureConflict,
   AccountErasureUnavailable,
 } from "../src/lib/account-erasure-policy";
 function fixture(
@@ -132,6 +133,7 @@ test("journal capacity refusal withdraws only an unapproved dispatch hold and pr
           createErasureReceipt(),
         ),
       AccountErasureCapacity,
+      AccountErasureConflict,
     );
     assert(!ownerHasErasureApproval(vault, context.accountId));
     assert.deepEqual(readFileSync(file), bytes);
@@ -199,5 +201,45 @@ test("a preparation cannot be withdrawn by confusing another approved request fo
           createErasureReceipt(),
         ),
       AccountErasureUnavailable,
+    );
+  }));
+
+test("wrong receipt and foreign request reuse cannot change an approved status or create another account's dispatch hold", () =>
+  fixture((vault, context) => {
+    const receipt = createErasureReceipt(),
+      first = approveErasureWithMail(
+        vault,
+        context,
+        "coordinator@example.test",
+        receipt,
+      );
+    assert.throws(
+      () =>
+        approveErasureWithMail(
+          vault,
+          context,
+          "coordinator@example.test",
+          createErasureReceipt(),
+        ),
+      AccountErasureConflict,
+    );
+    const foreign = {
+      ...context,
+      accountId: "another-account",
+      workspaceId: randomUUID(),
+    };
+    assert.throws(
+      () =>
+        approveErasureWithMail(vault, foreign, "other@example.test", receipt),
+      AccountErasureConflict,
+    );
+    assert.deepEqual(
+      approveErasureWithMail(
+        vault,
+        context,
+        "coordinator@example.test",
+        receipt,
+      ).status,
+      first.status,
     );
   }));

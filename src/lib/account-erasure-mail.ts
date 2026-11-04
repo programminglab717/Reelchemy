@@ -7,6 +7,7 @@ import {
 import {
   recordErasureApproval,
   erasureApprovalForRequest,
+  erasureStatusByReceipt,
   approvedErasureContext,
   ownerHasErasureApproval,
   advanceErasureState,
@@ -21,13 +22,22 @@ import {
 function authority(vault: PrivacyVault, context: PreparedAccountMail) {
   const record = erasureApprovalForRequest(vault, context.requestId);
   if (record) {
-    approvedErasureContext(
-      vault,
-      context.requestId,
-      context.accountId,
-      context.workspaceId,
-    );
-    return "approved" as const;
+    try {
+      approvedErasureContext(
+        vault,
+        context.requestId,
+        context.accountId,
+        context.workspaceId,
+      );
+      return "approved" as const;
+    } catch (error) {
+      if (!(error instanceof AccountErasureConflict)) throw error;
+      // A colliding request belonging to another identity cannot authorize
+      // deletion or hold mail for this otherwise unapproved account.
+      if (!ownerHasErasureApproval(vault, context.accountId))
+        return "absent" as const;
+      throw new AccountErasureUnavailable();
+    }
   }
   // A different immutable intent for this identity must not be mistaken for
   // absence and used to release its pending private mail.
@@ -55,6 +65,17 @@ export function approveErasureWithMail(
   email: string,
   receipt: string,
 ) {
+  const existing = erasureApprovalForRequest(vault, context.requestId);
+  if (existing) {
+    approvedErasureContext(
+      vault,
+      context.requestId,
+      context.accountId,
+      context.workspaceId,
+    );
+    if (!erasureStatusByReceipt(vault, context.requestId, receipt))
+      throw new AccountErasureConflict();
+  }
   let sourceFailure: unknown;
   try {
     prepareAccountMail(context, email);
@@ -90,6 +111,8 @@ export function approveErasureWithMail(
     }
     const record = erasureApprovalForRequest(vault, context.requestId);
     if (record) {
+      if (!erasureStatusByReceipt(vault, context.requestId, receipt))
+        throw new AccountErasureConflict();
       approvedErasureContext(
         vault,
         context.requestId,
