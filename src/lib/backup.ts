@@ -31,23 +31,41 @@ import {
   normalizeJobHistorySnapshot,
   verifyJobHistorySnapshot,
 } from "./job-history-snapshot";
+import { configuredPrivacyVault } from "./privacy-storage";
+import { privacyVaultWatermark, type PrivacyVault } from "./privacy-vault";
+import { reconcileErasureSnapshot } from "./account-erasure-snapshot";
 
 const uuid = /^[a-f0-9-]{36}$/;
 const entryPath =
   /^(?:data\/(?:studio\.sqlite|auth\.sqlite|auth-secret)|data\/assets\/[a-f0-9-]{36}|artifacts\/[a-f0-9-]{36}\/[a-zA-Z0-9][a-zA-Z0-9._-]{0,119})$/;
 const manifestSchema = z.object({
   format: z.literal("reelchemy-backup"),
-  version: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
+  version: z.union([
+    z.literal(1),
+    z.literal(2),
+    z.literal(3),
+    z.literal(4),
+    z.literal(5),
+  ]),
+  privacy: z
+    .object({
+      id: z.uuid(),
+      keyFingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+      sequence: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+    })
+    .strict()
+    .optional(),
   capabilities: z
     .array(
       z.enum([
         "removed-export-files-v1",
         "export-storage-v1",
         "job-history-v1",
+        "account-erasure-v1",
       ]),
     )
     .min(1)
-    .max(3)
+    .max(4)
     .optional(),
   createdAt: z.string().datetime(),
   entries: z
@@ -230,6 +248,11 @@ function snapshotReferences(db: Database.Database) {
     removed,
     budget: snapshotHasExportStorage(db),
     history: snapshotHasJobHistory(db),
+    privacy: !!db
+      .prepare(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='account_erasures'",
+      )
+      .get(),
   };
 }
 // Admin-only filesystem tooling. Stop web, render, ingestion and mail first. We do
@@ -239,14 +262,19 @@ export async function createBackup(options: {
   auth?: string;
   artifacts: string;
   output: string;
+  vault?: PrivacyVault;
 }) {
+  const vault = options.vault || configuredPrivacyVault();
+  const privacy = privacyVaultWatermark(vault);
   const output = path.resolve(options.output),
     data = path.resolve(options.data),
     artifacts = path.resolve(options.artifacts),
     authDirectory = path.resolve(options.auth || options.data);
   outside(
     await canonicalCandidate(output),
-    await Promise.all([data, artifacts, authDirectory].map(canonicalCandidate)),
+    await Promise.all(
+      [data, artifacts, authDirectory, vault.directory].map(canonicalCandidate),
+    ),
   );
   if (await exists(path.join(data, "worker.lock")))
     throw new Error(
@@ -256,6 +284,12 @@ export async function createBackup(options: {
     throw new Error(
       "Stop the media worker before backing up. After a crash, verify its PID before removing stale diagnostics. Never remove its lifecycle lock.",
     );
+  if (
+    await exists(path.join(authDirectory, "privacy-worker", "heartbeat.json"))
+  )
+    throw new Error(
+      "Stop private account cleanup before backing up. Recover a crashed consumer before coordinated shutdown; retain its lifecycle inode.",
+    );
   await mkdir(path.dirname(output), { recursive: true, mode: 0o700 });
   await mkdir(output, { mode: 0o700 }); // Exclusive: never overwrite an existing backup.
   try {
@@ -264,27 +298,34 @@ export async function createBackup(options: {
       path.join(data, "studio.sqlite"),
       path.join(output, "data/studio.sqlite"),
     );
+    const copiedAuthFile = path.join(output, "data/auth.sqlite");
+    if (await exists(path.join(authDirectory, "auth.sqlite")))
+      await snapshotDatabase(
+        path.join(authDirectory, "auth.sqlite"),
+        copiedAuthFile,
+      );
     const studio = openVerified(path.join(output, "data/studio.sqlite"), {
       allowSnapshotWrites: true,
     });
     let refs: ReturnType<typeof snapshotReferences>;
+    const copiedAuth = (await exists(copiedAuthFile))
+      ? openVerified(copiedAuthFile, { allowSnapshotWrites: true })
+      : undefined;
     try {
       normalizeMediaProcessingSnapshot(studio);
       omitPendingDeletionsFromSnapshot(studio);
       normalizeExportFileRemovalSnapshot(studio);
+      reconcileErasureSnapshot(studio, copiedAuth, vault);
       refs = snapshotReferences(studio);
     } finally {
+      copiedAuth?.close();
       studio.close();
     }
     if (refs.jobs.some((j) => j.status === "rendering"))
       throw new Error(
         "A render was active in this database snapshot. Stop services cleanly before backup.",
       );
-    if (await exists(path.join(authDirectory, "auth.sqlite"))) {
-      await snapshotDatabase(
-        path.join(authDirectory, "auth.sqlite"),
-        path.join(output, "data/auth.sqlite"),
-      );
+    if (await exists(copiedAuthFile)) {
       const auth = openVerified(path.join(output, "data/auth.sqlite"));
       try {
         const find = auth.prepare('SELECT id FROM "user" WHERE id=?');
@@ -353,19 +394,24 @@ export async function createBackup(options: {
       });
     const manifest = manifestSchema.parse({
       format: "reelchemy-backup",
-      version: refs.history ? 4 : refs.budget ? 3 : refs.removed.size ? 2 : 1,
-      ...(refs.removed.size || refs.budget || refs.history
-        ? {
-            capabilities: [
-              ...(refs.removed.size ? ["removed-export-files-v1"] : []),
-              ...(refs.budget ? ["export-storage-v1"] : []),
-              ...(refs.history ? ["job-history-v1"] : []),
-            ],
-          }
-        : {}),
+      version: 5,
+      privacy,
+      capabilities: [
+        ...(refs.removed.size ? ["removed-export-files-v1"] : []),
+        ...(refs.budget ? ["export-storage-v1"] : []),
+        ...(refs.history ? ["job-history-v1"] : []),
+        "account-erasure-v1",
+      ],
       createdAt: new Date().toISOString(),
       entries,
     });
+    if (
+      privacyVaultWatermark(vault, privacy.sequence).sequence !==
+      privacy.sequence
+    )
+      throw new Error(
+        "Deletion authority changed during backup. Stop all writers and retry.",
+      );
     const temporary = path.join(output, `manifest-${randomUUID()}.tmp`);
     await writeFile(temporary, JSON.stringify(manifest, null, 2), {
       mode: 0o600,
@@ -377,6 +423,7 @@ export async function createBackup(options: {
       output,
       files: entries.length,
       bytes: entries.reduce((n, e) => n + e.bytes, 0),
+      privacy,
     };
   } catch (e) {
     await rm(output, { recursive: true, force: true });
@@ -420,22 +467,51 @@ export async function verifyBackup(root: string): Promise<Manifest> {
   } finally {
     studio.close();
   }
+  let authPrivacy:
+    | { vault_id: string; key_fingerprint: string; last_sequence: number }
+    | undefined;
+  let authHasPrivacy = false;
+  if (expected.has("data/auth.sqlite")) {
+    const accounts = openVerified(path.join(root, "data/auth.sqlite"));
+    try {
+      authHasPrivacy = !!accounts
+        .prepare(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name='auth_erasure_protocol'",
+        )
+        .get();
+      if (authHasPrivacy) {
+        authPrivacy = accounts
+          .prepare(
+            "SELECT vault_id,key_fingerprint,last_sequence FROM auth_erasure_protocol WHERE id='reelchemy-auth-erasure-v1'",
+          )
+          .get() as typeof authPrivacy;
+        if (!authPrivacy)
+          throw new Error("Backup privacy identity is incomplete.");
+      }
+    } finally {
+      accounts.close();
+    }
+  }
+  const needsPrivacy = manifest.version === 5 || refs.privacy || authHasPrivacy;
   const required = [
     ...(refs.removed.size || (!refs.budget && manifest.version === 2)
       ? ["removed-export-files-v1"]
       : []),
     ...(refs.budget ? ["export-storage-v1"] : []),
     ...(refs.history ? ["job-history-v1"] : []),
+    ...(needsPrivacy ? ["account-erasure-v1"] : []),
   ];
   if (
     manifest.version !==
-      (refs.history
-        ? 4
-        : refs.budget
-          ? 3
-          : refs.removed.size || manifest.version === 2
-            ? 2
-            : 1) ||
+      (needsPrivacy
+        ? 5
+        : refs.history
+          ? 4
+          : refs.budget
+            ? 3
+            : refs.removed.size || manifest.version === 2
+              ? 2
+              : 1) ||
     (refs.history && !refs.budget) ||
     (required.length === 0
       ? manifest.capabilities !== undefined
@@ -446,13 +522,27 @@ export async function verifyBackup(root: string): Promise<Manifest> {
               cap as
                 | "removed-export-files-v1"
                 | "export-storage-v1"
-                | "job-history-v1",
+                | "job-history-v1"
+                | "account-erasure-v1",
             ),
         ) ||
         new Set(manifest.capabilities).size !== required.length)
   )
     throw new Error(
       "Backup export accounting/removal capability is missing or inconsistent.",
+    );
+  if (
+    (needsPrivacy && !manifest.privacy) ||
+    (!needsPrivacy && manifest.privacy !== undefined) ||
+    (authPrivacy &&
+      (authPrivacy.vault_id !== manifest.privacy?.id ||
+        authPrivacy.key_fingerprint !== manifest.privacy?.keyFingerprint ||
+        !Number.isSafeInteger(authPrivacy.last_sequence) ||
+        authPrivacy.last_sequence < 0 ||
+        authPrivacy.last_sequence > (manifest.privacy?.sequence ?? -1)))
+  )
+    throw new Error(
+      "Backup account-erasure capability or privacy watermark is missing or inconsistent.",
     );
   if (refs.budget) {
     const copy = openVerified(path.join(root, "data/studio.sqlite"));
@@ -493,15 +583,38 @@ export async function verifyBackup(root: string): Promise<Manifest> {
 
   return manifest;
 }
-export async function restoreBackup(source: string, destination: string) {
+export async function restoreBackup(
+  source: string,
+  destination: string,
+  options: { vault?: PrivacyVault } = {},
+) {
+  const vault = options.vault || configuredPrivacyVault();
   const root = path.resolve(destination);
   outside(await canonicalCandidate(root), [
     await canonicalCandidate(path.resolve(source)),
+    await canonicalCandidate(vault.directory),
   ]);
   const manifest = await verifyBackup(source);
+  const currentPrivacy = privacyVaultWatermark(
+    vault,
+    manifest.privacy?.sequence || 0,
+  );
+  if (
+    manifest.privacy &&
+    (manifest.privacy.id !== vault.id ||
+      manifest.privacy.keyFingerprint !== vault.keyFingerprint)
+  )
+    throw new Error(
+      "Restore requires the matching current independent privacy authority.",
+    );
   await mkdir(path.dirname(root), { recursive: true, mode: 0o700 });
   await mkdir(root, { mode: 0o700 }); // Existing installations are never overwritten.
   try {
+    await writeFile(
+      path.join(root, "RESTORE_PENDING.json"),
+      JSON.stringify({ startedAt: new Date().toISOString() }),
+      { mode: 0o600, flag: "wx" },
+    );
     for (const entry of manifest.entries)
       await copyPrivate(
         path.join(source, entry.path),
@@ -542,7 +655,34 @@ export async function restoreBackup(source: string, destination: string) {
       }
     }
     const studio = new Database(path.join(root, "data/studio.sqlite"));
+    let omittedAccounts = 0;
     try {
+      normalizeMediaProcessingSnapshot(studio);
+      normalizeExportFileRemovalSnapshot(studio);
+      const previous = snapshotReferences(studio);
+      const copiedAccounts = (await exists(authFile))
+        ? new Database(authFile)
+        : undefined;
+      try {
+        omittedAccounts = reconcileErasureSnapshot(
+          studio,
+          copiedAccounts,
+          vault,
+        ).omittedAccounts;
+      } finally {
+        copiedAccounts?.close();
+      }
+      const remaining = snapshotReferences(studio);
+      for (const id of previous.assets)
+        if (!remaining.assets.has(id))
+          await rm(path.join(root, "data/assets", id), { force: true });
+      const keptJobs = new Set(remaining.jobs.map((job) => job.id));
+      for (const job of previous.jobs)
+        if (!keptJobs.has(job.id))
+          await rm(path.join(root, "artifacts", job.id), {
+            recursive: true,
+            force: true,
+          });
       studio.transaction(() => {
         normalizeMediaProcessingSnapshot(studio);
         normalizeExportFileRemovalSnapshot(studio);
@@ -592,6 +732,13 @@ export async function restoreBackup(source: string, destination: string) {
     } finally {
       studio.close();
     }
+    if (
+      privacyVaultWatermark(vault, currentPrivacy.sequence).sequence !==
+      currentPrivacy.sequence
+    )
+      throw new Error(
+        "Deletion authority changed during restore. Stop writers and retry in a new destination.",
+      );
     await writeFile(
       path.join(root, "RESTORE.json"),
       JSON.stringify({
@@ -600,14 +747,18 @@ export async function restoreBackup(source: string, destination: string) {
         sessionsRevoked: true,
         activeJobsFailed: true,
         authenticationSeparated: true,
+        privacy: currentPrivacy,
+        approvedAccountsOmitted: omittedAccounts,
       }),
       { mode: 0o600, flag: "wx" },
     );
+    await rm(path.join(root, "RESTORE_PENDING.json"));
     return {
       data: path.join(root, "data"),
       auth: authDirectory,
       artifacts: path.join(root, "artifacts"),
       files: manifest.entries.length,
+      privacy: currentPrivacy,
     };
   } catch (e) {
     await rm(root, { recursive: true, force: true });

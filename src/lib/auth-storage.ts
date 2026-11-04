@@ -1,5 +1,6 @@
 import path from "node:path";
 import { lstatSync, realpathSync } from "node:fs";
+import { assertRestoreComplete } from "./restore-state";
 export function canonicalStoragePath(file: string): string {
   try {
     return realpathSync(file);
@@ -28,6 +29,7 @@ export function authStorageDirectory(
   env: Record<string, string | undefined> = process.env,
 ) {
   const data = path.resolve(env.REELCHEMY_DATA_DIR || ".data");
+  assertRestoreComplete(data);
   const auth = path.resolve(env.REELCHEMY_AUTH_DIR || data);
   if (!env.REELCHEMY_AUTH_DIR && env.NODE_ENV !== "production") {
     let restored = false;

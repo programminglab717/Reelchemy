@@ -20,6 +20,7 @@ import {
   recordErasureApproval,
   erasureStatusByReceipt,
   ownerHasErasureApproval,
+  erasureApprovalForOwner,
   pendingErasureApprovals,
   advanceErasureState,
   privacyVaultWatermark,
@@ -35,6 +36,39 @@ import {
   AccountErasureCapacity,
   AccountErasureUnavailable,
 } from "../src/lib/account-erasure-policy";
+test("private restore discovery still finds a completed approval by exact keyed owner without writing the authority", () =>
+  fixture((vault) => {
+    const input = {
+      ownerId: "restore-original-owner",
+      workspaceId: randomUUID(),
+      requestId: randomUUID(),
+      receipt: createErasureReceipt(),
+    };
+    const recorded = recordErasureApproval(vault, input);
+    advanceErasureState(vault, input.requestId, "requested", "cleaning");
+    advanceErasureState(vault, input.requestId, "cleaning", "completed");
+    const file = path.join(vault.directory, "journal.sqlite"),
+      before = readFileSync(file);
+    assert.deepEqual(
+      erasureApprovalForOwner(vault, input.ownerId)?.approval,
+      recorded.approval,
+    );
+    assert.equal(
+      erasureApprovalForOwner(vault, input.ownerId)?.status.state,
+      "completed",
+    );
+    assert.equal(
+      erasureApprovalForOwner(vault, "restore-original-owner-other"),
+      undefined,
+    );
+    assert.equal(
+      erasureApprovalForOwner(vault, "RESTORE-ORIGINAL-OWNER"),
+      undefined,
+    );
+    assert.deepEqual(pendingErasureApprovals(vault), []);
+    assert.deepEqual(readFileSync(file), before);
+    assert(!before.includes(Buffer.from(input.ownerId)));
+  }));
 function fixture(run: (vault: PrivacyVault, root: string) => void) {
   const root = mkdtempSync(path.join(tmpdir(), "reelchemy-privacy-vault-"));
   try {

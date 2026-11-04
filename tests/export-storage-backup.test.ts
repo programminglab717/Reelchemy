@@ -23,7 +23,7 @@ import {
 } from "../src/lib/export-storage-store";
 import { exportStoragePolicy } from "../src/lib/export-storage-policy";
 const hash = (b: Buffer) => createHash("sha256").update(b).digest("hex");
-test("budget snapshots declare v3, retain output/source state, omit consented files and restore no phantom holds", async () => {
+test("privacy-aware snapshots retain output/source budgets, omit consented files and restore no phantom holds", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "reelchemy-budget-backup-")),
     data = path.join(root, "source/data"),
     artifacts = path.join(root, "source/artifacts"),
@@ -115,10 +115,11 @@ test("budget snapshots declare v3, retain output/source state, omit consented fi
     const before = hash(await readFile(file));
     await createBackup({ data, artifacts, output });
     const manifest = await verifyBackup(output);
-    assert.equal(manifest.version, 3);
+    assert.equal(manifest.version, 5);
     assert.deepEqual(manifest.capabilities, [
       "removed-export-files-v1",
       "export-storage-v1",
+      "account-erasure-v1",
     ]);
     assert(
       !manifest.entries.some((e) => e.path.startsWith(`artifacts/${removed}/`)),

@@ -26,6 +26,7 @@ try {
         verified: true,
         files: manifest.entries.length,
         createdAt: manifest.createdAt,
+        privacy: manifest.privacy || null,
       }),
     );
   } else if (operation === "restore" && args.length === 2)

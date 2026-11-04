@@ -413,13 +413,18 @@ export function erasureStatusByReceipt(
   });
 }
 export function ownerHasErasureApproval(vault: PrivacyVault, ownerId: string) {
+  return !!erasureApprovalForOwner(vault, ownerId);
+}
+// Private restore discovery: no user identifiers are stored in the journal.
+// Only a keyed exact lookup can connect a copied account to current authority.
+export function erasureApprovalForOwner(vault: PrivacyVault, ownerId: string) {
   return withVault(vault, false, (db, key) => {
     const row = db
       .prepare("SELECT * FROM erasure_approvals WHERE owner_hash=?")
       .get(erasureOwnerHash(key, ownerId)) as Row | undefined;
-    if (!row) return false;
-    approval(row, key);
-    return true;
+    if (!row) return undefined;
+    const value = approval(row, key);
+    return { approval: value, status: status(row, value) };
   });
 }
 // Private coordinator/worker lookup. Public progress uses receipt verification.

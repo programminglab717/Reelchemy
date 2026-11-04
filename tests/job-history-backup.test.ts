@@ -32,7 +32,7 @@ import { readRetiredJob } from "../src/lib/job-history-references";
 import { createBackup, verifyBackup, restoreBackup } from "../src/lib/backup";
 const hash = (bytes: Buffer) =>
   createHash("sha256").update(bytes).digest("hex");
-test("v4 snapshots preserve retired job-only originals and replay records, normalize only copied holds and refuse a rehashed phantom metadata reservation", async () => {
+test("privacy-aware snapshots preserve retired job-only originals and replay records, normalize only copied holds and refuse a rehashed phantom metadata reservation", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "reelchemy-history-backup-")),
     data = path.join(root, "source/data"),
     artifacts = path.join(root, "source/exports"),
@@ -125,10 +125,11 @@ test("v4 snapshots preserve retired job-only originals and replay records, norma
       sourceBytes = await readFile(path.join(data, "assets", source));
     await createBackup({ data, artifacts, output });
     const manifest = await verifyBackup(output);
-    assert.equal(manifest.version, 4);
+    assert.equal(manifest.version, 5);
     assert.deepEqual(manifest.capabilities, [
       "export-storage-v1",
       "job-history-v1",
+      "account-erasure-v1",
     ]);
     assert.equal(hash(await readFile(file)), hash(original));
     assert.equal(

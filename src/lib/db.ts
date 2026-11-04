@@ -1,4 +1,5 @@
 import Database from "better-sqlite3";
+import { assertRestoreComplete } from "./restore-state";
 import { mkdirSync, lstatSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -146,6 +147,7 @@ export const dataDir = path.resolve(
 export const artifactDir = path.resolve(
   /* turbopackIgnore: true */ process.env.REELCHEMY_ARTIFACT_DIR || "artifacts",
 );
+assertRestoreComplete(dataDir);
 mkdirSync(dataDir, { recursive: true });
 const db = new Database(path.join(dataDir, "studio.sqlite"));
 db.pragma("journal_mode = WAL");

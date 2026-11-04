@@ -77,8 +77,11 @@ test("new snapshots omit consented export files and preserve history/job-only so
       before = hash(await readFile(file));
     await createBackup({ data, artifacts, output });
     const manifest = await verifyBackup(output);
-    assert.equal(manifest.version, 2);
-    assert.deepEqual(manifest.capabilities, ["removed-export-files-v1"]);
+    assert.equal(manifest.version, 5);
+    assert.deepEqual(manifest.capabilities, [
+      "removed-export-files-v1",
+      "account-erasure-v1",
+    ]);
     assert(
       !manifest.entries.some((e) => e.path.startsWith(`artifacts/${jobId}/`)),
     );
