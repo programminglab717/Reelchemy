@@ -357,7 +357,7 @@ export function recordErasureApproval(
     const policy = accountErasurePolicy(),
       counts = db
         .prepare(
-          "SELECT count(*) AS total,coalesce(sum(state<>'completed'),0) AS pending,coalesce(max(sequence),0) AS latest FROM erasure_approvals",
+          "SELECT (SELECT count(*) FROM erasure_approvals) AS total,(SELECT count(*) FROM erasure_approvals WHERE state IN ('requested','cleaning','blocked')) AS pending,(SELECT coalesce(max(sequence),0) FROM erasure_approvals) AS latest",
         )
         .get() as { total: number; pending: number; latest: number };
     if (counts.total >= policy.journal || counts.pending >= policy.pending)
@@ -439,7 +439,7 @@ export function pendingErasureApprovals(
     (
       db
         .prepare(
-          "SELECT * FROM erasure_approvals WHERE state<>'completed' AND sequence>? ORDER BY sequence LIMIT ?",
+          "SELECT * FROM erasure_approvals INDEXED BY erasure_approvals_pending_idx WHERE state IN ('requested','cleaning','blocked') AND sequence>? ORDER BY sequence LIMIT ?",
         )
         .all(afterSequence, limit) as Row[]
     ).map((row) => ({
