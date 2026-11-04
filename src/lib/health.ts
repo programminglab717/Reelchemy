@@ -20,6 +20,7 @@ import { projectStoragePolicy } from "./project-storage-policy";
 import { exportStoragePolicy } from "./export-storage-policy";
 import { mailPolicy } from "./mail-policy";
 import { jobHistoryPolicy } from "./job-history-policy";
+import { accountErasurePolicy } from "./account-erasure-policy";
 export async function readiness() {
   const checks = {
     database: false,
@@ -39,6 +40,7 @@ export async function readiness() {
     exportStoragePolicy();
     jobHistoryPolicy();
     mailPolicy();
+    accountErasurePolicy();
     checks.limits = true;
   } catch {}
   try {

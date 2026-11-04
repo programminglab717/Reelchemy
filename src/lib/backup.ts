@@ -308,10 +308,12 @@ export async function createBackup(options: {
       allowSnapshotWrites: true,
     });
     let refs: ReturnType<typeof snapshotReferences>;
-    const copiedAuth = (await exists(copiedAuthFile))
-      ? openVerified(copiedAuthFile, { allowSnapshotWrites: true })
-      : undefined;
+    let copiedAuth: Database.Database | undefined;
     try {
+      if (await exists(copiedAuthFile))
+        copiedAuth = openVerified(copiedAuthFile, {
+          allowSnapshotWrites: true,
+        });
       normalizeMediaProcessingSnapshot(studio);
       omitPendingDeletionsFromSnapshot(studio);
       normalizeExportFileRemovalSnapshot(studio);

@@ -101,6 +101,19 @@ test("real worker readiness follows its heartbeat and graceful shutdown cleans i
       await chmod(accounts, 0o700);
     }
     assert.equal((await readiness()).status, "ready");
+    for (const key of [
+      "REELCHEMY_ERASURE_PENDING_COUNT",
+      "REELCHEMY_ERASURE_JOURNAL_COUNT",
+    ] as const) {
+      const saved = process.env[key];
+      try {
+        process.env[key] = "invalid";
+        assert.equal((await readiness()).checks.limits, false);
+      } finally {
+        if (saved === undefined) delete process.env[key];
+        else process.env[key] = saved;
+      }
+    }
     const previousLimit = process.env.REELCHEMY_WRITES_PER_MINUTE;
     try {
       process.env.REELCHEMY_WRITES_PER_MINUTE = "invalid";
