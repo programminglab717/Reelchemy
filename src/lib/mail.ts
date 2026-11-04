@@ -23,10 +23,11 @@ export function mailConfig(
     if (port && (!/^[1-9][0-9]{0,4}$/.test(port) || Number(port) > 65535))
       throw new MailUnavailable();
     if (
-      /[\r\n\0]/.test(env.SMTP_HOST!) ||
+      !/^[a-zA-Z0-9.:-]+$/.test(env.SMTP_HOST!) ||
       env.SMTP_HOST!.length > 253 ||
       /[\r\n\0]/.test(env.EMAIL_FROM!) ||
-      env.EMAIL_FROM!.length > 512
+      env.EMAIL_FROM!.length > 512 ||
+      !env.EMAIL_FROM!.includes("@")
     )
       throw new MailUnavailable();
   }
