@@ -58,7 +58,7 @@ export function migrateAccountErasures(db: Database.Database) {
       requested_at TEXT NOT NULL,updated_at TEXT NOT NULL);
       CREATE INDEX IF NOT EXISTS account_erasures_pending_idx ON account_erasures(state,workspace_id);
       CREATE TRIGGER IF NOT EXISTS erasure_barrier_context BEFORE INSERT ON account_erasures WHEN
-        json_extract(NEW.approval,'$.format')<>'reelchemy-account-erasure-v1' OR
+        json_extract(NEW.approval,'$.format') IS NOT 'reelchemy-account-erasure-v1' OR
         json_extract(NEW.approval,'$.workspaceId') IS NOT NEW.workspace_id OR
         json_extract(NEW.approval,'$.requestId') IS NOT NEW.request_id OR
         json_extract(NEW.approval,'$.requestedAt') IS NOT NEW.requested_at
@@ -80,7 +80,7 @@ export function migrateAccountErasures(db: Database.Database) {
       .immediate(),
   );
 }
-function publicRow(row: Row): StudioErasure {
+function internalRow(row: Row): StudioErasure {
   const approval = erasureApprovalSchema.parse(JSON.parse(row.approval));
   if (
     approval.requestId !== row.request_id ||
@@ -127,7 +127,7 @@ export function beginStudioErasure(
             existing.approval !== JSON.stringify(approved)
           )
             throw new AccountErasureConflict();
-          return publicRow(existing);
+          return internalRow(existing);
         }
         const workspace = db
           .prepare("SELECT owner_id FROM workspaces WHERE id=?")
@@ -156,7 +156,7 @@ export function beginStudioErasure(
         ).run(Date.now(), input.workspaceId);
         // Native attempt leases, source references and provider spend holds remain
         // until their existing consumers prove teardown/settlement.
-        return publicRow(
+        return internalRow(
           db
             .prepare("SELECT * FROM account_erasures WHERE workspace_id=?")
             .get(input.workspaceId) as Row,
@@ -175,7 +175,7 @@ export function pendingStudioErasures(db: Database.Database, limit = 10) {
           "SELECT * FROM account_erasures INDEXED BY account_erasures_pending_idx WHERE state IN('cleaning','blocked') ORDER BY workspace_id LIMIT ?",
         )
         .all(limit) as Row[]
-    ).map(publicRow),
+    ).map(internalRow),
   );
 }
 export function blockStudioErasure(db: Database.Database, workspaceId: string) {
