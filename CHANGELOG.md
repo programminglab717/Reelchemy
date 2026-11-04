@@ -395,3 +395,10 @@ Add a selected-layer duplicate action to the canvas and advanced layer controls.
 - Protect job-only source references through retirement, repeated media-index rebuilding and old writers. A job's eventual approved permanent project deletion releases its remaining source records through the existing shared-reference cleanup.
 - Portable v4 snapshots declare `job-history-v1`, preserve retired-source references and normalize only copied reservations. Older snapshot versions remain supported. Bounded report/queue reads keep oversized legacy documents intact and fail privately before hydration/native claims; the current saved film stays readable.
 - All 417 final backend/native cases and the first actual production mobile/full-500-record retirement workflow pass. The final bounded-read variant also passes its ten targeted checks; final production build/browser acceptance is pending. No actual installation, provider or mail consumer was used.
+
+## 0.51.0 candidate — 4 November 2026: reliable private account mail
+
+- Bound pending mail count, UTF-8 envelope bytes, per-recipient backlog, document sizes and delivery batches. Serialize producers/claims/settlement across processes, reserve metadata growth and expire private links after bounded retry/lifetime policy on queue activity.
+- Add permanent Linux mail lifecycle locking, captured per-message attempt leases, crash recovery, health checks and aggregate explicit-path inspection. Preserve source queues across backup/restore and never resend legacy failed records automatically.
+- Isolate SMTP in a credential-minimal sender process with an independent deadline and awaited teardown before retry. SMTP uncertainty retains at-least-once semantics; no real delivery is claimed.
+- Add verification resend to the account form with bounded abuse control and preserved email/error recovery. A full-queue mobile workflow, real process/race checks and final static/backend/build/browser acceptance are pending.
