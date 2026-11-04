@@ -1,4 +1,4 @@
-import { browserTest as test, expect, account } from "./fixtures";
+import { browserTest as test, expect, account, authPost } from "./fixtures";
 import type { APIRequestContext, Page } from "@playwright/test";
 import { readFile, stat, access } from "node:fs/promises";
 import path from "node:path";
@@ -283,24 +283,28 @@ test("a lost deletion reply recovers the same receipt after the browser signs in
   page,
   request,
 }, info) => {
+  const next = await account(request, "Next signed in maker"),
+    keptProject = await project(request, "Next account retained film");
   const a = await account(request, "Lost reply maker"),
     aSession = await (await request.get("/api/auth/get-session")).json(),
     pa = await project(request, "Lost reply old film");
   await page.goto("/account");
   const originalDraft = await draft(page, aSession.user.id, pa),
     receipt = await prepare(page, info.outputPath("lost-reply-receipt.json"));
-  let nextId = "",
-    keptProject: Project | undefined;
+  let nextId = "";
   await page.route("**/api/account/deletion", async (route) => {
     const body = route.request().postDataJSON();
     if (body.action !== "confirm") return route.continue();
     const response = await route.fetch();
     expect(response.status()).toBe(202);
     expect(response.headers()["set-cookie"]).toBeUndefined();
-    await account(request, "Next signed in maker");
+    const signIn = await authPost(request, "/api/auth/sign-in/email", {
+      headers: { origin },
+      data: { email: next.email, password: next.password },
+    });
+    expect(signIn.ok()).toBeTruthy();
     nextId = (await (await request.get("/api/auth/get-session")).json()).user
       .id;
-    keptProject = await project(request, "Next account retained film");
     await route.abort("failed");
   });
   await page.getByLabel("Current password", { exact: true }).fill(a.password);
