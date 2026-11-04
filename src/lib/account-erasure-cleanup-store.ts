@@ -1,5 +1,9 @@
 import type Database from "better-sqlite3";
-import { approvedErasureContext, type PrivacyVault } from "./privacy-vault";
+import {
+  approvedErasureContext,
+  erasureApprovalForRequest,
+  type PrivacyVault,
+} from "./privacy-vault";
 import {
   AccountErasureConflict,
   AccountErasureUnavailable,
@@ -79,6 +83,39 @@ export function scheduleErasedProjects(
         )
         .get(input.workspaceId);
       return { scheduled: projects.length, blocked: failed };
+    })
+    .immediate();
+}
+// Explicit operator recovery only. A normal consumer never resets exhausted
+// attempts. Reuse the existing task/source checks; keep every native/spend hold.
+export function retryErasedProjects(
+  db: Database.Database,
+  vault: PrivacyVault,
+  input: CleanupContext,
+  limit = 5,
+) {
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 5)
+    throw new AccountErasureUnavailable();
+  const approved = erasureApprovalForRequest(vault, input.requestId);
+  if (!approved || approved.status.state === "completed")
+    throw new AccountErasureConflict();
+  return db
+    .transaction(() => {
+      check(db, vault, input);
+      const rows = db
+        .prepare(
+          "SELECT project_id FROM project_deletions WHERE workspace_id=? AND state='failed' ORDER BY project_id LIMIT ?",
+        )
+        .all(input.workspaceId, limit) as { project_id: string }[];
+      for (const row of rows)
+        if (!requestProjectDeletion(db, row.project_id, input.workspaceId))
+          throw new AccountErasureUnavailable();
+      const remaining = db
+        .prepare(
+          "SELECT count(*) count FROM project_deletions WHERE workspace_id=? AND state='failed'",
+        )
+        .get(input.workspaceId) as { count: number };
+      return { requeued: rows.length, remainingFailed: remaining.count };
     })
     .immediate();
 }

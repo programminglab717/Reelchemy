@@ -300,9 +300,9 @@ SMTP runs in a separate private sender process with only mail-specific environme
 
 `npm run mail:status -- --auth /absolute/private-auth` prints aggregate pending/leased/due counts, logical bytes/limits, oldest age and discard count. It requires an existing queue and write access for the coordination mutex, but sends, enqueues, expires and repairs nothing. It never infers an actual installation from the working directory. Backups continue to omit mailbox/locks and restore with no pending delivery; source mailbox bytes must remain unchanged. Live SMTP delivery, hosted alerting, off-host retention/restore and immutable service images remain release gates. All development delivery fixtures use an explicitly fake sender and no SMTP consumer.
 
-## Account-erasure candidate: independent authority and cleanup role
+## Account erasure: independent authority and cleanup role
 
-The account-erasure branch is an unfinished release candidate. Copied-backup reconciliation and the confirmation/status UI/API are implemented, with focused acceptance; complete current-source acceptance remains pending. Do not deploy this unfinished candidate publicly. This section describes its storage/runtime contract, not a completed deployment.
+Account confirmation/status/recovery, private cleanup and copied-backup reconciliation pass the complete functional acceptance recorded in VALIDATION.md. Physical DB/WAL/backup retention, immutable service images and hosted operations remain release gates; this section describes the implemented storage/runtime contract, not a public deployment.
 
 Production authentication requires an explicitly initialized authority and the matching `REELCHEMY_PRIVACY_ID` and `REELCHEMY_PRIVACY_KEY_FINGERPRINT`. Native processes select its absolute path with `REELCHEMY_PRIVACY_DIR`. Initialize only deliberately new private storage with `npm run privacy:init -- --directory /absolute/independent-storage`; preserve its returned pins securely in operator configuration. Startup, status and migration do not create a replacement for a missing authority. Never initialize an empty replacement to make a restored installation start: the current journal is what prevents approved identities from being resurrected.
 
@@ -313,3 +313,15 @@ The `privacy` service runs `npm run privacy:worker`, after migration, with no ne
 The disposable runtime check explicitly creates a new random external privacy volume, initializes only that fixture, checks role isolation/health, and removes that known test volume only after service teardown. This does not initialize, restore, delete or migrate the operator's actual authority. The current source-mounted checks do not replace immutable-image/hosted acceptance.
 
 The format-5 backup manifest declares `account-erasure-v1` and the selected independent authority watermark. Stop web, rendering, ingestion, mail and privacy consumers before backup. A remaining private-consumer heartbeat refuses backup until coordinated shutdown; the lifecycle inode must remain. `backup verify` reports the snapshot watermark without initializing any authority. `backup restore` uses the configured current authority even for legacy formats, refuses foreign/older journals, removes approved users/projects/files only in its exclusive copy, retains global provider charges, and writes `RESTORE.json` only after reconciliation. `RESTORE_PENDING.json` blocks app/worker initialization while the destination is incomplete. Failed owned destinations are removed on caught errors; a forcibly interrupted destination remains blocked for operator review and must never be started by deleting the marker blindly. No restore action changes the original snapshot or the independent authority.
+
+## Explicit blocked-account cleanup retry (0.53 candidate)
+
+After correcting the underlying permissions, storage or cleanup fault, an operator can requeue at most five failed project-cleanup tasks for one independently approved, still-pending account request:
+
+```sh
+docker compose exec privacy node --import tsx scripts/privacy-retry.ts --request REQUEST_UUID --limit 5
+```
+
+Outside Compose, `npm run privacy:retry -- --request REQUEST_UUID [--limit 1..5]` uses the configured existing studio/private-auth/current-authority paths. Use the nonsecret request UUID from the private receipt; never pass its receipt secret. The command requires Linux, private existing regular database files, matching current authority, a valid local studio barrier and actual project ownership. It refuses incomplete restores, missing/unmigrated storage, symlink/hard-linked/publicly accessible database files, foreign/completed approvals and invalid bounds. It initializes or repairs no database and needs no signing/mail/AI credentials. Only the selected studio's failed tasks are changed, atomically; output is request ID and requeued/remaining-failed counts. Repeat deliberately when more failed tasks remain.
+
+The command resets only failed-task attempt/backoff metadata through the existing project protocol. It does not unlink media, kill native work, release captured native/provider/mail holds, clear barriers or mark an account complete. Existing consumers perform their usual verified cleanup afterward; privacy status can remain blocked until their next successful cycle. Repeating ordinary worker cycles never resets an exhausted task. Keep every permanent lifecycle lock inode in place. Source/command tests are recorded separately in VALIDATION.md; this candidate has not been run against actual account data.
