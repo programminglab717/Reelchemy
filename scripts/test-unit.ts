@@ -110,6 +110,7 @@ try {
       "export-storage-worker.test.ts",
       "cache-worker.test.ts",
       "project-deletions.test.ts",
+      "account-erasure-cleanup.test.ts",
       "render-static.test.ts",
       "shared-media-worker.test.ts",
     ].includes(path.basename(arg)),

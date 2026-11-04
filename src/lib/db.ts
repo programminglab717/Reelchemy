@@ -113,6 +113,12 @@ import { detachErasedProviderUsage } from "./account-erasure-provider";
 import type { PrivacyVault } from "./privacy-vault";
 import { AccountErasureUnavailable } from "./account-erasure-policy";
 import {
+  resolveErasureOwner,
+  scheduleErasedProjects,
+  finishErasedStudio,
+  type CleanupContext,
+} from "./account-erasure-cleanup-store";
+import {
   migrateProjectStorage,
   admitProjectData,
   projectDataUsage,
@@ -201,6 +207,15 @@ export const mediaProcessing = new MediaProcessingStore(db);
 export const providerUsage = new ProviderUsageStore(db);
 migrateAccountErasures(db);
 export const accountErasures = {
+  resolve(vault: PrivacyVault, requestId: string, workspaceId: string) {
+    return resolveErasureOwner(db, vault, requestId, workspaceId);
+  },
+  schedule(vault: PrivacyVault, input: CleanupContext, limit = 5) {
+    return scheduleErasedProjects(db, vault, input, limit);
+  },
+  finish(vault: PrivacyVault, input: CleanupContext) {
+    return finishErasedStudio(db, vault, input);
+  },
   begin(
     vault: PrivacyVault,
     input: { requestId: string; ownerId: string; workspaceId: string },
