@@ -21,12 +21,15 @@ import type { RenderBrowser } from "./render-browser";
 import { renderCacheWorkspaceDirectory } from "./render-cache-path";
 import { staticScenePlan } from "./static-scene";
 import { renderStaticScene } from "./render-static";
+import { videoCompositePlan } from "./video-composite-plan";
+import { renderVideoComposite } from "./render-video-composite";
 import { openSceneCacheNamespace } from "./cache-retention";
 export type SceneCacheResult = {
   sceneId: string;
   reused: boolean;
   key: string;
   frameReuse?: { captured: number; total: number };
+  compositeReuse?: { captured: number; total: number };
 };
 async function fileDigest(file: string) {
   const hash = createHash("sha256");
@@ -100,6 +103,8 @@ async function fingerprint() {
     "src/lib/render-cache.ts",
     "src/lib/render-static.ts",
     "src/lib/static-scene.ts",
+    "src/lib/video-composite-plan.ts",
+    "src/lib/render-video-composite.ts",
     "src/lib/render-browser.ts",
     "src/lib/schema.ts",
     "src/lib/text-style.ts",
@@ -283,6 +288,7 @@ async function renderScenesInDirectory(
       video = path.join(target, "video.mp4");
     let reused = await cacheEntryValid(target, local, key);
     let frameReuse: SceneCacheResult["frameReuse"];
+    let compositeReuse: SceneCacheResult["compositeReuse"];
     if (!reused) {
       const staging = path.join(cacheRoot, `.partial-${randomUUID()}`);
       await mkdir(staging);
@@ -295,6 +301,7 @@ async function renderScenesInDirectory(
           puppeteerInstance,
         });
         const staticPlan = staticScenePlan(local);
+        const compositePlan = videoCompositePlan(local);
         const rendering = {
           serveUrl,
           composition,
@@ -320,6 +327,18 @@ async function renderScenesInDirectory(
             captured: staticPlan.capturedFrames.length,
             total: totalFrames(local),
           };
+        } else if (compositePlan) {
+          await renderVideoComposite({
+            ...rendering,
+            timeline: local,
+            plan: compositePlan,
+            assetSources,
+            isCancelled,
+          });
+          compositeReuse = {
+            captured: 1 + compositePlan.capturedFrames.length,
+            total: totalFrames(local),
+          };
         } else
           await renderMedia({
             ...rendering,
@@ -343,6 +362,7 @@ async function renderScenesInDirectory(
             sha256: await fileDigest(path.join(staging, "video.mp4")),
             frames: totalFrames(local),
             ...(frameReuse ? { frameReuse } : {}),
+            ...(compositeReuse ? { compositeReuse } : {}),
             createdAt: new Date().toISOString(),
           }),
         );
@@ -364,6 +384,7 @@ async function renderScenesInDirectory(
       reused,
       key,
       ...(frameReuse ? { frameReuse } : {}),
+      ...(compositeReuse ? { compositeReuse } : {}),
     });
     completed += totalFrames(local);
     onProgress((0.88 * completed) / totalFrames(timeline));

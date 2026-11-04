@@ -2,6 +2,7 @@ import { SoundAndCaptions } from "./SoundAndCaptions";
 import React from "react";
 import { textStyle } from "../lib/text-style";
 import { mediaStyle } from "../lib/media-style";
+import type { VideoCompositePass } from "../lib/video-composite-plan";
 import {
   AbsoluteFill,
   Sequence,
@@ -23,12 +24,14 @@ function SceneView({
   exportResolution,
   assetSources,
   layoutOnly = false,
+  compositePass,
 }: {
   scene: Scene;
   format: Timeline["format"];
   exportResolution?: Timeline["exportResolution"];
   assetSources: Record<string, string>;
   layoutOnly?: boolean;
+  compositePass?: VideoCompositePass;
 }) {
   const currentFrame = useCurrentFrame();
   const frame = layoutOnly ? 0 : currentFrame;
@@ -44,10 +47,21 @@ function SceneView({
           scene.fadeOut === false ? 1 : (scene.durationFrames - frame) / 10,
         )
       : 1;
+  const videoIndex = compositePass
+    ? scene.layers.findIndex((layer) => layer.id === compositePass.videoLayerId)
+    : -1;
+  if (compositePass && videoIndex < 0)
+    throw new Error("Invalid compositing pass.");
+  const layers = !compositePass
+    ? scene.layers
+    : compositePass.part === "under"
+      ? scene.layers.slice(0, videoIndex)
+      : scene.layers.slice(videoIndex + 1);
+  const transparent = compositePass?.part === "over";
   return (
     <AbsoluteFill
       style={{
-        background: scene.background,
+        background: transparent ? "transparent" : scene.background,
         overflow: "hidden",
         fontFamily: "Arial, sans-serif",
       }}
@@ -58,14 +72,16 @@ function SceneView({
           transform: `translate(${camera.x * width}px, ${camera.y * height}px) scale(${camera.scale})`,
         }}
       >
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: `radial-gradient(ellipse at 85% 10%, ${scene.accent}22, transparent 60%)`,
-          }}
-        />
-        {scene.layers
+        {!transparent && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: `radial-gradient(ellipse at 85% 10%, ${scene.accent}22, transparent 60%)`,
+            }}
+          />
+        )}
+        {layers
           .filter((l) => !l.hidden)
           .map((l) => {
             const a = layoutOnly
@@ -269,9 +285,11 @@ export function SceneLayout(props: {
 export function Film({
   timeline,
   assetSources = {},
+  compositePass,
 }: {
   timeline: Timeline;
   assetSources?: Record<string, string>;
+  compositePass?: VideoCompositePass;
 }) {
   return (
     <AbsoluteFill>
@@ -290,11 +308,14 @@ export function Film({
               format={timeline.format}
               exportResolution={timeline.exportResolution}
               assetSources={assetSources}
+              compositePass={compositePass}
             />
           </Sequence>
         );
       })}
-      <SoundAndCaptions timeline={timeline} assetSources={assetSources} />
+      {compositePass?.part !== "under" && (
+        <SoundAndCaptions timeline={timeline} assetSources={assetSources} />
+      )}
     </AbsoluteFill>
   );
 }
