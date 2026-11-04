@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { constants, openSync, closeSync, fstatSync } from "node:fs";
+import { constants, openSync, closeSync, fstatSync, fchmodSync } from "node:fs";
 import path from "node:path";
 import { withPrivateDirectory } from "../src/lib/private-directory";
 // Fixed by the entrypoint, never request/environment input. Explicit test
@@ -21,6 +21,7 @@ export function mailKernelEntrypoint(directory: string, executable: string) {
       );
       try {
         const info = fstatSync(file);
+        fchmodSync(file, 0o600);
         if (!info.isFile() || info.nlink !== 1)
           throw new Error("Mail lifecycle lock unavailable.");
         return spawn(

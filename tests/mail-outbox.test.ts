@@ -279,3 +279,63 @@ test("malformed, oversized, symlink and hardlink mail are refused before a fake 
     });
   }
 });
+
+test("mail batches stop at twenty and graceful stop leaves unclaimed records unchanged", async () => {
+  await fixture(async () => {
+    for (let index = 0; index < 21; index++)
+      enqueueMail(message(`maker-${index}@example.test`));
+    assert.deepEqual(await flushOutbox(async () => {}), {
+      sent: 20,
+      failed: 0,
+    });
+    const remaining = files()[0],
+      before = readFileSync(path.join(mailDir(), remaining));
+    assert.deepEqual(
+      await flushOutbox(
+        async () => {
+          assert.fail("Stopped consumers may not claim.");
+        },
+        { shouldStop: () => true },
+      ),
+      { sent: 0, failed: 0 },
+    );
+    assert.deepEqual(readFileSync(path.join(mailDir(), remaining)), before);
+    assert.deepEqual(await flushOutbox(async () => {}), { sent: 1, failed: 0 });
+  });
+});
+
+test("mail inspection neither initializes missing storage nor cleans or expires queue files", async () => {
+  await fixture((root) => {
+    assert.throws(() => mailOutboxStatus(), MailUnavailable);
+    assert.deepEqual(readdirSync(root), []);
+    enqueueMail(message());
+    const name = files()[0],
+      file = path.join(mailDir(), name),
+      item = JSON.parse(readFileSync(file, "utf8"));
+    writeFileSync(
+      file,
+      JSON.stringify({
+        ...item,
+        createdAt: new Date(Date.now() - MAIL_LIFETIME_MS - 1).toISOString(),
+      }),
+    );
+    const temporary = path.join(
+      mailDir(),
+      ".mail-00000000-0000-4000-8000-000000000000.tmp",
+    );
+    writeFileSync(temporary, "Synthetic incomplete publication");
+    const before = readFileSync(file),
+      orphan = readFileSync(temporary),
+      database = readFileSync(path.join(mailDir(), "outbox.sqlite"));
+    const result = mailOutboxStatus();
+    assert.equal(result.pending, 1);
+    assert.equal(result.due, 0);
+    assert.equal(result.discarded, 0);
+    assert.deepEqual(readFileSync(file), before);
+    assert.deepEqual(readFileSync(temporary), orphan);
+    assert.deepEqual(
+      readFileSync(path.join(mailDir(), "outbox.sqlite")),
+      database,
+    );
+  });
+});

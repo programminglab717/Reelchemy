@@ -84,6 +84,15 @@ export function readPrivateMailJson(
   name: string,
   maximum = MAIL_RECORD_BYTES,
 ): unknown {
+  if (name.startsWith("failed/")) {
+    const child = name.slice(7);
+    if (!uuidFile.test(child)) throw new MailUnavailable();
+    return withPrivateDirectory(anchor, "failed", (directory) =>
+      readPrivateMailJson(directory, child, maximum),
+    );
+  }
+  if (!uuidFile.test(name) && !["worker.lock", "heartbeat.json"].includes(name))
+    throw new MailUnavailable();
   const target = path.join(anchor, name),
     info = regular(target);
   if (info.size < 1 || info.size > maximum) throw new MailUnavailable();
@@ -129,6 +138,8 @@ export function publishPrivateMailJson(
   name: string,
   value: unknown,
 ) {
+  if (!uuidFile.test(name) && !["worker.lock", "heartbeat.json"].includes(name))
+    throw new MailUnavailable();
   const body = JSON.stringify(value);
   if (Buffer.byteLength(body) > MAIL_RECORD_BYTES) throw new MailUnavailable();
   const temporary = path.join(anchor, `.mail-${randomUUID()}.tmp`);
@@ -175,44 +186,53 @@ function publish(anchor: string, name: string, value: Record) {
 // No filesystem operation relies on rolling back a SQL change after a crash.
 export function mailDirectoryTransaction<T>(
   operation: (anchor: string, db: Database.Database) => T,
+  existing = false,
 ): T {
   try {
     mailPolicy();
-    return withPrivateDirectory(authStorageDirectory(), "mail", (anchor) => {
-      for (const name of [
-        "outbox.sqlite",
-        "outbox.sqlite-wal",
-        "outbox.sqlite-shm",
-      ]) {
-        try {
-          regular(path.join(anchor, name));
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    return withPrivateDirectory(
+      authStorageDirectory(),
+      "mail",
+      (anchor) => {
+        for (const name of [
+          "outbox.sqlite",
+          "outbox.sqlite-wal",
+          "outbox.sqlite-shm",
+        ]) {
+          try {
+            regular(path.join(anchor, name));
+          } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+          }
         }
-      }
-      const database = new Database(path.join(anchor, "outbox.sqlite"));
-      try {
-        chmodSync(path.join(anchor, "outbox.sqlite"), 0o600);
-        database.pragma("busy_timeout=5000");
-        database.pragma("journal_mode=WAL");
-        database.pragma("synchronous=FULL");
-        database.exec(
-          "CREATE TABLE IF NOT EXISTS mail_counters(id INTEGER PRIMARY KEY CHECK(id=1),discarded INTEGER NOT NULL DEFAULT 0); INSERT OR IGNORE INTO mail_counters(id) VALUES(1)",
-        );
-        return database
-          .transaction(() => operation(anchor, database))
-          .immediate();
-      } finally {
-        database.close();
-      }
-    });
+        const database = new Database(path.join(anchor, "outbox.sqlite"), {
+          fileMustExist: existing,
+        });
+        try {
+          if (!existing) chmodSync(path.join(anchor, "outbox.sqlite"), 0o600);
+          database.pragma("busy_timeout=5000");
+          if (!existing) database.pragma("journal_mode=WAL");
+          if (!existing) database.pragma("synchronous=FULL");
+          if (!existing)
+            database.exec(
+              "CREATE TABLE IF NOT EXISTS mail_counters(id INTEGER PRIMARY KEY CHECK(id=1),discarded INTEGER NOT NULL DEFAULT 0); INSERT OR IGNORE INTO mail_counters(id) VALUES(1)",
+            );
+          return database
+            .transaction(() => operation(anchor, database))
+            .immediate();
+        } finally {
+          database.close();
+        }
+      },
+      !existing,
+    );
   } catch (error) {
     if (error instanceof MailCapacity) throw error;
     throw new MailUnavailable();
   }
 }
 const locked = mailDirectoryTransaction;
-function entries(anchor: string): Entry[] {
+function entries(anchor: string, cleanTemporary = true): Entry[] {
   const result: Entry[] = [],
     directory = opendirSync(anchor);
   let seen = 0;
@@ -226,7 +246,7 @@ function entries(anchor: string): Entry[] {
         result.push({ name: item.name, bytes: info.size });
       } else if (temporaryFile.test(item.name)) {
         regular(target);
-        unlinkSync(target); // No other cooperating writer holds this mutex.
+        if (cleanTemporary) unlinkSync(target); // No other cooperating writer holds this mutex.
       } else if (item.name === "failed") {
         if (!lstatSync(target).isDirectory()) throw new MailUnavailable();
         const failures = opendirSync(target);
@@ -281,6 +301,26 @@ function chargedBytes(item: Record) {
   // Reserve lease/enqueue-attempt growth up front, so a full queue can drain.
   return Buffer.byteLength(JSON.stringify(body)) + 256;
 }
+function removeMail(anchor: string, name: string) {
+  if (name.startsWith("failed/")) {
+    const child = name.slice(7);
+    if (!uuidFile.test(child)) throw new MailUnavailable();
+    return withPrivateDirectory(anchor, "failed", (directory) =>
+      removeMail(directory, child),
+    );
+  }
+  if (!uuidFile.test(name)) throw new MailUnavailable();
+  unlinkSync(path.join(anchor, name));
+  const directory = openSync(
+    anchor,
+    constants.O_RDONLY | constants.O_DIRECTORY,
+  );
+  try {
+    fsyncSync(directory);
+  } finally {
+    closeSync(directory);
+  }
+}
 function prune(
   anchor: string,
   db: Database.Database,
@@ -292,7 +332,7 @@ function prune(
   for (const row of rows) {
     const item = readRecord(anchor, row.name);
     if (expired(item, now) && (!item.leaseUntil || item.leaseUntil <= now)) {
-      unlinkSync(path.join(anchor, row.name));
+      removeMail(anchor, row.name);
       discarded++;
     } else retained.push(row);
   }
@@ -373,14 +413,14 @@ export function settleMail(claim: MailClaim, sent: boolean, now = Date.now()) {
       throw error;
     }
     if (item.leaseToken !== claim.token) return false;
-    if (sent) unlinkSync(path.join(anchor, claim.name));
+    if (sent) removeMail(anchor, claim.name);
     else {
       const attempts = item.attempts;
       if (
         attempts >= MAIL_MAX_ATTEMPTS ||
         now - Date.parse(item.createdAt) >= MAIL_LIFETIME_MS
       ) {
-        unlinkSync(path.join(anchor, claim.name));
+        removeMail(anchor, claim.name);
         db.prepare(
           "UPDATE mail_counters SET discarded=discarded+1 WHERE id=1",
         ).run();
@@ -400,7 +440,7 @@ export function settleMail(claim: MailClaim, sent: boolean, now = Date.now()) {
 }
 export function mailOutboxStatus(now = Date.now()) {
   return locked((anchor, db) => {
-    const rows = entries(anchor),
+    const rows = entries(anchor, false),
       policy = mailPolicy();
     let leased = 0,
       due = 0,
@@ -436,5 +476,5 @@ export function mailOutboxStatus(now = Date.now()) {
         }
       ).discarded,
     };
-  });
+  }, true);
 }

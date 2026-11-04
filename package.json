@@ -19,6 +19,7 @@
     "auth:migrate": "tsx scripts/auth-migrate.ts",
     "db:migrate": "tsx scripts/migrate.ts",
     "workspace:claim": "tsx scripts/claim-legacy.ts",
+    "mail:status": "tsx scripts/mail-status.ts",
     "mail:worker": "tsx scripts/mail-entrypoint.ts",
     "test:isolated": "tsx scripts/test-isolated.ts",
     "backup": "tsx scripts/backup.ts",

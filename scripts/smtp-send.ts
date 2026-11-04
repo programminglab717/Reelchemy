@@ -48,7 +48,9 @@ try {
       text: message.text,
       from: process.env.EMAIL_FROM,
     });
-    process.stdout.write("sent\n");
+    await new Promise<void>((resolve) =>
+      process.stdout.write("sent\n", () => resolve()),
+    );
   } finally {
     transport.close();
   }
@@ -56,4 +58,5 @@ try {
   process.exitCode = 1;
 } finally {
   clearTimeout(watchdog);
+  process.exit(process.exitCode || 0);
 }
