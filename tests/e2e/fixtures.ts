@@ -3,7 +3,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 // Keep real abuse controls enabled. Fast suites can share a source IP and
 // legitimately exhaust signup/sign-in windows; honor Retry-After, never bypass it.
-async function authPost(
+export async function authPost(
   request: APIRequestContext,
   url: string,
   options: Parameters<APIRequestContext["post"]>[1],
