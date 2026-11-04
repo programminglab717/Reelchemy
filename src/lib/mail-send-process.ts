@@ -14,7 +14,7 @@ export async function sendMailProcess(
     JSON.stringify({ to: mail.to, subject: mail.subject, text: mail.text }),
   );
   if (body.length > MAIL_RECORD_BYTES) throw new MailUnavailable();
-  const environment: NodeJS.ProcessEnv = {};
+  const environment: NodeJS.ProcessEnv = { NODE_ENV: "production" };
   for (const key of [
     "PATH",
     "LANG",
@@ -28,7 +28,6 @@ export async function sendMailProcess(
     "EMAIL_FROM",
   ])
     if (process.env[key] !== undefined) environment[key] = process.env[key];
-  environment.NODE_ENV = "production";
   const child = spawn(
     process.execPath,
     [

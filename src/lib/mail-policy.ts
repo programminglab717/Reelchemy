@@ -15,7 +15,9 @@ export class MailCapacity extends Error {
     this.name = "MailCapacity";
   }
 }
-export function mailPolicy(env: NodeJS.ProcessEnv = process.env) {
+export function mailPolicy(
+  env: Record<string, string | undefined> = process.env,
+) {
   function integer(
     name: string,
     fallback: number,

@@ -309,7 +309,7 @@ function chargedBytes(item: Record) {
   // Reserve lease/enqueue-attempt growth up front, so a full queue can drain.
   return Buffer.byteLength(JSON.stringify(body)) + 256;
 }
-function removeMail(anchor: string, name: string) {
+function removeMail(anchor: string, name: string): void {
   if (name.startsWith("failed/")) {
     const child = name.slice(7);
     if (!uuidFile.test(child)) throw new MailUnavailable();

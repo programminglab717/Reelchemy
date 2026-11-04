@@ -47,22 +47,20 @@ test("missed verification recovers after a full private queue without losing ema
       seeded.push(`${crypto.randomUUID()}.json`);
     for (let start = 0; start < seeded.length; start += 20)
       await Promise.all(
-        seeded
-          .slice(start, start + 20)
-          .map((name, index) =>
-            writeFile(
-              path.join(directory, name),
-              JSON.stringify({
-                to: `capacity-${start + index}@example.test`,
-                subject: "Synthetic capacity fixture",
-                text: "Never deliver this fixture externally",
-                createdAt: new Date().toISOString(),
-                attempts: 0,
-                nextAttemptAt: 0,
-              }),
-              { mode: 0o600, flag: "wx" },
-            ),
+        seeded.slice(start, start + 20).map((name, index) =>
+          writeFile(
+            path.join(directory, name),
+            JSON.stringify({
+              to: `capacity-${start + index}@example.test`,
+              subject: "Synthetic capacity fixture",
+              text: "Never deliver this fixture externally",
+              createdAt: new Date().toISOString(),
+              attempts: 0,
+              nextAttemptAt: 0,
+            }),
+            { mode: 0o600, flag: "wx" },
           ),
+        ),
       );
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/sign-in");
