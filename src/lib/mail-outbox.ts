@@ -79,11 +79,14 @@ function regular(file: string) {
   if (!info.isFile() || info.nlink !== 1) throw new MailUnavailable();
   return info;
 }
-function readRecord(anchor: string, name: string): Record {
+export function readPrivateMailJson(
+  anchor: string,
+  name: string,
+  maximum = MAIL_RECORD_BYTES,
+): unknown {
   const target = path.join(anchor, name),
     info = regular(target);
-  if (info.size < 2 || info.size > MAIL_RECORD_BYTES)
-    throw new MailUnavailable();
+  if (info.size < 1 || info.size > maximum) throw new MailUnavailable();
   const fd = openSync(
     target,
     constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
@@ -100,8 +103,8 @@ function readRecord(anchor: string, name: string): Record {
     const buffer = Buffer.alloc(info.size + 1);
     const length = readSync(fd, buffer, 0, buffer.length, 0);
     if (length !== info.size) throw new MailUnavailable();
-    const value = recordSchema.parse(
-      JSON.parse(buffer.subarray(0, length).toString("utf8")),
+    const value: unknown = JSON.parse(
+      buffer.subarray(0, length).toString("utf8"),
     );
     const after = regular(target),
       final = fstatSync(fd);
@@ -118,7 +121,14 @@ function readRecord(anchor: string, name: string): Record {
     closeSync(fd);
   }
 }
-function publish(anchor: string, name: string, value: Record) {
+function readRecord(anchor: string, name: string): Record {
+  return recordSchema.parse(readPrivateMailJson(anchor, name));
+}
+export function publishPrivateMailJson(
+  anchor: string,
+  name: string,
+  value: unknown,
+) {
   const body = JSON.stringify(value);
   if (Buffer.byteLength(body) > MAIL_RECORD_BYTES) throw new MailUnavailable();
   const temporary = path.join(anchor, `.mail-${randomUUID()}.tmp`);
@@ -156,10 +166,16 @@ function publish(anchor: string, name: string, value: Record) {
   }
 }
 
+function publish(anchor: string, name: string, value: Record) {
+  publishPrivateMailJson(anchor, name, value);
+}
+
 // A SQLite writer transaction serializes cooperating producers and consumers.
 // Message files are atomically published; SQLite contains no addresses or links.
 // No filesystem operation relies on rolling back a SQL change after a crash.
-function locked<T>(operation: (anchor: string, db: Database.Database) => T): T {
+export function mailDirectoryTransaction<T>(
+  operation: (anchor: string, db: Database.Database) => T,
+): T {
   try {
     mailPolicy();
     return withPrivateDirectory(authStorageDirectory(), "mail", (anchor) => {
@@ -195,6 +211,7 @@ function locked<T>(operation: (anchor: string, db: Database.Database) => T): T {
     throw new MailUnavailable();
   }
 }
+const locked = mailDirectoryTransaction;
 function entries(anchor: string): Entry[] {
   const result: Entry[] = [],
     directory = opendirSync(anchor);
@@ -255,11 +272,14 @@ function expired(item: Record, now: number) {
   );
 }
 function chargedBytes(item: Record) {
-  const { leaseToken: _token, leaseUntil: _until, ...body } = item;
-  void _token;
-  void _until;
+  const body: Mail = {
+    to: item.to,
+    subject: item.subject,
+    text: item.text,
+    ...(item.accountId ? { accountId: item.accountId } : {}),
+  };
   // Reserve lease/enqueue-attempt growth up front, so a full queue can drain.
-  return Buffer.byteLength(JSON.stringify(body)) + 128;
+  return Buffer.byteLength(JSON.stringify(body)) + 256;
 }
 function prune(
   anchor: string,
