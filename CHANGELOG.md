@@ -417,8 +417,8 @@ Add a selected-layer duplicate action to the canvas and advanced layer controls.
 - Require existing private migrated stores and refuse initialization/repair. No signing/mail/provider credentials or raw receipt are needed; document correction of the underlying fault and deliberate operator recovery.
 - All 497 backend/native checks and 13 targeted real-command/store regressions pass. The unchanged UI retains the 79-case 0.52 production HTTPS baseline. Physical DB/WAL/backups, native-HD/long-video/creator and hosted/image/live release acceptance remain open.
 
-## 0.54.0 candidate — selectable native HD
+## 0.54.0 — selectable native HD
 
 - Preserve an explicit standard/1080p export setting through undo, saving, versions, archives, scene-local rendering/cache and preview/layout/caption geometry. Existing films keep their original dimensions; landscape/portrait HD render natively at 1920×1080/1080×1920.
 - Require archive v4/backup format 6 with explicit native-HD capability, including retained versions and immutable job inputs; refuse retagged/inconsistent declarations and retain supported legacy formats.
-- All 503 backend/native checks pass. A one-minute generated-footage native-HD pipeline passes in 210.514 seconds on the recorded 4 CPU/6 GiB mounted runner; production-sized resource/longer-video acceptance remains open. New production HTTPS maker flows and build acceptance are pending. Public duration/scene limits are unchanged; no deployment is claimed.
+- All 503 backend/native checks pass. A one-minute generated-footage native-HD pipeline passes in 210.514 seconds on the recorded 4 CPU/6 GiB mounted runner; production-sized resource/longer-video acceptance remains open. The production build and both new verified-HTTPS maker flows pass, with actual decoded HD downloads and mobile controls. The complete mixed browser baseline stays 79/79 at 0.52; no complete 81-case run is inferred. Public duration/scene limits are unchanged; no deployment is claimed.
