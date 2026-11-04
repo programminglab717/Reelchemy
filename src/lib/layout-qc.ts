@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { chromium } from "playwright-core";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import { formats, type Timeline, type QCIssue } from "./schema";
+import { videoDimensions, type Timeline, type QCIssue } from "./schema";
 import { textStyle } from "./text-style";
 import { CaptionOverlay } from "../video/CaptionOverlay";
 import { CommandCancelledError, CommandTimeoutError } from "./process";
@@ -47,7 +47,7 @@ export async function checkLayout(
   try {
     stop();
     if (reason) throw reason;
-    const page = await browser.newPage({ viewport: formats[timeline.format] });
+    const page = await browser.newPage({ viewport: videoDimensions(timeline) });
     page.setDefaultTimeout(15000);
     page.setDefaultNavigationTimeout(15000);
     await page.route("**/*", (r) => r.abort());
@@ -76,10 +76,10 @@ export async function checkLayout(
                       "data-layer-id": l.id,
                       style: {
                         position: "absolute",
-                        left: l.x * formats[timeline.format].width,
-                        top: l.y * formats[timeline.format].height,
-                        width: l.width * formats[timeline.format].width,
-                        height: l.height * formats[timeline.format].height,
+                        left: l.x * videoDimensions(timeline).width,
+                        top: l.y * videoDimensions(timeline).height,
+                        width: l.width * videoDimensions(timeline).width,
+                        height: l.height * videoDimensions(timeline).height,
                         display: "flex",
                         alignItems: "center",
                         overflow: "hidden",
@@ -88,7 +88,7 @@ export async function checkLayout(
                     },
                     React.createElement(
                       "div",
-                      { style: textStyle(l, formats[timeline.format].width) },
+                      { style: textStyle(l, videoDimensions(timeline).width) },
                       l.text,
                     ),
                   ),

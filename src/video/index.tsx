@@ -2,7 +2,7 @@ import React from "react";
 import { Composition, registerRoot } from "remotion";
 import { Film } from "./Composition";
 import { mockPlan } from "../lib/demo-plan";
-import { formats, totalFrames, type Timeline } from "../lib/schema";
+import { videoDimensions, totalFrames, type Timeline } from "../lib/schema";
 const timeline = mockPlan({
   prompt: "Ideas become motion.",
   duration: 5,
@@ -18,7 +18,7 @@ const Root = () => (
     height={720}
     defaultProps={{ timeline }}
     calculateMetadata={({ props }: { props: { timeline: Timeline } }) => ({
-      ...formats[props.timeline.format],
+      ...videoDimensions(props.timeline),
       fps: 30,
       durationInFrames: totalFrames(props.timeline),
     })}

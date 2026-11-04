@@ -37,7 +37,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 import { Film } from "@/video/Composition";
 import {
-  formats,
+  videoDimensions,
   totalFrames,
   type ProjectSummary,
   type RenderJob,
@@ -798,6 +798,46 @@ export function Studio({
             {timeline && (
               <fieldset className="editor-content" disabled={busy}>
                 <div className="editor-actions">
+                  {timeline.format === "square" ? (
+                    <span>Export size: 1080 × 1080</span>
+                  ) : (
+                    <label>
+                      Export resolution
+                      <select
+                        aria-label="Export resolution"
+                        value={timeline.exportResolution || "standard"}
+                        onChange={(event) =>
+                          changeTimeline({
+                            ...timeline,
+                            exportResolution: event.target.value as
+                              "standard" | "1080p",
+                          })
+                        }
+                      >
+                        <option value="standard">
+                          Standard ·{" "}
+                          {videoDimensions({ format: timeline.format }).width} ×{" "}
+                          {videoDimensions({ format: timeline.format }).height}
+                        </option>
+                        <option value="1080p">
+                          Full HD ·{" "}
+                          {
+                            videoDimensions({
+                              format: timeline.format,
+                              exportResolution: "1080p",
+                            }).width
+                          }{" "}
+                          ×{" "}
+                          {
+                            videoDimensions({
+                              format: timeline.format,
+                              exportResolution: "1080p",
+                            }).height
+                          }
+                        </option>
+                      </select>
+                    </label>
+                  )}
                   <button
                     className="subtle"
                     disabled={!editor.canUndo || busy}
@@ -955,13 +995,13 @@ export function Studio({
                         loop={scenePreview}
                         durationInFrames={totalFrames(timeline)}
                         fps={30}
-                        compositionWidth={formats[timeline.format].width}
-                        compositionHeight={formats[timeline.format].height}
+                        compositionWidth={videoDimensions(timeline).width}
+                        compositionHeight={videoDimensions(timeline).height}
                         controls
                         style={{
                           width: "100%",
                           maxHeight: 470,
-                          aspectRatio: `${formats[timeline.format].width}/${formats[timeline.format].height}`,
+                          aspectRatio: `${videoDimensions(timeline).width}/${videoDimensions(timeline).height}`,
                         }}
                       />
                     </div>

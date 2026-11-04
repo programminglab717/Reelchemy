@@ -1,6 +1,6 @@
 import {
   captionStyleSchema,
-  formats,
+  videoDimensions,
   type Timeline,
   type QCIssue,
 } from "./schema";
@@ -53,7 +53,7 @@ export function inspectTimeline(
       if (
         l.kind === "text" &&
         contrastRatio(l.color, s.background) <
-          ((l.fontSize * formats[t.format].width) / 1280 >= 24 ? 3 : 4.5)
+          ((l.fontSize * videoDimensions(t).width) / 1280 >= 24 ? 3 : 4.5)
       )
         issues.push({
           sceneId: s.id,
@@ -91,7 +91,7 @@ export function inspectTimeline(
         });
       if (
         l.rotation &&
-        layerCorners(l, formats[t.format]).some(
+        layerCorners(l, videoDimensions(t)).some(
           (p) => p.x < -1e-9 || p.y < -1e-9 || p.x > 1 + 1e-9 || p.y > 1 + 1e-9,
         )
       )
@@ -126,8 +126,8 @@ export function inspectTimeline(
           b = text[j];
         if (
           polygonsOverlap(
-            layerCorners(a, formats[t.format]),
-            layerCorners(b, formats[t.format]),
+            layerCorners(a, videoDimensions(t)),
+            layerCorners(b, videoDimensions(t)),
           )
         )
           issues.push({

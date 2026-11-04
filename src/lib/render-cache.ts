@@ -15,7 +15,7 @@ import {
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { selectComposition, renderMedia } from "@remotion/renderer";
-import { formats, totalFrames, type Timeline } from "./schema";
+import { videoDimensions, totalFrames, type Timeline } from "./schema";
 import { runCommand } from "./process";
 import type { RenderBrowser } from "./render-browser";
 import { renderCacheWorkspaceDirectory } from "./render-cache-path";
@@ -41,6 +41,7 @@ export function localSceneTimeline(t: Timeline, index: number): Timeline {
   return {
     fps: t.fps,
     format: t.format,
+    ...(t.exportResolution ? { exportResolution: t.exportResolution } : {}),
     scenes: [t.scenes[index]],
     ...(t.captionStyle && t.captions?.length
       ? { captionStyle: t.captionStyle }
@@ -133,7 +134,7 @@ async function validClip(file: string, t: Timeline) {
     const stream = meta.streams.find(
         (s: { codec_type: string }) => s.codec_type === "video",
       ),
-      dim = formats[t.format];
+      dim = videoDimensions(t);
     return (
       stream?.codec_name === "h264" &&
       stream.width === dim.width &&

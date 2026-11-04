@@ -1,5 +1,9 @@
 import React from "react";
-import { captionStyleSchema, formats, type Timeline } from "../lib/schema";
+import {
+  captionStyleSchema,
+  videoDimensions,
+  type Timeline,
+} from "../lib/schema";
 import { fontFamilies } from "../lib/text-style";
 
 // Shared by the preview, export and Chromium layout checks. Values are relative
@@ -14,7 +18,7 @@ export function CaptionOverlay({
   id: string;
 }) {
   const style = timeline.captionStyle || captionStyleSchema.parse({});
-  const size = formats[timeline.format];
+  const size = videoDimensions(timeline);
   const scale = Math.min(size.width, size.height) / 720;
   return (
     <div

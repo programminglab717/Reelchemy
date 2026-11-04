@@ -5,6 +5,11 @@ export const formats = {
   portrait: { width: 720, height: 1280 },
   square: { width: 1080, height: 1080 },
 } as const;
+export const fullHdFormats = {
+  landscape: { width: 1920, height: 1080 },
+  portrait: { width: 1080, height: 1920 },
+  square: { width: 1080, height: 1080 },
+} as const;
 const color = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 export const keyframeSchema = z.object({
   frame: z.number().int().min(0).max(599),
@@ -114,6 +119,7 @@ export const timelineSchema = z
   .object({
     fps: z.literal(30),
     format: z.enum(["landscape", "portrait", "square"]),
+    exportResolution: z.enum(["standard", "1080p"]).optional(),
     scenes: z.array(sceneSchema).min(1).max(12),
     audioTracks: z.array(audioTrackSchema).max(4).optional(),
     captions: z.array(captionSchema).max(100).optional(),
@@ -341,6 +347,9 @@ export type ActiveStudioExport = Pick<
 > & { projectName: string };
 export const totalFrames = (t: Timeline) =>
   t.scenes.reduce((n, s) => n + s.durationFrames, 0);
+export const videoDimensions = (
+  t: Pick<Timeline, "format" | "exportResolution">,
+) => (t.exportResolution === "1080p" ? fullHdFormats : formats)[t.format];
 export function sceneAt(t: Timeline, frame: number) {
   let start = 0;
   for (const scene of t.scenes) {

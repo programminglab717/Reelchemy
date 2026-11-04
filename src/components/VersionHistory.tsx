@@ -3,7 +3,7 @@ import type { EditorProject as Project } from "@/lib/project-view";
 import { useEffect, useRef, useState } from "react";
 import { Player } from "@remotion/player";
 import { Film } from "@/video/Composition";
-import { formats, totalFrames, timelineSchema } from "@/lib/schema";
+import { videoDimensions, totalFrames, timelineSchema } from "@/lib/schema";
 import type {
   SavedVersion,
   SavedVersionPage,
@@ -489,10 +489,10 @@ export function VersionHistory({
                         durationInFrames={totalFrames(snapshot.timeline)}
                         fps={30}
                         compositionWidth={
-                          formats[snapshot.timeline.format].width
+                          videoDimensions(snapshot.timeline).width
                         }
                         compositionHeight={
-                          formats[snapshot.timeline.format].height
+                          videoDimensions(snapshot.timeline).height
                         }
                         initialFrame={Math.min(
                           15,
@@ -509,9 +509,9 @@ export function VersionHistory({
                         style={{
                           width: "100%",
                           maxWidth:
-                            (420 * formats[snapshot.timeline.format].width) /
-                            formats[snapshot.timeline.format].height,
-                          aspectRatio: `${formats[snapshot.timeline.format].width}/${formats[snapshot.timeline.format].height}`,
+                            (420 * videoDimensions(snapshot.timeline).width) /
+                            videoDimensions(snapshot.timeline).height,
+                          aspectRatio: `${videoDimensions(snapshot.timeline).width}/${videoDimensions(snapshot.timeline).height}`,
                         }}
                       />
                     </div>

@@ -13,7 +13,12 @@ import {
 import { mkdir, writeFile, stat } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { type Timeline, type QCIssue, totalFrames, formats } from "./schema";
+import {
+  type Timeline,
+  type QCIssue,
+  totalFrames,
+  videoDimensions,
+} from "./schema";
 import { checkLayout, RenderQCError } from "./layout-qc";
 import { repairBounds } from "./qc";
 export async function renderFilm(
@@ -139,7 +144,7 @@ async function renderResolved(
     const video = probe.streams.find(
       (s: { codec_type: string }) => s.codec_type === "video",
     );
-    const expected = formats[timeline.format];
+    const expected = videoDimensions(timeline);
     const duration = Number(probe.format.duration),
       target = totalFrames(timeline) / timeline.fps;
     if (

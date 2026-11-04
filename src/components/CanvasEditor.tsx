@@ -2,7 +2,7 @@
 import { useRef, useState, type PointerEvent } from "react";
 import { Player } from "@remotion/player";
 import { SceneLayout } from "@/video/Composition";
-import { formats, type Timeline, type Layer } from "@/lib/schema";
+import { videoDimensions, type Timeline, type Layer } from "@/lib/schema";
 import { placeLayer } from "@/lib/canvas";
 import { TypographyControls } from "./TypographyControls";
 import { MediaFitControls } from "./MediaFitControls";
@@ -39,7 +39,7 @@ export function CanvasEditor({
   const layer =
     scene.layers.find((l) => l.id === selectedId) || scene.layers[0];
   const activeId = layer?.id;
-  const dimensions = formats[timeline.format];
+  const dimensions = videoDimensions(timeline);
   function update(l: Layer) {
     onChange({
       ...timeline,
@@ -132,6 +132,7 @@ export function CanvasEditor({
               inputProps={{
                 scene: visible,
                 format: timeline.format,
+                exportResolution: timeline.exportResolution,
                 assetSources,
               }}
               durationInFrames={1}

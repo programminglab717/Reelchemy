@@ -13,24 +13,28 @@ import {
   layerMotion,
   keyframeMotion,
   formats,
+  videoDimensions,
   type Timeline,
   type Scene,
 } from "../lib/schema";
 function SceneView({
   scene,
   format,
+  exportResolution,
   assetSources,
   layoutOnly = false,
 }: {
   scene: Scene;
   format: Timeline["format"];
+  exportResolution?: Timeline["exportResolution"];
   assetSources: Record<string, string>;
   layoutOnly?: boolean;
 }) {
   const currentFrame = useCurrentFrame();
   const frame = layoutOnly ? 0 : currentFrame;
   const motionFrame = frame + (scene.motionOffsetFrames || 0);
-  const { width, height } = formats[format];
+  const { width, height } = videoDimensions({ format, exportResolution });
+  const pixelScale = width / formats[format].width;
   const camera = keyframeMotion(layoutOnly ? [] : scene.camera || [], frame);
   const opacity =
     !layoutOnly && scene.transition === "fade"
@@ -78,7 +82,7 @@ function SceneView({
                   height: `${l.height * 100}%`,
                   color: l.color,
                   opacity: a.opacity,
-                  transform: `translate(${a.x * width}px, ${a.y * height + a.translateY}px) rotate(${l.rotation || 0}deg) scale(${a.scale})`,
+                  transform: `translate(${a.x * width}px, ${a.y * height + a.translateY * pixelScale}px) rotate(${l.rotation || 0}deg) scale(${a.scale})`,
                   overflow: "hidden",
                   display: "flex",
                   alignItems: "center",
@@ -156,7 +160,7 @@ function SceneView({
                       width: "100%",
                       height: "100%",
                       background: `linear-gradient(135deg,${l.color},${scene.accent})`,
-                      borderRadius: 20,
+                      borderRadius: 20 * pixelScale,
                     }}
                   />
                 ) : l.kind === "image" ? (
@@ -243,7 +247,7 @@ function SceneView({
                       background: l.color,
                       width: "100%",
                       height: "100%",
-                      borderRadius: 16,
+                      borderRadius: 16 * pixelScale,
                     }}
                   />
                 )}
@@ -257,6 +261,7 @@ function SceneView({
 export function SceneLayout(props: {
   scene: Scene;
   format: Timeline["format"];
+  exportResolution?: Timeline["exportResolution"];
   assetSources: Record<string, string>;
 }) {
   return <SceneView {...props} layoutOnly />;
@@ -283,6 +288,7 @@ export function Film({
             <SceneView
               scene={scene}
               format={timeline.format}
+              exportResolution={timeline.exportResolution}
               assetSources={assetSources}
             />
           </Sequence>
