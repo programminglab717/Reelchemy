@@ -422,6 +422,20 @@ export function ownerHasErasureApproval(vault: PrivacyVault, ownerId: string) {
     return true;
   });
 }
+// Private coordinator/worker lookup. Public progress uses receipt verification.
+export function erasureApprovalForRequest(
+  vault: PrivacyVault,
+  requestId: string,
+) {
+  if (!z.uuid().safeParse(requestId).success)
+    throw new AccountErasureUnavailable();
+  return withVault(vault, false, (db, key) => {
+    const row = find(db, requestId);
+    if (!row) return undefined;
+    const value = approval(row, key);
+    return { approval: value, status: status(row, value) };
+  });
+}
 // Studio mutations must obtain their authority from the independent vault,
 // never from an untrusted copied packet in the render-writable database.
 export function approvedErasureContext(
