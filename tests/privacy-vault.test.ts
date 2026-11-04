@@ -178,14 +178,23 @@ test("approved intent/receipt replay survives progress and capacity while retain
         recordErasureApproval(vault, first).approval,
         one.approval,
       );
-      assert.equal(
-        advanceErasureState(vault, first.requestId, "requested", "cleaning") &&
-          advanceErasureState(vault, first.requestId, "cleaning", "blocked") &&
-          advanceErasureState(vault, first.requestId, "blocked", "cleaning") &&
-          advanceErasureState(vault, first.requestId, "cleaning", "completed")
-            ?.state,
+      assert(
+        advanceErasureState(vault, first.requestId, "requested", "cleaning"),
+      );
+      assert(
+        advanceErasureState(vault, first.requestId, "cleaning", "blocked"),
+      );
+      assert(
+        advanceErasureState(vault, first.requestId, "blocked", "cleaning"),
+      );
+      const completed = advanceErasureState(
+        vault,
+        first.requestId,
+        "cleaning",
         "completed",
       );
+      assert(completed);
+      assert.equal(completed.state, "completed");
       assert.equal(
         advanceErasureState(vault, first.requestId, "requested", "cleaning"),
         false,
