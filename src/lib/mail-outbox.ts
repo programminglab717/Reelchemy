@@ -286,7 +286,15 @@ function entries(anchor: string, cleanTemporary = true): Entry[] {
 }
 function expired(item: Record, now: number) {
   const created = Date.parse(item.createdAt);
-  if (created > now + 60000) throw new MailUnavailable();
+  if (
+    created > now + 60000 ||
+    item.nextAttemptAt > created + MAIL_LIFETIME_MS + 300000 ||
+    (item.leaseUntil !== undefined &&
+      (item.leaseUntil > now + MAIL_LEASE_MS + 60000 ||
+        item.leaseUntil > created + MAIL_LIFETIME_MS + MAIL_LEASE_MS + 60000 ||
+        item.attempts < 1))
+  )
+    throw new MailUnavailable();
   return (
     now - created >= MAIL_LIFETIME_MS || item.attempts >= MAIL_MAX_ATTEMPTS
   );
@@ -447,6 +455,7 @@ export function mailOutboxStatus(now = Date.now()) {
       oldestAgeMs = 0;
     for (const row of rows) {
       const item = readRecord(anchor, row.name);
+      expired(item, now); // Validate timing even when this record is leased.
       oldestAgeMs = Math.max(
         oldestAgeMs,
         Math.max(0, now - Date.parse(item.createdAt)),

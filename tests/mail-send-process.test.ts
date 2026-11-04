@@ -39,7 +39,10 @@ test(
         script,
         `const fs=require('node:fs'),crypto=require('node:crypto');let input='';process.stdin.on('data',chunk=>input+=chunk);process.stdin.on('end',()=>{fs.writeFileSync(${JSON.stringify(record)},JSON.stringify({hash:crypto.createHash('sha256').update(input).digest('hex'),auth:'BETTER_AUTH_SECRET' in process.env,ai:'AI_API_KEY' in process.env,authRoot:'REELCHEMY_AUTH_DIR' in process.env,smtp:process.env.SMTP_PASSWORD==='synthetic-smtp-secret',tlsOverride:'NODE_TLS_REJECT_UNAUTHORIZED' in process.env}));process.stdout.write('sent\\n');});`,
       );
-      await sendMailProcess(mail, { executable: script, deadlineMs: 5000 });
+      await sendMailProcess(
+        { ...mail, accountId: "private-account-id-not-needed-by-transport" },
+        { executable: script, deadlineMs: 5000 },
+      );
       const proof = JSON.parse(await readFile(record, "utf8"));
       assert.deepEqual(proof, {
         hash: createHash("sha256").update(JSON.stringify(mail)).digest("hex"),

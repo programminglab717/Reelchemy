@@ -10,7 +10,9 @@ export async function sendMailProcess(
   mail: Mail,
   fixture?: { executable: string; deadlineMs: number },
 ) {
-  const body = Buffer.from(JSON.stringify(mail));
+  const body = Buffer.from(
+    JSON.stringify({ to: mail.to, subject: mail.subject, text: mail.text }),
+  );
   if (body.length > MAIL_RECORD_BYTES) throw new MailUnavailable();
   const environment: NodeJS.ProcessEnv = {};
   for (const key of [

@@ -182,7 +182,7 @@ test("a hard crash consumes an attempt; expired claims recover and stale acknowl
     const replacement = claimMail(start + MAIL_LEASE_MS + 1)!;
     assert.notEqual(replacement.token, first.token);
     assert.equal(settleMail(first, true, start + MAIL_LEASE_MS + 2), false);
-    assert.equal(mailOutboxStatus().pending, 1);
+    assert.equal(mailOutboxStatus(start + MAIL_LEASE_MS + 2).pending, 1);
     assert(settleMail(replacement, false, start + MAIL_LEASE_MS + 2));
     assert.equal(
       claimMail(start + MAIL_LEASE_MS + 30001),
@@ -338,4 +338,29 @@ test("mail inspection neither initializes missing storage nor cleans or expires 
       database,
     );
   });
+});
+
+test("implausible future mail/leases cannot retain or dispatch private links indefinitely", async () => {
+  for (const change of [
+    { createdAt: new Date(Date.now() + 120000).toISOString() },
+    {
+      leaseToken: "00000000-0000-4000-8000-000000000000",
+      leaseUntil: Number.MAX_SAFE_INTEGER,
+      attempts: 1,
+    },
+    { nextAttemptAt: Number.MAX_SAFE_INTEGER },
+  ])
+    await fixture(async () => {
+      enqueueMail(message());
+      const file = path.join(mailDir(), files()[0]),
+        item = JSON.parse(readFileSync(file, "utf8"));
+      writeFileSync(file, JSON.stringify({ ...item, ...change }));
+      const before = readFileSync(file);
+      await assert.rejects(
+        () =>
+          flushOutbox(async () => assert.fail("Invalid timing may not send.")),
+        MailUnavailable,
+      );
+      assert.deepEqual(readFileSync(file), before);
+    });
 });
