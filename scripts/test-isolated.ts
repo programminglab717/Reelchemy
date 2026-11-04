@@ -226,8 +226,10 @@ try {
   process.off("SIGTERM", interrupt);
   process.off("SIGINT", interrupt);
   if (interrupted) result = 1;
+  let servicesStopped = false;
   try {
     await shutdownTestProcesses([...services, ...(tests ? [tests] : [])]);
+    servicesStopped = true;
   } catch (error) {
     result = 1;
     console.error(
@@ -243,6 +245,9 @@ try {
       [path.join(app, "test-results"), "test-results"],
       [path.join(dir, "services.log"), "services.log"],
       [path.join(dir, "artifacts"), "artifacts"],
+      ...(production
+        ? [[path.join(app, ".next", "BUILD_ID"), "BUILD_ID"]]
+        : []),
     ]) {
       try {
         await cp(source, path.join(output, target), { recursive: true });
@@ -251,7 +256,18 @@ try {
       }
     }
   }
-  await rm(path.join(app, "node_modules"), { recursive: true, force: true });
+  if (servicesStopped) {
+    // The source, databases, original media, finished exports and review
+    // artifacts remain. Retaining compiled copies/derived clips on tmpfs
+    // consumed several GiB across runs and caused real browser OOM crashes.
+    // Never remove these paths until every owned service has stopped.
+    for (const generated of [
+      path.join(app, "node_modules"),
+      path.join(app, ".next"),
+      path.join(dir, "cache"),
+    ])
+      await rm(generated, { recursive: true, force: true });
+  }
   console.log(`Isolated test artifacts: ${dir}`);
 }
 process.exitCode = result;
