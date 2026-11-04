@@ -115,7 +115,26 @@ const envelopeSchema = z.discriminatedUnion("version", [
       ),
     project: portableProject,
   }),
+  z.object({
+    format: z.literal("reelchemy"),
+    version: z.literal(4),
+    requiredFeatures: z
+      .array(z.enum(["native-hd-v1", "large-history-v1", "layer-rotation-v1"]))
+      .min(1)
+      .max(3)
+      .refine(
+        (features) =>
+          features.includes("native-hd-v1") &&
+          new Set(features).size === features.length,
+      ),
+    project: portableProject,
+  }),
 ]);
+function hasNativeHd(project: Pick<Project, "timeline" | "revisions">) {
+  return [project.timeline, ...project.revisions.map((r) => r.timeline)].some(
+    (t) => t?.exportResolution === "1080p",
+  );
+}
 // Reject counts before recursive schema validation can allocate errors for
 // every member of a hostile collection. Manifest bytes have a separate cap.
 function checkCollections(input: unknown, legacy: boolean) {
@@ -198,13 +217,15 @@ export async function exportArchive(project: Project) {
     input.timeline,
     ...input.revisions.map((r) => r.timeline),
   ].some((t) => t?.scenes.some((s) => s.layers.some((l) => !!l.rotation)));
+  const nativeHd = hasNativeHd(input);
   const manifest = strToU8(
     JSON.stringify({
       format: "reelchemy",
-      version: largeHistory ? 3 : needsRotation ? 2 : 1,
-      ...(largeHistory || needsRotation
+      version: nativeHd ? 4 : largeHistory ? 3 : needsRotation ? 2 : 1,
+      ...(nativeHd || largeHistory || needsRotation
         ? {
             requiredFeatures: [
+              ...(nativeHd ? ["native-hd-v1"] : []),
               ...(largeHistory ? ["large-history-v1"] : []),
               ...(needsRotation ? ["layer-rotation-v1"] : []),
             ],
@@ -278,9 +299,39 @@ export async function importArchive(
   if (!raw || typeof raw !== "object")
     throw new Error("Invalid portable archive.");
   const candidate = raw as Record<string, unknown>;
-  checkCollections(candidate.project, candidate.version !== 3);
+  checkCollections(
+    candidate.project,
+    candidate.version !== 3 && candidate.version !== 4,
+  );
   const envelope = envelopeSchema.parse(raw);
   const input = envelope.project;
+  if (hasNativeHd(input) !== (envelope.version === 4))
+    throw new Error(
+      "Native HD archives require the matching archive feature version.",
+    );
+  if (envelope.version === 4) {
+    const required = [
+      "native-hd-v1",
+      ...(input.revisions.length > 500 || input.messages.length > 1000
+        ? ["large-history-v1"]
+        : []),
+      ...([input.timeline, ...input.revisions.map((r) => r.timeline)].some(
+        (t) => t?.scenes.some((s) => s.layers.some((l) => !!l.rotation)),
+      )
+        ? ["layer-rotation-v1"]
+        : []),
+    ];
+    if (
+      required.length !== envelope.requiredFeatures.length ||
+      required.some(
+        (feature) =>
+          !envelope.requiredFeatures.includes(
+            feature as (typeof envelope.requiredFeatures)[number],
+          ),
+      )
+    )
+      throw new Error("Archive features do not match the saved project.");
+  }
   if (
     new Set(input.assets?.map((a) => a.id)).size !== (input.assets || []).length
   )

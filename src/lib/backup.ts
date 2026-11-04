@@ -46,6 +46,7 @@ const manifestSchema = z.object({
     z.literal(3),
     z.literal(4),
     z.literal(5),
+    z.literal(6),
   ]),
   privacy: z
     .object({
@@ -62,10 +63,11 @@ const manifestSchema = z.object({
         "export-storage-v1",
         "job-history-v1",
         "account-erasure-v1",
+        "native-hd-v1",
       ]),
     )
     .min(1)
-    .max(4)
+    .max(5)
     .optional(),
   createdAt: z.string().datetime(),
   entries: z
@@ -201,11 +203,21 @@ async function listedFiles(root: string, prefix = ""): Promise<string[]> {
 }
 function snapshotReferences(db: Database.Database) {
   const assets = new Set<string>();
+  let nativeHd = false;
   const projects = db.prepare("SELECT data FROM projects").all() as {
     data: string;
   }[];
   for (const row of projects) {
     const p = JSON.parse(row.data);
+    if (
+      p.timeline?.exportResolution === "1080p" ||
+      (Array.isArray(p.revisions) &&
+        p.revisions.some(
+          (r: { timeline?: { exportResolution?: string } }) =>
+            r.timeline?.exportResolution === "1080p",
+        ))
+    )
+      nativeHd = true;
     for (const asset of p.assets || []) {
       if (typeof asset.id !== "string" || !uuid.test(asset.id))
         throw new Error("Project contains an invalid asset ID.");
@@ -241,11 +253,23 @@ function snapshotReferences(db: Database.Database) {
       owner_id: string;
     }[]
   ).map((w) => w.owner_id);
+  if (
+    !nativeHd &&
+    (db.pragma("table_info(jobs)") as { name: string }[]).some(
+      (c) => c.name === "timeline",
+    )
+  )
+    nativeHd = !!db
+      .prepare(
+        "SELECT 1 FROM jobs WHERE json_extract(CASE WHEN json_valid(timeline) THEN timeline ELSE 'null' END,'$.exportResolution')='1080p' LIMIT 1",
+      )
+      .get();
   return {
     assets,
     jobs,
     owners,
     removed,
+    nativeHd,
     budget: snapshotHasExportStorage(db),
     history: snapshotHasJobHistory(db),
     privacy: !!db
@@ -396,13 +420,14 @@ export async function createBackup(options: {
       });
     const manifest = manifestSchema.parse({
       format: "reelchemy-backup",
-      version: 5,
+      version: refs.nativeHd ? 6 : 5,
       privacy,
       capabilities: [
         ...(refs.removed.size ? ["removed-export-files-v1"] : []),
         ...(refs.budget ? ["export-storage-v1"] : []),
         ...(refs.history ? ["job-history-v1"] : []),
         "account-erasure-v1",
+        ...(refs.nativeHd ? ["native-hd-v1"] : []),
       ],
       createdAt: new Date().toISOString(),
       entries,
@@ -494,7 +519,7 @@ export async function verifyBackup(root: string): Promise<Manifest> {
       accounts.close();
     }
   }
-  const needsPrivacy = manifest.version === 5 || refs.privacy || authHasPrivacy;
+  const needsPrivacy = manifest.version >= 5 || refs.privacy || authHasPrivacy;
   const required = [
     ...(refs.removed.size || (!refs.budget && manifest.version === 2)
       ? ["removed-export-files-v1"]
@@ -502,18 +527,21 @@ export async function verifyBackup(root: string): Promise<Manifest> {
     ...(refs.budget ? ["export-storage-v1"] : []),
     ...(refs.history ? ["job-history-v1"] : []),
     ...(needsPrivacy ? ["account-erasure-v1"] : []),
+    ...(refs.nativeHd ? ["native-hd-v1"] : []),
   ];
   if (
     manifest.version !==
-      (needsPrivacy
-        ? 5
-        : refs.history
-          ? 4
-          : refs.budget
-            ? 3
-            : refs.removed.size || manifest.version === 2
-              ? 2
-              : 1) ||
+      (refs.nativeHd
+        ? 6
+        : needsPrivacy
+          ? 5
+          : refs.history
+            ? 4
+            : refs.budget
+              ? 3
+              : refs.removed.size || manifest.version === 2
+                ? 2
+                : 1) ||
     (refs.history && !refs.budget) ||
     (required.length === 0
       ? manifest.capabilities !== undefined
@@ -525,13 +553,14 @@ export async function verifyBackup(root: string): Promise<Manifest> {
                 | "removed-export-files-v1"
                 | "export-storage-v1"
                 | "job-history-v1"
-                | "account-erasure-v1",
+                | "account-erasure-v1"
+                | "native-hd-v1",
             ),
         ) ||
         new Set(manifest.capabilities).size !== required.length)
   )
     throw new Error(
-      "Backup export accounting/removal capability is missing or inconsistent.",
+      "Backup export, storage or video capability is missing or inconsistent.",
     );
   if (
     (needsPrivacy && !manifest.privacy) ||

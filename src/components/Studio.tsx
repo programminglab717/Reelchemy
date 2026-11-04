@@ -801,7 +801,7 @@ export function Studio({
                   {timeline.format === "square" ? (
                     <span>Export size: 1080 × 1080</span>
                   ) : (
-                    <label>
+                    <label className="export-resolution">
                       Export resolution
                       <select
                         aria-label="Export resolution"

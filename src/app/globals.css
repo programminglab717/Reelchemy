@@ -1287,6 +1287,21 @@ main.account-page {
   font-size: 12px;
   margin-left: auto;
 }
+.export-resolution {
+  display: grid;
+  gap: 6px;
+  max-width: 100%;
+  font-size: 12px;
+}
+.export-resolution select {
+  min-height: 44px;
+  max-width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: #fff;
+}
 .save-warning {
   overflow-wrap: anywhere;
   background: #fff3de;
