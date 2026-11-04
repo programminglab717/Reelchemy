@@ -2,6 +2,26 @@ import { z } from "zod";
 import { timelineSchema, type Project } from "./schema";
 
 export const DRAFT_PREFIX = "reelchemy:browser-draft:v1:";
+export const ACCOUNT_ERASED_PREFIX = "reelchemy:account-erased:v1:";
+export function browserAccountErased(storage: DraftStorage, userId: string) {
+  return (
+    storage.getItem(`${ACCOUNT_ERASED_PREFIX}${encodeURIComponent(userId)}`) ===
+    "approved"
+  );
+}
+export function markBrowserAccountErased(
+  storage: DraftStorage,
+  userId: string,
+) {
+  const marker = `${ACCOUNT_ERASED_PREFIX}${encodeURIComponent(userId)}`;
+  try {
+    storage.setItem(marker, "approved");
+  } catch {
+    clearBrowserDrafts(storage, userId);
+    storage.setItem(marker, "approved");
+  }
+  clearBrowserDrafts(storage, userId);
+}
 export const MAX_DRAFT_BYTES = 512 * 1024;
 export const MAX_DOWNLOADED_DRAFT_BYTES = 2 * 1024 * 1024;
 const draftSchema = z.object({
@@ -88,12 +108,22 @@ export function parseDownloadedDraft(
   return draft;
 }
 export function writeBrowserDraft(storage: DraftStorage, draft: BrowserDraft) {
+  if (browserAccountErased(storage, draft.userId))
+    throw new Error(
+      "Account deletion was requested. This account cannot create new browser recovery copies.",
+    );
   const value = JSON.stringify(draftSchema.parse(draft));
   if (new TextEncoder().encode(value).length > MAX_DRAFT_BYTES)
     throw new Error("Browser draft is too large.");
   // Separate IDs preserve drafts from concurrent tabs. Never evict other work
   // to make room: a full/disabled browser store is surfaced to the editor.
   storage.setItem(key(draft), value);
+  if (browserAccountErased(storage, draft.userId)) {
+    storage.removeItem(key(draft));
+    throw new Error(
+      "Account deletion was requested. This recovery copy was removed.",
+    );
+  }
 }
 export function removeBrowserDraft(storage: DraftStorage, draft: BrowserDraft) {
   const existing = storage.getItem(key(draft));
@@ -107,6 +137,7 @@ export function listBrowserDrafts(
   userId: string,
   projectId: string,
 ) {
+  if (browserAccountErased(storage, userId)) return [];
   const prefix = `${ownerPrefix(userId)}${projectId}:`;
   const drafts: BrowserDraft[] = [];
   for (let i = 0; i < storage.length; i++) {

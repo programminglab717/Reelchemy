@@ -297,6 +297,16 @@ export function Studio({
       router.push("/trash");
     });
   }
+  async function openAccount() {
+    await run(async () => {
+      if (recordingPending)
+        throw new Error(
+          "Save or discard your narration take before opening account settings.",
+        );
+      await save();
+      router.push("/account");
+    });
+  }
   async function trashCurrentProject() {
     if (!project) return;
     await run(async () => {
@@ -412,6 +422,16 @@ export function Studio({
         >
           <Icon name="trash" /> <span>Trash</span>
         </button>
+        <button
+          className="nav-item"
+          aria-label="Account settings"
+          title="Account settings"
+          disabled={busy || editor.saving}
+          onClick={() => void openAccount()}
+        >
+          <Icon name="lock" />
+          <span>Account settings</span>
+        </button>
         <label className="project-search">
           Find a project
           <input
@@ -479,6 +499,14 @@ export function Studio({
       </aside>
       <main>
         <header className="topbar">
+          <button
+            className="subtle mobile-sign-out"
+            aria-label="Account settings"
+            disabled={busy || editor.saving}
+            onClick={() => void openAccount()}
+          >
+            Account
+          </button>
           <button
             className="subtle mobile-sign-out"
             disabled={busy || editor.saving}

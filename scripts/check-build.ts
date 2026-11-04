@@ -7,6 +7,8 @@ const manifest = JSON.parse(
 for (const page of [
   "/",
   "/trash",
+  "/account",
+  "/api/account/deletion",
   "/api/projects",
   "/api/workspace/storage",
   "/api/workspace/export-storage",

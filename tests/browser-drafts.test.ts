@@ -13,6 +13,9 @@ import {
   countBrowserDrafts,
   parseDownloadedDraft,
   MAX_DOWNLOADED_DRAFT_BYTES,
+  browserAccountErased,
+  markBrowserAccountErased,
+  ACCOUNT_ERASED_PREFIX,
   type DraftStorage,
 } from "../src/lib/browser-drafts";
 import { blankTimeline } from "../src/lib/editor";
@@ -61,6 +64,32 @@ function project(): Project {
     assets: [],
   };
 }
+test("account erasure clears only its own browser copies and fences stale-tab writes before and after publication", () => {
+  const storage = new MemoryStorage(),
+    p = project(),
+    a = createBrowserDraft("erased-owner", p, randomUUID()),
+    b = createBrowserDraft("kept-owner", p, randomUUID());
+  writeBrowserDraft(storage, a);
+  writeBrowserDraft(storage, b);
+  markBrowserAccountErased(storage, a.userId);
+  assert(browserAccountErased(storage, a.userId));
+  assert(!browserAccountErased(storage, b.userId));
+  assert.deepEqual(listBrowserDrafts(storage, a.userId, p.id), []);
+  assert.deepEqual(listBrowserDrafts(storage, b.userId, p.id), [b]);
+  assert.throws(() => writeBrowserDraft(storage, a), /Account deletion/);
+  const racing = new MemoryStorage(),
+    publish = racing.setItem.bind(racing);
+  racing.setItem = (name, value) => {
+    publish(name, value);
+    if (name.startsWith(DRAFT_PREFIX))
+      publish(
+        `${ACCOUNT_ERASED_PREFIX}${encodeURIComponent(a.userId)}`,
+        "approved",
+      );
+  };
+  assert.throws(() => writeBrowserDraft(racing, a), /Account deletion/);
+  assert.equal(countBrowserDrafts(racing, a.userId), 0);
+});
 test("browser recovery copies retain the saved base and separate concurrent tabs, projects and accounts", () => {
   const storage = new MemoryStorage();
   const p = project();

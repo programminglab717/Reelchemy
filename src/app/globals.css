@@ -2177,3 +2177,50 @@ main.account-page {
   overflow-wrap: anywhere;
   text-align: left;
 }
+
+.account-settings {
+  max-width: 680px;
+  min-width: 0;
+}
+.account-settings p,
+.account-settings code,
+.account-settings label {
+  overflow-wrap: anywhere;
+}
+.account-settings button {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.account-settings nav {
+  margin: 20px 0 0;
+  font-size: 13px;
+}
+.account-delete-warning {
+  margin: 24px 0 0;
+  padding: 20px;
+  border: 1px solid #e9c2b6;
+  border-radius: 10px;
+  background: #fff9f7;
+}
+.account-delete-warning h2,
+.deletion-progress h2 {
+  font-size: 20px;
+  line-height: 1.35;
+}
+.account-settings .deletion-receipt-check {
+  display: flex;
+  align-items: flex-start;
+  line-height: 1.5;
+}
+.account-settings .deletion-receipt-check input {
+  width: auto;
+  margin: 2px 0 0;
+}
+.account-settings button.danger {
+  color: #8b291c;
+  border-color: #cf8e80;
+}
+.deletion-request-id {
+  font-size: 12px;
+}

@@ -185,6 +185,11 @@ export function AccountForm() {
         </form>
         {message && <p role="status">{message}</p>}
         {error && <p role="alert">{error}</p>}
+        <p>
+          <Link href="/account/deletion">
+            Check an account-deletion receipt
+          </Link>
+        </p>
         {!token && (
           <nav>
             <button
