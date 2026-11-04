@@ -1,13 +1,13 @@
 import path from "node:path";
 import { lstatSync, realpathSync } from "node:fs";
-function canonical(file: string): string {
+export function canonicalStoragePath(file: string): string {
   try {
     return realpathSync(file);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     const parent = path.dirname(file);
     if (parent === file) throw error;
-    return path.join(canonical(parent), path.basename(file));
+    return path.join(canonicalStoragePath(parent), path.basename(file));
   }
 }
 function contains(parent: string, child: string) {
@@ -18,6 +18,11 @@ function contains(parent: string, child: string) {
       !relative.startsWith(`..${path.sep}`) &&
       !path.isAbsolute(relative))
   );
+}
+export function storagePathsOverlap(left: string, right: string) {
+  const a = canonicalStoragePath(path.resolve(left)),
+    b = canonicalStoragePath(path.resolve(right));
+  return contains(a, b) || contains(b, a);
 }
 export function authStorageDirectory(
   env: Record<string, string | undefined> = process.env,
@@ -43,12 +48,12 @@ export function authStorageDirectory(
       throw new Error(
         "Production authentication requires a separate REELCHEMY_AUTH_DIR.",
       );
-    const privateRoot = canonical(auth);
+    const privateRoot = canonicalStoragePath(auth);
     for (const media of [
       data,
       path.resolve(env.REELCHEMY_ARTIFACT_DIR || "artifacts"),
     ]) {
-      const root = canonical(media);
+      const root = canonicalStoragePath(media);
       if (contains(root, privateRoot) || contains(privateRoot, root))
         throw new Error(
           "Authentication storage must be separate from media and exports.",

@@ -30,7 +30,9 @@
     "ai:reconcile": "tsx scripts/ai-reconcile.ts",
     "cache:prune": "tsx scripts/cache-maintenance.ts",
     "storage:usage": "tsx scripts/storage-usage.ts",
-    "exports:recount": "tsx scripts/export-storage-census.ts"
+    "exports:recount": "tsx scripts/export-storage-census.ts",
+    "privacy:init": "tsx scripts/privacy-vault.ts init",
+    "privacy:status": "tsx scripts/privacy-vault.ts status"
   },
   "dependencies": {
     "@remotion/bundler": "4.0.539",
