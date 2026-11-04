@@ -67,6 +67,7 @@ function createAuth() {
       sendResetPassword: async ({ user, url }) => {
         await deliverMail({
           to: user.email,
+          accountId: user.id,
           subject: "Reset your Reelchemy password",
           text: `Reset your password using this private link: ${url}`,
         });
@@ -79,6 +80,7 @@ function createAuth() {
       sendVerificationEmail: async ({ user, url }) => {
         await deliverMail({
           to: user.email,
+          accountId: user.id,
           subject: "Verify your Reelchemy email",
           text: `Verify your account using this private link: ${url}`,
         });
