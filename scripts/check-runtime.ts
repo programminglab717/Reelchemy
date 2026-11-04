@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
+import { mkdtemp, writeFile, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -27,9 +27,8 @@ for (let i = 0; i < args.length; i++) {
 if (!/^[a-z0-9][a-z0-9._:/-]{0,180}$/.test(image))
   throw new Error("Invalid test image.");
 const directory = await mkdtemp(path.join(tmpdir(), "reelchemy-runtime-"));
-const privacyDirectory = path.join(directory, "privacy");
-await mkdir(privacyDirectory, { mode: 0o700 });
 const project = `reelchemy-check-${randomBytes(6).toString("hex")}`;
+const privacyVolume = `${project}-privacy`;
 const listener = net.createServer();
 await new Promise<void>((resolve, reject) => {
   listener.once("error", reject);
@@ -54,7 +53,7 @@ const environment = {
   AI_BASE_URL: "",
   AI_MODEL: "",
   REELCHEMY_HTTP_PORT: String(port),
-  REELCHEMY_PRIVACY_DIR_ON_HOST: privacyDirectory,
+  REELCHEMY_PRIVACY_VOLUME: privacyVolume,
   // Temporary syntactically valid pins allow the explicit init command to
   // parse Compose. That command does not start auth or use these placeholders.
   REELCHEMY_PRIVACY_ID: String(randomUUID()),
@@ -82,7 +81,7 @@ await writeFile(
   override,
   JSON.stringify({
     services: Object.fromEntries(
-      ["migrate", "web", "render", "ingest"].map((service) => [
+      ["migrate", "web", "render", "ingest", "privacy"].map((service) => [
         service,
         {
           image,
@@ -148,7 +147,9 @@ async function run(arguments_: string[], allowFailure = false) {
 const fixture = await readFile("scripts/runtime-fixture.mjs", "utf8");
 let ingest = "",
   render = "",
-  web = "";
+  web = "",
+  privacy = "",
+  createdPrivacyVolume = false;
 async function execute(
   operation: string,
   extra: Record<string, string> = {},
@@ -246,6 +247,16 @@ try {
   console.log(
     "Starting disposable read-only production services; no mail worker or live AI.",
   );
+  if ((await run(["volume", "inspect", privacyVolume], true)).code === 0)
+    throw new Error("Refusing to reuse an existing disposable privacy volume.");
+  await run([
+    "volume",
+    "create",
+    "--label",
+    `reelchemy.disposable-project=${project}`,
+    privacyVolume,
+  ]);
+  createdPrivacyVolume = true;
   const initialized = JSON.parse(
     (
       await run([
@@ -293,11 +304,13 @@ try {
     "web",
     "render",
     "ingest",
+    "privacy",
   ]);
   web = (await run([...compose, "ps", "-q", "web"])).output.trim();
   render = (await run([...compose, "ps", "-q", "render"])).output.trim();
   ingest = (await run([...compose, "ps", "-q", "ingest"])).output.trim();
-  assert(web && render && ingest);
+  privacy = (await run([...compose, "ps", "-q", "privacy"])).output.trim();
+  assert(web && render && ingest && privacy);
   const authMounts = JSON.parse(
     (await run(["inspect", "--format", "{{json .Mounts}}", web])).output,
   ) as { Destination: string; Name?: string }[];
@@ -310,6 +323,62 @@ try {
   );
   assert(
     authMounts.some((mount) => mount.Destination === "/app/private-privacy"),
+  );
+  const privacyConfig = JSON.parse(
+    (await run(["inspect", "--format", "{{json .HostConfig}}", privacy]))
+      .output,
+  );
+  assert.equal(privacyConfig.NetworkMode, "none");
+  assert.equal(privacyConfig.ReadonlyRootfs, true);
+  assert(privacyConfig.CapDrop.includes("ALL"));
+  assert.equal(privacyConfig.NanoCpus, 500_000_000);
+  assert.equal(privacyConfig.Memory, 256 * 1024 ** 2);
+  assert.equal(privacyConfig.PidsLimit, 64);
+  const privacyEnvironment = JSON.parse(
+    (await run(["inspect", "--format", "{{json .Config.Env}}", privacy]))
+      .output,
+  ) as string[];
+  assert(
+    !privacyEnvironment.some((value) =>
+      /^(BETTER_AUTH_|SMTP_|AI_|EMAIL_)/.test(value),
+    ),
+  );
+  const privacyMounts = JSON.parse(
+    (await run(["inspect", "--format", "{{json .Mounts}}", privacy])).output,
+  ) as { Destination: string; Name?: string }[];
+  assert(
+    privacyMounts.some(
+      (mount) =>
+        mount.Destination === "/app/private-privacy" &&
+        mount.Name === privacyVolume,
+    ),
+  );
+  assert(
+    privacyMounts.some(
+      (mount) =>
+        mount.Destination === "/app/private-auth" &&
+        mount.Name === privateMount.Name,
+    ),
+  );
+  assert(
+    !privacyMounts.some((mount) => mount.Destination === "/app/artifacts"),
+  );
+  await waitFor(
+    async () =>
+      (
+        await run(
+          [
+            "exec",
+            privacy,
+            "node",
+            "--import",
+            "tsx",
+            "scripts/check-privacy.ts",
+          ],
+          true,
+        )
+      ).code === 0,
+    "Private cleanup did not become healthy.",
   );
   for (const id of [web, render, ingest]) {
     const config = JSON.parse(
@@ -699,4 +768,11 @@ try {
   await rm(override, { force: true });
   if (cleanup.code !== 0)
     throw new Error(`Could not remove disposable services for ${project}.`);
+  if (createdPrivacyVolume) {
+    const removed = await run(["volume", "rm", privacyVolume], true);
+    if (removed.code !== 0)
+      throw new Error(
+        `Could not remove the disposable privacy volume for ${project}.`,
+      );
+  }
 }

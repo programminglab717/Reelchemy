@@ -3,12 +3,12 @@ x-privacy-environment: &privacy
   REELCHEMY_PRIVACY_DIR: /app/private-privacy
   REELCHEMY_PRIVACY_ID: ${REELCHEMY_PRIVACY_ID:?Set the initialized independent privacy vault ID}
   REELCHEMY_PRIVACY_KEY_FINGERPRINT: ${REELCHEMY_PRIVACY_KEY_FINGERPRINT:?Set the initialized privacy key fingerprint}
+  REELCHEMY_ERASURE_PENDING_COUNT: ${REELCHEMY_ERASURE_PENDING_COUNT:-100}
+  REELCHEMY_ERASURE_JOURNAL_COUNT: ${REELCHEMY_ERASURE_JOURNAL_COUNT:-1000000}
 x-privacy-mount: &privacy-mount
-  type: bind
-  source: ${REELCHEMY_PRIVACY_DIR_ON_HOST:?Set the existing independent privacy directory}
+  type: volume
+  source: studio-privacy
   target: /app/private-privacy
-  bind:
-    create_host_path: false
 x-auth-environment: &auth
   BETTER_AUTH_URL: ${BETTER_AUTH_URL:?Set an HTTPS authentication URL}
   BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set a strong authentication signing secret}
@@ -173,6 +173,32 @@ services:
       REELCHEMY_SCENE_CACHE_BYTES_PER_STUDIO: ${REELCHEMY_SCENE_CACHE_BYTES_PER_STUDIO:-268435456}
       REELCHEMY_SCENE_CACHE_ENTRIES: ${REELCHEMY_SCENE_CACHE_ENTRIES:-5000}
       REELCHEMY_SCENE_CACHE_DAYS: ${REELCHEMY_SCENE_CACHE_DAYS:-7}
+  privacy:
+    <<: *runtime
+    command: [npm, run, privacy:worker]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    cpus: 0.5
+    mem_limit: 256m
+    pids_limit: 64
+    network_mode: none
+    stop_grace_period: 65s
+    volumes:
+      - studio-data:/app/.data
+      - studio-auth:/app/private-auth
+      - *privacy-mount
+    environment:
+      <<: [*privacy, *projectdata, *exportfiles, *media, *mailqueue]
+      REELCHEMY_DATA_DIR: /app/.data
+      REELCHEMY_AUTH_DIR: /app/private-auth
+      REELCHEMY_ARTIFACT_DIR: /app/artifacts
+    healthcheck:
+      test: [CMD, node, --import, tsx, scripts/check-privacy.ts]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
   mail:
     <<: *runtime
     profiles: [smtp]
@@ -202,3 +228,6 @@ volumes:
   studio-data:
   studio-artifacts:
   studio-auth:
+  studio-privacy:
+    external: true
+    name: ${REELCHEMY_PRIVACY_VOLUME:?Set the existing independently managed privacy volume}

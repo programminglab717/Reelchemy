@@ -28,12 +28,12 @@ RUN --mount=type=bind,source=.,target=/build-source,readonly \
     --mount=type=bind,from=dependencies,source=/app/node_modules,target=/build-dependencies,readonly \
     cp -a /build-source/. /app/ \
     && cp -a /build-dependencies /app/node_modules \
-    && mkdir -p .data artifacts private-auth .next node_modules/.cache \
+    && mkdir -p .data artifacts private-auth private-privacy .next node_modules/.cache \
     && chown -R node:node /app \
-    && chmod 700 .data artifacts private-auth \
+    && chmod 700 .data artifacts private-auth private-privacy \
     && runuser -u node -- npm run build \
-    && rm -rf .data artifacts private-auth \
-    && install -d -o node -g node -m 700 .data artifacts private-auth
+    && rm -rf .data artifacts private-auth private-privacy \
+    && install -d -o node -g node -m 700 .data artifacts private-auth private-privacy
 USER node
 
 FROM build AS test
