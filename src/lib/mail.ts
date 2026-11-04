@@ -1,5 +1,5 @@
 import path from "node:path";
-import nodemailer from "nodemailer";
+import { sendMailProcess } from "./mail-send-process";
 import { authStorageDirectory } from "./auth-storage";
 import { enqueueMail, claimMail, settleMail, type Mail } from "./mail-outbox";
 import { MAIL_BATCH_SIZE, MailUnavailable, mailPolicy } from "./mail-policy";
@@ -41,48 +41,7 @@ export async function deliverMail(mail: Mail) {
 }
 async function sendSMTP(mail: Mail) {
   mailConfig();
-  const port = Number(process.env.SMTP_PORT) || 587;
-  const transport = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port,
-    secure: port === 465,
-    requireTLS: true,
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000,
-    ...(process.env.SMTP_USER
-      ? {
-          auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASSWORD,
-          },
-        }
-      : {}),
-  });
-  try {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    try {
-      await Promise.race([
-        transport.sendMail({
-          to: mail.to,
-          subject: mail.subject,
-          text: mail.text,
-          from: process.env.EMAIL_FROM,
-        }),
-        new Promise<never>((_, reject) => {
-          timer = setTimeout(() => {
-            transport.close();
-            reject(new MailUnavailable());
-          }, 45000);
-          timer.unref();
-        }),
-      ]);
-    } finally {
-      clearTimeout(timer);
-    }
-  } finally {
-    transport.close();
-  }
+  await sendMailProcess(mail);
 }
 // Production runs under the permanent kernel lifecycle lock. Per-message
 // persisted leases also protect concurrent local callers and crash recovery.
