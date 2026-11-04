@@ -410,3 +410,9 @@ Add a selected-layer duplicate action to the canvas and advanced layer controls.
 - Add format-5 backups/current-authority reconciliation, legacy restore filtering and incomplete-restore startup refusal. Preserve original sources and independently managed authority; declare an external privacy volume and credential-free network-isolated cleanup role.
 - Add account settings, saved private deletion receipts, cookie-free progress/recovery and browser-copy fencing scoped to the erased account. Protect recording/unsaved work before Studio navigation.
 - Complete 491-case backend/native acceptance, eight later preflight checks, final static/build guards and all 79 production HTTPS browser cases pass. Final mobile confirmation/completion/recovery views are manually reviewed. Physical historical-backup/WAL retention, operator recovery, hosted/image/load/creator/long-video and final live mail/AI acceptance remain release gates. No actual installation was upgraded or deployed; forensic erasure is not claimed.
+
+## 0.53.0 — 4 November 2026: explicit cleanup recovery
+
+- Add private `privacy:retry` for at most five failed project-cleanup tasks under one current pending account approval. Preserve other makers, native/mail/provider holds, source files and the immutable authority; roll back a batch containing corrupt ownership.
+- Require existing private migrated stores and refuse initialization/repair. No signing/mail/provider credentials or raw receipt are needed; document correction of the underlying fault and deliberate operator recovery.
+- All 497 backend/native checks and 13 targeted real-command/store regressions pass. The unchanged UI retains the 79-case 0.52 production HTTPS baseline. Physical DB/WAL/backups, native-HD/long-video/creator and hosted/image/live release acceptance remain open.
