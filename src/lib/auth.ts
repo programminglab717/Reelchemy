@@ -1,11 +1,26 @@
 import { betterAuth } from "better-auth";
+import { APIError } from "better-auth/api";
 import { getMigrations } from "better-auth/db/migration";
 import Database from "better-sqlite3";
 import { mkdirSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
-import { deliverMail, mailConfig } from "./mail";
+import { deliverMail, mailConfig, type Mail } from "./mail";
 import { authStorageDirectory } from "./auth-storage";
+async function queueAccountMail(mail: Mail) {
+  try {
+    await deliverMail(mail);
+  } catch {
+    throw new APIError(
+      "SERVICE_UNAVAILABLE",
+      {
+        code: "ACCOUNT_MAIL_UNAVAILABLE",
+        message: "Account mail is temporarily unavailable. Try again later.",
+      },
+      { "Retry-After": "30", "Cache-Control": "private, no-store" },
+    );
+  }
+}
 function signingSecret(dir: string) {
   if (process.env.BETTER_AUTH_SECRET) {
     if (process.env.BETTER_AUTH_SECRET.length < 32)
@@ -65,8 +80,9 @@ function createAuth() {
       minPasswordLength: 12,
       maxPasswordLength: 128,
       sendResetPassword: async ({ user, url }) => {
-        await deliverMail({
+        await queueAccountMail({
           to: user.email,
+          accountId: user.id,
           subject: "Reset your Reelchemy password",
           text: `Reset your password using this private link: ${url}`,
         });
@@ -77,8 +93,9 @@ function createAuth() {
       sendOnSignUp: true,
       autoSignInAfterVerification: true,
       sendVerificationEmail: async ({ user, url }) => {
-        await deliverMail({
+        await queueAccountMail({
           to: user.email,
+          accountId: user.id,
           subject: "Verify your Reelchemy email",
           text: `Verify your account using this private link: ${url}`,
         });
@@ -94,6 +111,7 @@ function createAuth() {
         "/sign-in/email": { window: 60, max: 10 },
         "/sign-up/email": { window: 60, max: 5 },
         "/request-password-reset": { window: 60, max: 5 },
+        "/send-verification-email": { window: 60, max: 5 },
       },
     },
     advanced: {

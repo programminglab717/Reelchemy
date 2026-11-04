@@ -1,19 +1,13 @@
-import {
-  mkdir,
-  writeFile,
-  readdir,
-  readFile,
-  unlink,
-  rename,
-} from "node:fs/promises";
-import { randomUUID } from "node:crypto";
 import path from "node:path";
-import nodemailer from "nodemailer";
+import { sendMailProcess } from "./mail-send-process";
 import { authStorageDirectory } from "./auth-storage";
-export type Mail = { to: string; subject: string; text: string };
+import { enqueueMail, claimMail, settleMail, type Mail } from "./mail-outbox";
+import { MAIL_BATCH_SIZE, MailUnavailable, mailPolicy } from "./mail-policy";
+export type { Mail } from "./mail-outbox";
 export function mailConfig(
   env: Record<string, string | undefined> = process.env,
 ) {
+  mailPolicy(env);
   const delivery =
     env.EMAIL_DELIVERY || (env.NODE_ENV === "production" ? "smtp" : "file");
   if (delivery === "file" && env.NODE_ENV === "production")
@@ -24,6 +18,19 @@ export function mailConfig(
     throw new Error(
       "Production email delivery requires SMTP_HOST and EMAIL_FROM.",
     );
+  if (delivery === "smtp") {
+    const port = env.SMTP_PORT;
+    if (port && (!/^[1-9][0-9]{0,4}$/.test(port) || Number(port) > 65535))
+      throw new MailUnavailable();
+    if (
+      !/^[a-zA-Z0-9.:-]+$/.test(env.SMTP_HOST!) ||
+      env.SMTP_HOST!.length > 253 ||
+      /[\r\n\0]/.test(env.EMAIL_FROM!) ||
+      env.EMAIL_FROM!.length > 512 ||
+      !env.EMAIL_FROM!.includes("@")
+    )
+      throw new MailUnavailable();
+  }
   return delivery;
 }
 export function mailDir() {
@@ -31,78 +38,37 @@ export function mailDir() {
 }
 export async function deliverMail(mail: Mail) {
   mailConfig();
-  const dir = mailDir();
-  await mkdir(dir, { recursive: true, mode: 0o700 });
-  await writeFile(
-    path.join(dir, `${randomUUID()}.json`),
-    JSON.stringify({
-      ...mail,
-      createdAt: new Date().toISOString(),
-      attempts: 0,
-      nextAttemptAt: 0,
-    }),
-    { mode: 0o600, flag: "wx" },
-  );
+  enqueueMail(mail);
 }
 async function sendSMTP(mail: Mail) {
   mailConfig();
-  const port = Number(process.env.SMTP_PORT) || 587;
-  const transport = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port,
-    secure: port === 465,
-    requireTLS: true,
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000,
-    ...(process.env.SMTP_USER
-      ? {
-          auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASSWORD,
-          },
-        }
-      : {}),
-  });
-  try {
-    await transport.sendMail({ ...mail, from: process.env.EMAIL_FROM });
-  } finally {
-    transport.close();
-  }
+  await sendMailProcess(mail);
 }
+// Production runs under the permanent kernel lifecycle lock. Per-message
+// persisted leases also protect concurrent local callers and crash recovery.
 export async function flushOutbox(
   send: (mail: Mail) => Promise<void> = sendSMTP,
+  options: { shouldStop?: () => boolean } = {},
 ) {
-  const dir = mailDir();
-  await mkdir(dir, { recursive: true, mode: 0o700 });
   let sent = 0,
     failed = 0;
-  for (const file of (await readdir(dir)).filter((f) =>
-    /^[a-f0-9-]{36}\.json$/.test(f),
-  )) {
-    const target = path.join(dir, file);
-    const item = JSON.parse(await readFile(target, "utf8"));
-    if (item.nextAttemptAt > Date.now()) continue;
-    if (
-      Date.now() - Date.parse(item.createdAt) > 3600000 ||
-      item.attempts >= 5
-    ) {
-      await mkdir(path.join(dir, "failed"), { recursive: true, mode: 0o700 });
-      await rename(target, path.join(dir, "failed", file));
-      failed++;
-      continue;
-    }
+  for (
+    let index = 0;
+    index < MAIL_BATCH_SIZE && !options.shouldStop?.();
+    index++
+  ) {
+    const claim = claimMail();
+    if (!claim) break;
+    let delivered = false;
     try {
-      await send({ to: item.to, subject: item.subject, text: item.text });
-      await unlink(target);
-      sent++;
+      await send(claim.mail);
+      delivered = true;
     } catch {
-      item.attempts++;
-      item.nextAttemptAt =
-        Date.now() + Math.min(300000, 30000 * 2 ** (item.attempts - 1));
-      await writeFile(target, JSON.stringify(item), { mode: 0o600 });
-      failed++;
+      /* Fixed counts only; never log private URLs or SMTP errors. */
     }
+    if (!settleMail(claim, delivered)) throw new MailUnavailable();
+    if (delivered) sent++;
+    else failed++;
   }
   return { sent, failed };
 }

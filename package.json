@@ -1,6 +1,6 @@
 {
   "name": "reelchemy",
-  "version": "0.50.0",
+  "version": "0.51.0",
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0",
@@ -19,7 +19,8 @@
     "auth:migrate": "tsx scripts/auth-migrate.ts",
     "db:migrate": "tsx scripts/migrate.ts",
     "workspace:claim": "tsx scripts/claim-legacy.ts",
-    "mail:worker": "tsx scripts/mail-worker.ts",
+    "mail:status": "tsx scripts/mail-status.ts",
+    "mail:worker": "tsx scripts/mail-entrypoint.ts",
     "test:isolated": "tsx scripts/test-isolated.ts",
     "backup": "tsx scripts/backup.ts",
     "test:production": "tsx scripts/test-isolated.ts --production",

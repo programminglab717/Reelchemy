@@ -42,3 +42,31 @@ test("production refuses file mail delivery", () => {
     /disabled in production/,
   );
 });
+
+test("SMTP configuration validates ports/headers without connecting to a transport", () => {
+  const valid = {
+    NODE_ENV: "production",
+    EMAIL_DELIVERY: "smtp",
+    SMTP_HOST: "smtp.example.test",
+    EMAIL_FROM: "Reelchemy <studio@example.test>",
+  };
+  assert.equal(mailConfig(valid), "smtp");
+  assert.equal(
+    mailConfig({ ...valid, SMTP_HOST: "::1", SMTP_PORT: "465" }),
+    "smtp",
+  );
+  for (const SMTP_PORT of ["0", "-1", "65536", "587.5", " 587", "5e2"])
+    assert.throws(() => mailConfig({ ...valid, SMTP_PORT }));
+  for (const SMTP_HOST of [
+    "smtp.example.test\nSECRET",
+    " ",
+    "https://smtp.example.test",
+  ])
+    assert.throws(() => mailConfig({ ...valid, SMTP_HOST }));
+  assert.throws(() =>
+    mailConfig({
+      ...valid,
+      EMAIL_FROM: "studio@example.test\r\nBcc:other@example.test",
+    }),
+  );
+});

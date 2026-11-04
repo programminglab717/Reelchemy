@@ -8,6 +8,7 @@ import {
   symlink,
   stat,
   readdir,
+  readFile,
   access,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -145,6 +146,10 @@ test("production accounts/private queued mail and snapshots use separate storage
       workspace.id,
     );
     db.reviseProject(p, blankTimeline(p.brief), "Initial");
+    const sourceMailbox = await readdir(mailDir());
+    const sourceMailBytes = await Promise.all(
+      sourceMailbox.map((name) => readFile(path.join(mailDir(), name))),
+    );
     const snapshot = path.join(dir, "snapshot");
     await createBackup({
       data,
@@ -204,8 +209,15 @@ test("production accounts/private queued mail and snapshots use separate storage
     );
     assert.deepEqual(
       await readdir(mailDir()),
-      mail,
-      "snapshot/restore must not consume the source outbox",
+      sourceMailbox,
+      "snapshot/restore must not consume the source outbox or its coordination database",
+    );
+    assert.deepEqual(
+      await Promise.all(
+        sourceMailbox.map((name) => readFile(path.join(mailDir(), name))),
+      ),
+      sourceMailBytes,
+      "Snapshot/restore preserves every original private message and coordination byte.",
     );
     assert.equal(
       authStorageDirectory({

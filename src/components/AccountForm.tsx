@@ -9,8 +9,12 @@ export function AccountForm() {
   const search = useSearchParams();
   const router = useRouter();
   const token = search.get("token");
-  const [mode, setMode] = useState<"sign-in" | "sign-up" | "forgot">(
-      search.get("mode") === "sign-up" ? "sign-up" : "sign-in",
+  const [mode, setMode] = useState<"sign-in" | "sign-up" | "forgot" | "verify">(
+      search.get("mode") === "sign-up"
+        ? "sign-up"
+        : search.get("mode") === "verify"
+          ? "verify"
+          : "sign-in",
     ),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -28,7 +32,9 @@ export function AccountForm() {
               ? "Create your studio"
               : mode === "forgot"
                 ? "Reset your password"
-                : "Welcome back"}
+                : mode === "verify"
+                  ? "Verify your email"
+                  : "Welcome back"}
         </h1>
         <p>Your projects and exports belong to your account.</p>
         <form
@@ -46,7 +52,11 @@ export function AccountForm() {
                   newPassword: password,
                   token,
                 });
-                if (result.error) throw new Error(result.error.message);
+                if (result.error)
+                  throw new Error(
+                    result.error.message ||
+                      "Could not complete your request. Try again.",
+                  );
                 setMessage("Password updated. Sign in with your new password.");
                 router.replace("/sign-in");
                 router.refresh();
@@ -57,16 +67,37 @@ export function AccountForm() {
                   name: String(form.get("name")),
                   callbackURL: "/",
                 });
-                if (result.error) throw new Error(result.error.message);
+                if (result.error)
+                  throw new Error(
+                    result.error.message ||
+                      "Could not complete your request. Try again.",
+                  );
                 setMessage(
                   "Check your email to verify your account before signing in.",
+                );
+              } else if (mode === "verify") {
+                const result = await authClient.sendVerificationEmail({
+                  email,
+                  callbackURL: "/",
+                });
+                if (result.error)
+                  throw new Error(
+                    result.error.message ||
+                      "Could not complete your request. Try again.",
+                  );
+                setMessage(
+                  "If this address has an unverified account, a verification link will be sent.",
                 );
               } else if (mode === "forgot") {
                 const result = await authClient.requestPasswordReset({
                   email,
                   redirectTo: "/sign-in",
                 });
-                if (result.error) throw new Error(result.error.message);
+                if (result.error)
+                  throw new Error(
+                    result.error.message ||
+                      "Could not complete your request. Try again.",
+                  );
                 setMessage(
                   "If that address has an account, a reset link will be sent.",
                 );
@@ -75,13 +106,17 @@ export function AccountForm() {
                   email,
                   password,
                 });
-                if (result.error) throw new Error(result.error.message);
+                if (result.error)
+                  throw new Error(
+                    result.error.message ||
+                      "Could not complete your request. Try again.",
+                  );
                 router.replace("/");
                 router.refresh();
               }
             } catch (e) {
               setError(
-                e instanceof Error
+                e instanceof Error && e.message.trim()
                   ? e.message
                   : "Could not complete your request.",
               );
@@ -108,7 +143,7 @@ export function AccountForm() {
               />
             </label>
           )}
-          {(token || mode !== "forgot") && (
+          {(token || mode === "sign-in" || mode === "sign-up") && (
             <label>
               Password
               <input
@@ -139,7 +174,9 @@ export function AccountForm() {
                   ? "Create account"
                   : mode === "forgot"
                     ? "Send reset link"
-                    : "Sign in"}
+                    : mode === "verify"
+                      ? "Send verification link"
+                      : "Sign in"}
           </button>
         </form>
         {message && <p role="status">{message}</p>}
@@ -148,6 +185,7 @@ export function AccountForm() {
           <nav>
             <button
               className="subtle"
+              disabled={busy}
               onClick={() => {
                 setMode(mode === "sign-up" ? "sign-in" : "sign-up");
                 setError("");
@@ -160,6 +198,7 @@ export function AccountForm() {
             </button>
             <button
               className="subtle"
+              disabled={busy}
               onClick={() => {
                 setMode(mode === "forgot" ? "sign-in" : "forgot");
                 setError("");
@@ -167,6 +206,19 @@ export function AccountForm() {
               }}
             >
               {mode === "forgot" ? "Back to sign in" : "Forgot password?"}
+            </button>
+            <button
+              className="subtle"
+              disabled={busy}
+              onClick={() => {
+                setMode(mode === "verify" ? "sign-in" : "verify");
+                setError("");
+                setMessage("");
+              }}
+            >
+              {mode === "verify"
+                ? "Return to sign in"
+                : "Resend verification email"}
             </button>
           </nav>
         )}
