@@ -8,6 +8,7 @@ import {
   symlink,
   stat,
   readdir,
+  readFile,
   access,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
