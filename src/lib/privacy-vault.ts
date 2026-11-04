@@ -422,6 +422,26 @@ export function ownerHasErasureApproval(vault: PrivacyVault, ownerId: string) {
     return true;
   });
 }
+// Studio mutations must obtain their authority from the independent vault,
+// never from an untrusted copied packet in the render-writable database.
+export function approvedErasureContext(
+  vault: PrivacyVault,
+  requestId: string,
+  ownerId: string,
+  workspaceId: string,
+) {
+  return withVault(vault, false, (db, key) => {
+    const row = find(db, requestId);
+    if (!row) throw new AccountErasureConflict();
+    const value = approval(row, key);
+    if (
+      value.workspaceId !== workspaceId ||
+      !erasureHashEqual(value.ownerHash, erasureOwnerHash(key, ownerId))
+    )
+      throw new AccountErasureConflict();
+    return value;
+  });
+}
 export function pendingErasureApprovals(
   vault: PrivacyVault,
   afterSequence = 0,
