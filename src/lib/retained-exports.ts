@@ -1,5 +1,6 @@
 import type Database from "better-sqlite3";
 import { z } from "zod";
+import { boundedProjectLabelSql } from "./project-label";
 import {
   encodeExportCursor,
   decodeExportCursor,
@@ -69,8 +70,7 @@ export function retainedExportPage(
       p.trashed_at IS NOT NULL AS inTrash,
       EXISTS(SELECT 1 FROM render_job_attempts a WHERE a.job_id=j.id) AS processing,
       r.state AS fileState,
-      CASE WHEN length(CAST(p.data AS BLOB))<=4194304 THEN
-        CASE WHEN json_valid(p.data) THEN substr(json_extract(p.data,'$.name'),1,100) END END AS projectName
+      ${boundedProjectLabelSql} AS projectName
       FROM export_storage_entries e JOIN jobs j ON j.id=e.job_id AND j.project_id=e.project_id
       JOIN projects p ON p.id=j.project_id AND p.workspace_id=e.workspace_id
       LEFT JOIN export_file_removals r ON r.job_id=j.id AND r.project_id=p.id AND r.workspace_id=p.workspace_id

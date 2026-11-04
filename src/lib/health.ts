@@ -18,6 +18,7 @@ import {
 import { activeExportLimit } from "./export-policy";
 import { projectStoragePolicy } from "./project-storage-policy";
 import { exportStoragePolicy } from "./export-storage-policy";
+import { jobHistoryPolicy } from "./job-history-policy";
 export async function readiness() {
   const checks = {
     database: false,
@@ -35,6 +36,7 @@ export async function readiness() {
     mediaProcessingPolicy();
     projectStoragePolicy();
     exportStoragePolicy();
+    jobHistoryPolicy();
     checks.limits = true;
   } catch {}
   try {

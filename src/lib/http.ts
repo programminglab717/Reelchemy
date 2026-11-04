@@ -11,6 +11,12 @@ import { ProviderError } from "./provider-error";
 import { ProjectDeletionConflict } from "./project-deletion-policy";
 import { ProjectStorageLimit } from "./project-storage-policy";
 import {
+  JobHistoryLimit,
+  JobHistoryUnavailable,
+  JobHistoryConflict,
+  JobHistoryBusy,
+} from "./job-history-policy";
+import {
   MediaProcessingCapacity,
   MediaProcessingConflict,
   MediaProcessingUnavailable,
@@ -25,6 +31,38 @@ export class RequestBodyError extends Error {
   }
 }
 export function failure(error: unknown) {
+  if (error instanceof JobHistoryBusy || error instanceof JobHistoryConflict)
+    return Response.json(
+      {
+        error: error.message,
+        ...(error instanceof JobHistoryConflict ? { code: error.code } : {}),
+      },
+      { status: 409 },
+    );
+  if (
+    error instanceof JobHistoryLimit ||
+    error instanceof JobHistoryUnavailable
+  )
+    return Response.json(
+      {
+        error: error.message,
+        code: error.code,
+        ...(error instanceof JobHistoryLimit
+          ? { scope: error.scope, kind: error.kind }
+          : {}),
+      },
+      {
+        status:
+          error instanceof JobHistoryLimit && error.scope === "studio"
+            ? 413
+            : 503,
+        headers: {
+          "Cache-Control": "private, no-store",
+          "X-Content-Type-Options": "nosniff",
+          "Retry-After": "30",
+        },
+      },
+    );
   if (
     error instanceof ExportStorageLimit ||
     error instanceof ExportStorageUnavailable

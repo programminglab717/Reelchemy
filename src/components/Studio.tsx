@@ -115,6 +115,7 @@ export function Studio({
   const [loadingMore, setLoadingMore] = useState(false);
   const [listRefresh, setListRefresh] = useState(0);
   const [historyCleanup, setHistoryCleanup] = useState(0);
+  const [exportActivityRevision, setExportActivityRevision] = useState(0);
   const listVersion = useRef(0);
   const pendingExport = useRef<{
     projectId: string;
@@ -514,6 +515,24 @@ export function Studio({
           disabled={busy || editor.saving}
         />
         <ExportStorage
+          onRetired={(receipt) => {
+            setExportActivityRevision((value) => value + 1);
+            setJob((current) =>
+              current?.id === receipt.jobId
+                ? {
+                    ...current,
+                    retired: true,
+                    report: null,
+                    issues: [],
+                    events: [],
+                    attempts: 0,
+                    retryCount: 0,
+                    error: null,
+                    stage: "Details retired",
+                  }
+                : current,
+            );
+          }}
           refreshKey={
             job ? `${job.id}:${job.status}:${job.files?.state ?? ""}` : ""
           }
@@ -1397,6 +1416,7 @@ export function Studio({
                   </button>
                 </section>
                 <ExportHistory
+                  refreshKey={exportActivityRevision}
                   projectId={project.id}
                   current={job}
                   onSelect={setJob}

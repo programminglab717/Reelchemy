@@ -41,10 +41,13 @@ const aad = (
   projectId: string,
   workspaceId: string,
   purpose: "anchor" | "before",
+  domain?: "workspace-job-history",
 ) =>
   Buffer.from(
     JSON.stringify([
-      "reelchemy-export-history-v1",
+      domain
+        ? "reelchemy-workspace-job-history-v1"
+        : "reelchemy-export-history-v1",
       workspaceId,
       projectId,
       purpose,
@@ -55,6 +58,7 @@ export function encodeExportCursor(
   workspaceId: string,
   purpose: "anchor" | "before",
   values: readonly number[],
+  domain?: "workspace-job-history",
 ) {
   if (
     values.length !== (purpose === "anchor" ? 1 : 2) ||
@@ -65,7 +69,7 @@ export function encodeExportCursor(
   values.forEach((n, i) => plaintext.writeBigUInt64BE(BigInt(n), i * 8));
   const nonce = randomBytes(12),
     cipher = createCipheriv("aes-256-gcm", key(), nonce);
-  cipher.setAAD(aad(projectId, workspaceId, purpose));
+  cipher.setAAD(aad(projectId, workspaceId, purpose, domain));
   const encrypted = Buffer.concat([cipher.update(plaintext), cipher.final()]);
   return `v1.${Buffer.concat([nonce, cipher.getAuthTag(), encrypted]).toString("base64url")}`;
 }
@@ -74,6 +78,7 @@ export function decodeExportCursor(
   projectId: string,
   workspaceId: string,
   purpose: "anchor" | "before",
+  domain?: "workspace-job-history",
 ) {
   if (typeof token !== "string" || !/^v1\.[A-Za-z0-9_-]{48,60}$/.test(token))
     throw new Error();
@@ -88,7 +93,7 @@ export function decodeExportCursor(
     key(),
     bytes.subarray(0, 12),
   );
-  decipher.setAAD(aad(projectId, workspaceId, purpose));
+  decipher.setAAD(aad(projectId, workspaceId, purpose, domain));
   decipher.setAuthTag(bytes.subarray(12, 28));
   const plaintext = Buffer.concat([
     decipher.update(bytes.subarray(28)),

@@ -31,6 +31,25 @@ import {
   ExportStorageUnavailable,
 } from "./export-storage-policy";
 import { ownedExportPage } from "./export-history";
+import { boundedProjectLabelSql } from "./project-label";
+import {
+  migrateJobHistoryStorage,
+  reserveJobHistory,
+  jobHistoryUsage,
+} from "./job-history-store";
+import {
+  jobHistoryPolicy,
+  maximumJobDocumentBytes,
+  maximumJobTimelineBytes,
+  JobHistoryUnavailable,
+} from "./job-history-policy";
+import { readRetiredJob } from "./job-history-references";
+import { ownedJobHistoryPage } from "./job-history-page";
+import {
+  previewJobHistoryRetirement,
+  applyJobHistoryRetirement,
+  downloadJobHistory,
+} from "./job-history-retention";
 import { retainedExportPage } from "./retained-exports";
 import type {
   Asset,
@@ -159,6 +178,7 @@ db.transaction(() => {
   migrateProjectDeletions(db);
   migrateExportFileRemovals(db);
   migrateExportStorage(db);
+  migrateJobHistoryStorage(db);
   if (
     !db
       .prepare("SELECT id FROM schema_migrations WHERE id=?")
@@ -960,6 +980,13 @@ function enqueueJob(project: Project, workspaceId?: string) {
       },
     ],
   };
+  reserveJobHistory(
+    db,
+    job.id,
+    project.id,
+    workspaceForProject(project.id) ?? null,
+    jobHistoryPolicy(),
+  );
   db.prepare("INSERT INTO jobs VALUES (?,?,?,?,?)").run(
     job.id,
     project.id,
@@ -978,21 +1005,57 @@ function enqueueJob(project: Project, workspaceId?: string) {
 }
 function rawJob(id: string): RenderJob | undefined {
   const row = db
-    .prepare("SELECT project_id,status,data FROM jobs WHERE id=?")
+    .prepare(
+      `SELECT project_id,status,CASE WHEN length(CAST(data AS BLOB))<=${maximumJobDocumentBytes} THEN data END AS data FROM jobs WHERE id=?`,
+    )
     .get(id) as
-    | { project_id: string; status: RenderJob["status"]; data: string }
+    | { project_id: string; status: RenderJob["status"]; data: string | null }
     | undefined;
   if (!row) return;
-  const job = JSON.parse(row.data) as RenderJob;
+  let job: RenderJob;
+  try {
+    if (row.data === null) throw new JobHistoryUnavailable();
+    job = JSON.parse(row.data);
+    if (!job || typeof job !== "object" || Array.isArray(job))
+      throw new JobHistoryUnavailable();
+  } catch {
+    throw new JobHistoryUnavailable();
+  }
   delete job.files;
+  delete job.retired;
   return { ...job, id, projectId: row.project_id, status: row.status };
 }
 export function getJob(id: string): RenderJob | undefined {
   const job = rawJob(id);
   if (!job) return;
   const files = getExportFileRemoval(db, id);
-  return files ? { ...job, files } : job;
+  const retired = readRetiredJob(db, id);
+  return {
+    ...job,
+    ...(files ? { files } : {}),
+    ...(retired ? { retired: true } : {}),
+  };
 }
+export const jobProjectId = (id: string) =>
+  (
+    db.prepare("SELECT project_id FROM jobs WHERE id=?").get(id) as
+      { project_id: string } | undefined
+  )?.project_id;
+export const jobHistoryStorage = (workspaceId: string) =>
+  jobHistoryUsage(db, workspaceId, jobHistoryPolicy());
+export const jobHistoryRecords = (
+  workspaceId: string,
+  cursor: { anchor?: string; before?: string } = {},
+) => ownedJobHistoryPage(db, workspaceId, cursor);
+export const previewOwnedJobHistory = (id: string, workspaceId: string) =>
+  previewJobHistoryRetirement(db, id, workspaceId, jobHistoryPolicy());
+export const retireOwnedJobHistory = (
+  id: string,
+  workspaceId: string,
+  digest: string,
+) => applyJobHistoryRetirement(db, id, workspaceId, digest, jobHistoryPolicy());
+export const downloadOwnedJobHistory = (id: string, workspaceId: string) =>
+  downloadJobHistory(db, id, workspaceId);
 export const ownedExportFileSource = (jobId: string, workspaceId: string) =>
   assertExportFileSource(db, jobId, workspaceId);
 export const exportFileRemoval = (jobId: string, workspaceId: string) =>
@@ -1105,19 +1168,40 @@ export function claimJob(): { job: RenderJob; timeline: Timeline } | null {
     .transaction(() => {
       const row = db
         .prepare(
-          "SELECT id,project_id,data,timeline FROM jobs WHERE status='queued' ORDER BY rowid LIMIT 1",
+          `SELECT id,project_id,CASE WHEN length(CAST(data AS BLOB))<=${maximumJobDocumentBytes} THEN data END AS data,CASE WHEN length(CAST(timeline AS BLOB))<=${maximumJobTimelineBytes} THEN timeline END AS timeline FROM jobs WHERE status='queued' ORDER BY rowid LIMIT 1`,
         )
         .get() as
-        | { id: string; project_id: string; data: string; timeline: string }
+        | {
+            id: string;
+            project_id: string;
+            data: string | null;
+            timeline: string | null;
+          }
         | undefined;
       if (!row) return null;
+      let document: RenderJob, timeline: Timeline;
+      try {
+        if (row.data === null || row.timeline === null)
+          throw new JobHistoryUnavailable();
+        document = JSON.parse(row.data);
+        timeline = JSON.parse(row.timeline);
+        if (
+          !document ||
+          typeof document !== "object" ||
+          Array.isArray(document)
+        )
+          throw new JobHistoryUnavailable();
+      } catch {
+        throw new JobHistoryUnavailable();
+      }
       const job = {
-        ...JSON.parse(row.data),
+        ...document,
         id: row.id,
         projectId: row.project_id,
         status: "queued",
       } as RenderJob;
       delete job.files;
+      delete job.retired;
       db.prepare("INSERT INTO render_job_attempts VALUES(?,?)").run(
         job.id,
         new Date().toISOString(),
@@ -1125,7 +1209,7 @@ export function claimJob(): { job: RenderJob; timeline: Timeline } | null {
       updateJob(job.id, { status: "rendering" });
       return {
         job: { ...job, status: "rendering" as const },
-        timeline: JSON.parse(row.timeline),
+        timeline,
       };
     })
     .immediate();
@@ -1201,25 +1285,21 @@ export function createOwnedJob(
     .immediate();
 }
 export function activeStudioExports(workspaceId: string): ActiveStudioExport[] {
+  const document = `CASE WHEN length(CAST(j.data AS BLOB))<=${maximumJobDocumentBytes} THEN CASE WHEN json_valid(j.data) THEN j.data ELSE '{}' END ELSE '{}' END`;
   const rows = db
     .prepare(
-      "SELECT j.data,json_extract(p.data,'$.name') AS name FROM jobs j JOIN projects p ON p.id=j.project_id WHERE p.workspace_id=? AND p.trashed_at IS NULL AND j.status IN ('queued','rendering') ORDER BY j.rowid",
+      `SELECT j.id,j.project_id AS projectId,j.status,
+      CASE WHEN json_type(${document},'$.progress') IN ('integer','real') AND json_extract(${document},'$.progress') BETWEEN 0 AND 1 THEN json_extract(${document},'$.progress') ELSE 0 END AS progress,
+      CASE WHEN json_type(${document},'$.stage')='text' THEN substr(json_extract(${document},'$.stage'),1,120) ELSE 'Export details need operator review.' END AS stage,
+      CASE WHEN json_type(${document},'$.createdAt')='text' AND length(json_extract(${document},'$.createdAt'))<=40 THEN json_extract(${document},'$.createdAt') ELSE '' END AS createdAt,
+      ${boundedProjectLabelSql} AS projectName
+      FROM jobs j JOIN projects p ON p.id=j.project_id WHERE p.workspace_id=? AND p.trashed_at IS NULL AND j.status IN ('queued','rendering') ORDER BY j.rowid LIMIT 5`,
     )
-    .all(workspaceId) as { data: string; name: string }[];
-  return rows.map((row) => {
-    const { id, projectId, status, progress, stage, createdAt } = JSON.parse(
-      row.data,
-    ) as RenderJob;
-    return {
-      id,
-      projectId,
-      status,
-      progress,
-      stage,
-      createdAt,
-      projectName: row.name,
-    };
-  });
+    .all(workspaceId) as ActiveStudioExport[];
+  return rows.map((row) => ({
+    ...row,
+    projectName: row.projectName || "Saved project",
+  }));
 }
 export function recordJobStage(
   id: string,

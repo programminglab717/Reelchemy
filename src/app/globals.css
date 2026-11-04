@@ -1826,22 +1826,30 @@ main.account-page {
   gap: 8px;
 }
 .export-storage button,
-.export-storage-dialog button {
+.export-storage-dialog button,
+.job-history-dialog button {
   max-width: 100%;
   white-space: normal;
   overflow-wrap: anywhere;
 }
-.export-storage-dialog .retained-export-list {
+.export-storage-dialog .retained-export-list,
+.job-history-dialog .retained-export-list {
   list-style: none;
   padding: 0;
 }
 .export-storage-dialog .retained-export-list li,
+.job-history-dialog .retained-export-list li,
 .retained-export-review {
   border-top: 1px solid var(--line);
   padding: 16px 0;
 }
 .export-storage-dialog .export-files {
   margin-top: 12px;
+}
+.job-history-storage {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
 }
 .history-cleanup-dialog input[type="checkbox"] {
   display: inline-block;

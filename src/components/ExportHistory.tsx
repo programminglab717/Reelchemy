@@ -5,6 +5,7 @@ import type { RenderJob } from "@/lib/schema";
 import type { ExportPage, ExportSummary } from "@/lib/export-history";
 import { Icon } from "./Icon";
 type HistoryProps = {
+  refreshKey?: number;
   projectId: string;
   current: RenderJob | null;
   onSelect: (job: RenderJob) => void;
@@ -12,7 +13,12 @@ type HistoryProps = {
 export function ExportHistory(props: HistoryProps) {
   return <ExportHistoryPage key={props.projectId} {...props} />;
 }
-function ExportHistoryPage({ projectId, current, onSelect }: HistoryProps) {
+function ExportHistoryPage({
+  projectId,
+  current,
+  onSelect,
+  refreshKey = 0,
+}: HistoryProps) {
   const accountFetch = useAccountFetch();
   const [page, setPage] = useState<ExportPage | null>(null),
     [cursors, setCursors] = useState<(string | null)[]>([null]),
@@ -28,10 +34,16 @@ function ExportHistoryPage({ projectId, current, onSelect }: HistoryProps) {
   const currentId = current?.projectId === projectId ? current.id : undefined;
   const currentStatus =
     current?.projectId === projectId
-      ? `${current.status}:${current.files?.state ?? ""}`
+      ? `${current.status}:${current.files?.state ?? ""}:${current.retired ? 1 : 0}`
       : undefined;
   const seenCurrent = useRef(`${currentId}:${currentStatus}`);
-  const loadKey = JSON.stringify([before, refresh, currentId, currentStatus]);
+  const loadKey = JSON.stringify([
+    before,
+    refresh,
+    currentId,
+    currentStatus,
+    refreshKey,
+  ]);
   const loading = settled !== loadKey;
   useEffect(() => {
     alive.current = true;
@@ -194,6 +206,7 @@ function ExportHistoryPage({ projectId, current, onSelect }: HistoryProps) {
                 ? `${job.createdAt.slice(0, 16).replace("T", " ")} UTC`
                 : "Unknown date"}{" "}
               · {job.status}
+              {job.retired ? " · details retired" : ""}
               {job.fileState
                 ? ` · files ${job.fileState === "completed" ? "removed" : job.fileState}`
                 : ""}{" "}
@@ -218,8 +231,8 @@ function ExportHistoryPage({ projectId, current, onSelect }: HistoryProps) {
       )}
       {page && (
         <p>
-          {page.total} retained export{page.total === 1 ? "" : "s"}. Open one to
-          load its report and download.
+          {page.total} retained export{page.total === 1 ? "" : "s"}. Open an
+          export to view its retained details and downloads.
         </p>
       )}
       {(pageIndex > 0 ||

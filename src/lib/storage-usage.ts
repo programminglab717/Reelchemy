@@ -7,6 +7,8 @@ import {
 import { mediaProcessingPolicy } from "./media-processing-policy";
 import { exportStoragePolicy } from "./export-storage-policy";
 import { exportStorageOperatorUsage } from "./export-storage-store";
+import { jobHistoryOperatorUsage } from "./job-history-store";
+import { jobHistoryPolicy } from "./job-history-policy";
 export class StorageUsageUnavailable extends Error {
   constructor() {
     super(
@@ -108,6 +110,11 @@ export function storageUsage(db: Database.Database, workspaceId?: string) {
             db,
             workspaceId,
             exportStoragePolicy(),
+          ),
+          jobHistory: jobHistoryOperatorUsage(
+            db,
+            workspaceId,
+            jobHistoryPolicy(),
           ),
           measurement:
             "Indexed retained project JSON, known source files and logical export payload/reservations; excludes caches, backups and physical database/WAL allocation. Working exports can briefly exceed their captured ceiling before native cancellation completes.",

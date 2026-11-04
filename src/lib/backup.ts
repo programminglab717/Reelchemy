@@ -26,17 +26,28 @@ import {
   verifyExportStorageSnapshot,
 } from "./export-storage-snapshot";
 import { normalizeMediaProcessingSnapshot } from "./media-processing-store";
+import {
+  snapshotHasJobHistory,
+  normalizeJobHistorySnapshot,
+  verifyJobHistorySnapshot,
+} from "./job-history-snapshot";
 
 const uuid = /^[a-f0-9-]{36}$/;
 const entryPath =
   /^(?:data\/(?:studio\.sqlite|auth\.sqlite|auth-secret)|data\/assets\/[a-f0-9-]{36}|artifacts\/[a-f0-9-]{36}\/[a-zA-Z0-9][a-zA-Z0-9._-]{0,119})$/;
 const manifestSchema = z.object({
   format: z.literal("reelchemy-backup"),
-  version: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  version: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
   capabilities: z
-    .array(z.enum(["removed-export-files-v1", "export-storage-v1"]))
+    .array(
+      z.enum([
+        "removed-export-files-v1",
+        "export-storage-v1",
+        "job-history-v1",
+      ]),
+    )
     .min(1)
-    .max(2)
+    .max(3)
     .optional(),
   createdAt: z.string().datetime(),
   entries: z
@@ -218,6 +229,7 @@ function snapshotReferences(db: Database.Database) {
     owners,
     removed,
     budget: snapshotHasExportStorage(db),
+    history: snapshotHasJobHistory(db),
   };
 }
 // Admin-only filesystem tooling. Stop web, render, ingestion and mail first. We do
@@ -327,6 +339,7 @@ export async function createBackup(options: {
           copy,
           path.join(output, "artifacts"),
         );
+        normalizeJobHistorySnapshot(copy);
       } finally {
         copy.close();
       }
@@ -340,12 +353,13 @@ export async function createBackup(options: {
       });
     const manifest = manifestSchema.parse({
       format: "reelchemy-backup",
-      version: refs.budget ? 3 : refs.removed.size ? 2 : 1,
-      ...(refs.removed.size || refs.budget
+      version: refs.history ? 4 : refs.budget ? 3 : refs.removed.size ? 2 : 1,
+      ...(refs.removed.size || refs.budget || refs.history
         ? {
             capabilities: [
               ...(refs.removed.size ? ["removed-export-files-v1"] : []),
               ...(refs.budget ? ["export-storage-v1"] : []),
+              ...(refs.history ? ["job-history-v1"] : []),
             ],
           }
         : {}),
@@ -411,17 +425,28 @@ export async function verifyBackup(root: string): Promise<Manifest> {
       ? ["removed-export-files-v1"]
       : []),
     ...(refs.budget ? ["export-storage-v1"] : []),
+    ...(refs.history ? ["job-history-v1"] : []),
   ];
   if (
     manifest.version !==
-      (refs.budget ? 3 : refs.removed.size || manifest.version === 2 ? 2 : 1) ||
+      (refs.history
+        ? 4
+        : refs.budget
+          ? 3
+          : refs.removed.size || manifest.version === 2
+            ? 2
+            : 1) ||
+    (refs.history && !refs.budget) ||
     (required.length === 0
       ? manifest.capabilities !== undefined
       : manifest.capabilities?.length !== required.length ||
         required.some(
           (cap) =>
             !manifest.capabilities?.includes(
-              cap as "removed-export-files-v1" | "export-storage-v1",
+              cap as
+                | "removed-export-files-v1"
+                | "export-storage-v1"
+                | "job-history-v1",
             ),
         ) ||
         new Set(manifest.capabilities).size !== required.length)
@@ -433,6 +458,7 @@ export async function verifyBackup(root: string): Promise<Manifest> {
     const copy = openVerified(path.join(root, "data/studio.sqlite"));
     try {
       verifyExportStorageSnapshot(copy, manifest.entries);
+      if (refs.history) verifyJobHistorySnapshot(copy);
     } finally {
       copy.close();
     }
@@ -562,6 +588,7 @@ export async function restoreBackup(source: string, destination: string) {
           studio,
           path.join(root, "artifacts"),
         );
+      normalizeJobHistorySnapshot(studio);
     } finally {
       studio.close();
     }

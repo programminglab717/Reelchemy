@@ -149,6 +149,8 @@ test(
       assert(actual.files > 0);
       assert.equal(app.exportStorage(workspace).usedBytes, actual.bytes);
       assert.equal(app.exportStorage(workspace).reservedBytes, 0);
+      assert.equal(app.jobHistoryStorage(workspace).reservedBytes, 0);
+      assert.equal(app.jobHistoryStorage(workspace).pendingJobs, 0);
       assert.throws(
         () => app.createOwnedJob(saved.id, workspace),
         /retained export allowance is full/,
@@ -222,6 +224,8 @@ test(
         { timeout: 10000 },
       );
       const final = await measureExportFiles(artifacts, next.id);
+      assert.equal(app.jobHistoryStorage(workspace).reservedBytes, 0);
+      assert.equal(app.jobHistoryStorage(workspace).pendingJobs, 0);
       assert(final.bytes <= 64 * MiB);
       assert.equal(app.exportStorage(workspace).usedBytes, final.bytes);
       assert.equal(app.exportStorage(workspace).reservedBytes, 0);

@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
 import type { RenderJob } from "./schema";
 import { z } from "zod";
+import { maximumJobDocumentBytes } from "./job-history-policy";
 import {
   encodeExportCursor,
   decodeExportCursor,
@@ -8,6 +9,7 @@ import {
 export type ExportSummary = Pick<RenderJob, "id" | "projectId" | "status"> & {
   createdAt: string | null;
   fileState?: import("./export-file-policy").ExportFileState;
+  retired?: boolean;
 };
 export type ExportPage = {
   items: ExportSummary[];
@@ -19,7 +21,7 @@ export type ExportPage = {
 export class ExportHistoryUnavailable extends Error {}
 const active =
   "p.id=? AND p.workspace_id=? AND p.trashed_at IS NULL AND NOT EXISTS(SELECT 1 FROM project_deletions d WHERE d.project_id=p.id)";
-const document = "CASE WHEN json_valid(j.data) THEN j.data ELSE '{}' END";
+const document = `CASE WHEN length(CAST(j.data AS BLOB))<=${maximumJobDocumentBytes} THEN CASE WHEN json_valid(j.data) THEN j.data ELSE '{}' END ELSE '{}' END`;
 const date = `json_extract(${document},'$.createdAt')`;
 export function ownedExportPage(
   db: Database.Database,
@@ -85,6 +87,7 @@ export function ownedExportPage(
       const rows = db
         .prepare(
           `SELECT j.rowid AS cursor, ${hasRemovalTable ? "(SELECT r.state FROM export_file_removals r WHERE r.job_id=j.id)" : "NULL"} AS fileState,
+      ${db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='job_history_retirements'").get() ? "EXISTS(SELECT 1 FROM job_history_retirements WHERE job_id=j.id)" : "0"} AS retired,
       CASE WHEN length(CAST(j.id AS BLOB))<=640 THEN j.id ELSE NULL END AS id,
       CASE WHEN j.status IN ('queued','rendering','completed','failed','cancelled') THEN j.status ELSE NULL END AS status,
       CASE WHEN json_type(${document},'$.createdAt')='text' AND length(CAST(${date} AS BLOB))<=40 THEN ${date} ELSE NULL END AS createdAt
@@ -113,6 +116,7 @@ export function ownedExportPage(
           projectId,
           status: row.status,
           ...(row.fileState ? { fileState: row.fileState } : {}),
+          ...(row.retired ? { retired: true } : {}),
           createdAt: z.iso.datetime({ offset: true }).safeParse(row.createdAt)
             .success
             ? new Date(row.createdAt!).toISOString()
