@@ -13,7 +13,8 @@ import {
   opendirSync,
   chmodSync,
 } from "node:fs";
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes, createHmac } from "node:crypto";
+import type { recordErasureApproval } from "./privacy-vault";
 import path from "node:path";
 import { z } from "zod";
 import { withPrivateDirectory } from "./private-directory";
@@ -91,7 +92,10 @@ export function readPrivateMailJson(
       readPrivateMailJson(directory, child, maximum),
     );
   }
-  if (!uuidFile.test(name) && !["worker.lock", "heartbeat.json"].includes(name))
+  if (
+    !uuidFile.test(name) &&
+    !["worker.lock", "heartbeat.json", "suppression-key.json"].includes(name)
+  )
     throw new MailUnavailable();
   const target = path.join(anchor, name),
     info = regular(target);
@@ -138,7 +142,10 @@ export function publishPrivateMailJson(
   name: string,
   value: unknown,
 ) {
-  if (!uuidFile.test(name) && !["worker.lock", "heartbeat.json"].includes(name))
+  if (
+    !uuidFile.test(name) &&
+    !["worker.lock", "heartbeat.json", "suppression-key.json"].includes(name)
+  )
     throw new MailUnavailable();
   const body = JSON.stringify(value);
   if (Buffer.byteLength(body) > MAIL_RECORD_BYTES) throw new MailUnavailable();
@@ -217,6 +224,7 @@ export function mailDirectoryTransaction<T>(
             database.exec(
               "CREATE TABLE IF NOT EXISTS mail_counters(id INTEGER PRIMARY KEY CHECK(id=1),discarded INTEGER NOT NULL DEFAULT 0); INSERT OR IGNORE INTO mail_counters(id) VALUES(1)",
             );
+          if (!existing) migrateMailSuppressions(database);
           return database
             .transaction(() => operation(anchor, database))
             .immediate();
@@ -274,6 +282,7 @@ function entries(anchor: string, cleanTemporary = true): Entry[] {
           "worker.lock",
           "worker.lifecycle.lock",
           "heartbeat.json",
+          "suppression-key.json",
         ].includes(item.name)
       ) {
         regular(target);
@@ -339,7 +348,11 @@ function prune(
   let discarded = 0;
   for (const row of rows) {
     const item = readRecord(anchor, row.name);
-    if (expired(item, now) && (!item.leaseUntil || item.leaseUntil <= now)) {
+    if (
+      (expired(item, now) ||
+        suppressionState(anchor, db, item) === "approved") &&
+      (!item.leaseUntil || item.leaseUntil <= now)
+    ) {
       removeMail(anchor, row.name);
       discarded++;
     } else retained.push(row);
@@ -363,6 +376,8 @@ export function enqueueMail(mail: Mail) {
       attempts: 0,
       nextAttemptAt: 0,
     };
+    if (suppressionState(anchor, db, item) === "approved")
+      throw new MailUnavailable();
     const bytes = chargedBytes(item);
     if (
       rows.length >= policy.count ||
@@ -389,7 +404,12 @@ export function claimMail(now = Date.now()): MailClaim | undefined {
     for (const row of prune(anchor, db, entries(anchor), now)) {
       if (row.directory) continue; // Legacy failures await bounded expiry; never silently resend.
       const item = readRecord(anchor, row.name);
-      if (item.nextAttemptAt > now || (item.leaseUntil ?? 0) > now) continue;
+      if (
+        item.nextAttemptAt > now ||
+        (item.leaseUntil ?? 0) > now ||
+        suppressionState(anchor, db, item) !== "none"
+      )
+        continue;
       const token = randomUUID();
       publish(anchor, row.name, {
         ...item,
@@ -425,6 +445,7 @@ export function settleMail(claim: MailClaim, sent: boolean, now = Date.now()) {
     else {
       const attempts = item.attempts;
       if (
+        suppressionState(anchor, db, item) === "approved" ||
         attempts >= MAIL_MAX_ATTEMPTS ||
         now - Date.parse(item.createdAt) >= MAIL_LIFETIME_MS
       ) {
@@ -452,10 +473,15 @@ export function mailOutboxStatus(now = Date.now()) {
       policy = mailPolicy();
     let leased = 0,
       due = 0,
-      oldestAgeMs = 0;
+      oldestAgeMs = 0,
+      paused = 0,
+      suppressed = 0;
     for (const row of rows) {
       const item = readRecord(anchor, row.name);
       expired(item, now); // Validate timing even when this record is leased.
+      const suppression = suppressionState(anchor, db, item);
+      if (suppression === "preparing") paused++;
+      if (suppression === "approved") suppressed++;
       oldestAgeMs = Math.max(
         oldestAgeMs,
         Math.max(0, now - Date.parse(item.createdAt)),
@@ -463,6 +489,7 @@ export function mailOutboxStatus(now = Date.now()) {
       if ((item.leaseUntil ?? 0) > now) leased++;
       else if (
         !row.directory &&
+        suppression === "none" &&
         !expired(item, now) &&
         item.nextAttemptAt <= now
       )
@@ -476,6 +503,8 @@ export function mailOutboxStatus(now = Date.now()) {
       ),
       leased,
       due,
+      paused,
+      suppressed,
       oldestAgeMs,
       limitCount: policy.count,
       limitBytes: policy.bytes,
@@ -486,4 +515,269 @@ export function mailOutboxStatus(now = Date.now()) {
       ).discarded,
     };
   }, true);
+}
+
+export type PreparedAccountMail = {
+  accountId: string;
+  workspaceId: string;
+  requestId: string;
+};
+type SuppressionRow = {
+  account_id: string;
+  workspace_id: string;
+  request_id: string;
+  email_hash: string;
+  state: "preparing" | "approved";
+  created_at: number;
+};
+const suppressionSupport = new WeakMap<Database.Database, boolean>();
+function hasSuppressionTable(db: Database.Database) {
+  let value = suppressionSupport.get(db);
+  if (value === undefined) {
+    value = !!db
+      .prepare(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='account_mail_suppressions'",
+      )
+      .get();
+    suppressionSupport.set(db, value);
+  }
+  return value;
+}
+function migrateMailSuppressions(db: Database.Database) {
+  db.exec(`CREATE TABLE IF NOT EXISTS account_mail_suppressions(account_id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL,request_id TEXT NOT NULL UNIQUE,email_hash TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN('preparing','approved')),created_at INTEGER NOT NULL);
+ CREATE INDEX IF NOT EXISTS account_mail_suppressions_email_idx ON account_mail_suppressions(email_hash,state);
+ CREATE INDEX IF NOT EXISTS account_mail_suppressions_pending_idx ON account_mail_suppressions(state,created_at);
+ CREATE TRIGGER IF NOT EXISTS mail_suppression_immutable BEFORE UPDATE OF account_id,workspace_id,request_id,email_hash,created_at ON account_mail_suppressions BEGIN SELECT RAISE(ABORT,'Account mail hold context is immutable.'); END;
+ CREATE TRIGGER IF NOT EXISTS mail_suppression_retained BEFORE DELETE ON account_mail_suppressions WHEN OLD.state='approved' BEGIN SELECT RAISE(ABORT,'Approved account mail suppression must be retained.'); END;
+ CREATE TRIGGER IF NOT EXISTS mail_suppression_final BEFORE UPDATE OF state ON account_mail_suppressions WHEN OLD.state='approved' AND NEW.state<>'approved' BEGIN SELECT RAISE(ABORT,'Approved account mail suppression cannot be withdrawn.'); END;`);
+  suppressionSupport.set(db, true);
+}
+function mailEmailHash(
+  anchor: string,
+  db: Database.Database,
+  email: string,
+  create = false,
+) {
+  let encoded: unknown;
+  try {
+    encoded = readPrivateMailJson(anchor, "suppression-key.json", 128);
+  } catch (error) {
+    if (
+      (error as NodeJS.ErrnoException).code !== "ENOENT" ||
+      !create ||
+      db.prepare("SELECT 1 FROM account_mail_suppressions LIMIT 1").get()
+    )
+      throw new MailUnavailable();
+    encoded = randomBytes(32).toString("base64url");
+    publishPrivateMailJson(anchor, "suppression-key.json", encoded);
+  }
+  if (typeof encoded !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(encoded))
+    throw new MailUnavailable();
+  const key = Buffer.from(encoded, "base64url");
+  try {
+    if (key.length !== 32 || key.toString("base64url") !== encoded)
+      throw new MailUnavailable();
+    return createHmac("sha256", key)
+      .update("reelchemy-mail-email-v1\0")
+      .update(email.toLowerCase())
+      .digest("hex");
+  } finally {
+    key.fill(0);
+  }
+}
+function suppressionState(
+  anchor: string,
+  db: Database.Database,
+  mail: Mail,
+): "none" | "preparing" | "approved" {
+  if (!hasSuppressionTable(db)) return "none";
+  if (mail.accountId) {
+    const row = db
+      .prepare("SELECT state FROM account_mail_suppressions WHERE account_id=?")
+      .get(mail.accountId) as { state: "preparing" | "approved" } | undefined;
+    return row?.state || "none";
+  }
+  if (!db.prepare("SELECT 1 FROM account_mail_suppressions LIMIT 1").get())
+    return "none";
+  const emailHash = mailEmailHash(anchor, db, mail.to);
+  if (
+    db
+      .prepare(
+        "SELECT 1 FROM account_mail_suppressions WHERE email_hash=? AND state='approved' LIMIT 1",
+      )
+      .get(emailHash)
+  )
+    return "approved";
+  return db
+    .prepare(
+      "SELECT 1 FROM account_mail_suppressions WHERE email_hash=? AND state='preparing' LIMIT 1",
+    )
+    .get(emailHash)
+    ? "preparing"
+    : "none";
+}
+function preparation(input: PreparedAccountMail) {
+  const parsed = z
+    .object({
+      accountId: z
+        .string()
+        .min(1)
+        .max(128)
+        .refine((value) => !value.includes("\0")),
+      workspaceId: z.uuid(),
+      requestId: z.uuid(),
+    })
+    .strict()
+    .safeParse(input);
+  if (!parsed.success) throw new MailUnavailable();
+  return parsed.data;
+}
+function held(db: Database.Database, input: PreparedAccountMail) {
+  const row = db
+    .prepare("SELECT * FROM account_mail_suppressions WHERE account_id=?")
+    .get(input.accountId) as SuppressionRow | undefined;
+  if (
+    !row ||
+    row.request_id !== input.requestId ||
+    row.workspace_id !== input.workspaceId
+  )
+    throw new MailUnavailable();
+  return row;
+}
+// Reversible dispatch hold only: no payload is removed before journal approval.
+// Call after verified-password/actor validation; email comes from that session.
+export function prepareAccountMail(input: PreparedAccountMail, email: string) {
+  const context = preparation(input);
+  if (!z.email().max(320).safeParse(email).success) throw new MailUnavailable();
+  return locked((anchor, db) => {
+    try {
+      const old = readPrivateMailJson(anchor, "worker.lock", 512);
+      if (typeof old === "number") throw new MailUnavailable();
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    const emailHash = mailEmailHash(anchor, db, email, true),
+      existing = db
+        .prepare("SELECT * FROM account_mail_suppressions WHERE account_id=?")
+        .get(context.accountId) as SuppressionRow | undefined;
+    if (existing) {
+      held(db, context);
+      if (existing.email_hash !== emailHash) throw new MailUnavailable();
+      return context;
+    }
+    if (
+      (
+        db
+          .prepare("SELECT count(*) AS n FROM account_mail_suppressions")
+          .get() as { n: number }
+      ).n >= 2000000
+    )
+      throw new MailUnavailable();
+    db.prepare(
+      "INSERT INTO account_mail_suppressions VALUES(?,?,?,?,'preparing',?)",
+    ).run(
+      context.accountId,
+      context.workspaceId,
+      context.requestId,
+      emailHash,
+      Date.now(),
+    );
+    return context;
+  });
+}
+// The callback is synchronous and writes the independent signed journal.
+// Both commit and recovery acquire mail -> vault, fencing a withdrawn hold.
+// A crash after journal commit rolls back only this activation: the separately
+// committed preparation still pauses dispatch until the private worker resumes.
+export function commitPreparedAccountMail(
+  input: PreparedAccountMail,
+  persist: () => ReturnType<typeof recordErasureApproval>,
+) {
+  const context = preparation(input);
+  return locked((anchor, db) => {
+    held(db, context);
+    const result = persist();
+    if (
+      result.approval.requestId !== context.requestId ||
+      result.approval.workspaceId !== context.workspaceId
+    )
+      throw new MailUnavailable();
+    db.prepare(
+      "UPDATE account_mail_suppressions SET state='approved' WHERE account_id=?",
+    ).run(context.accountId);
+    prune(anchor, db, entries(anchor), Date.now());
+    return result;
+  });
+}
+export function resolvePreparedAccountMail(
+  input: PreparedAccountMail,
+  authority: () => "approved" | "absent",
+  options: { now?: number; withdrawImmediately?: boolean } = {},
+) {
+  const context = preparation(input);
+  return locked((anchor, db) => {
+    const row = held(db, context);
+    if (row.state === "approved") return "approved" as const;
+    const proof = authority();
+    if (proof === "approved") {
+      db.prepare(
+        "UPDATE account_mail_suppressions SET state='approved' WHERE account_id=?",
+      ).run(context.accountId);
+      prune(anchor, db, entries(anchor), options.now ?? Date.now());
+      return "approved" as const;
+    }
+    if (proof !== "absent") throw new MailUnavailable();
+    if (
+      options.withdrawImmediately ||
+      (options.now ?? Date.now()) - row.created_at >= 30000
+    ) {
+      db.prepare(
+        "DELETE FROM account_mail_suppressions WHERE account_id=? AND state='preparing'",
+      ).run(context.accountId);
+      return "withdrawn" as const;
+    }
+    return "preparing" as const;
+  });
+}
+export function pendingAccountMailPreparations(limit = 20) {
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 20)
+    throw new MailUnavailable();
+  return locked(
+    (_anchor, db) =>
+      (
+        db
+          .prepare(
+            "SELECT account_id,workspace_id,request_id,created_at FROM account_mail_suppressions WHERE state='preparing' ORDER BY created_at,account_id LIMIT ?",
+          )
+          .all(limit) as SuppressionRow[]
+      ).map((row) => ({
+        accountId: row.account_id,
+        workspaceId: row.workspace_id,
+        requestId: row.request_id,
+        createdAt: row.created_at,
+      })),
+    true,
+  );
+}
+export function accountMailCleanupPending(
+  input: PreparedAccountMail,
+  now = Date.now(),
+) {
+  const context = preparation(input);
+  return locked((anchor, db) => {
+    const row = held(db, context);
+    if (row.state !== "approved") throw new MailUnavailable();
+    const retained = prune(anchor, db, entries(anchor), now);
+    let pending = 0;
+    for (const entry of retained) {
+      const item = readRecord(anchor, entry.name);
+      if (
+        item.accountId === context.accountId ||
+        (!item.accountId &&
+          mailEmailHash(anchor, db, item.to) === row.email_hash)
+      )
+        pending++;
+    }
+    return { pending };
+  });
 }
