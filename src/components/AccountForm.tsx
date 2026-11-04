@@ -52,7 +52,11 @@ export function AccountForm() {
                   newPassword: password,
                   token,
                 });
-                if (result.error) throw new Error(result.error.message);
+                if (result.error)
+                  throw new Error(
+                    result.error.message ||
+                      "Could not complete your request. Try again.",
+                  );
                 setMessage("Password updated. Sign in with your new password.");
                 router.replace("/sign-in");
                 router.refresh();
@@ -63,7 +67,11 @@ export function AccountForm() {
                   name: String(form.get("name")),
                   callbackURL: "/",
                 });
-                if (result.error) throw new Error(result.error.message);
+                if (result.error)
+                  throw new Error(
+                    result.error.message ||
+                      "Could not complete your request. Try again.",
+                  );
                 setMessage(
                   "Check your email to verify your account before signing in.",
                 );
@@ -72,7 +80,11 @@ export function AccountForm() {
                   email,
                   callbackURL: "/",
                 });
-                if (result.error) throw new Error(result.error.message);
+                if (result.error)
+                  throw new Error(
+                    result.error.message ||
+                      "Could not complete your request. Try again.",
+                  );
                 setMessage(
                   "If this address has an unverified account, a verification link will be sent.",
                 );
@@ -81,7 +93,11 @@ export function AccountForm() {
                   email,
                   redirectTo: "/sign-in",
                 });
-                if (result.error) throw new Error(result.error.message);
+                if (result.error)
+                  throw new Error(
+                    result.error.message ||
+                      "Could not complete your request. Try again.",
+                  );
                 setMessage(
                   "If that address has an account, a reset link will be sent.",
                 );
@@ -90,13 +106,17 @@ export function AccountForm() {
                   email,
                   password,
                 });
-                if (result.error) throw new Error(result.error.message);
+                if (result.error)
+                  throw new Error(
+                    result.error.message ||
+                      "Could not complete your request. Try again.",
+                  );
                 router.replace("/");
                 router.refresh();
               }
             } catch (e) {
               setError(
-                e instanceof Error
+                e instanceof Error && e.message.trim()
                   ? e.message
                   : "Could not complete your request.",
               );

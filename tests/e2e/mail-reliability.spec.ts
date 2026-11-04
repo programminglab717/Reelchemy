@@ -80,8 +80,11 @@ test("missed verification recovers after a full private queue without losing ema
     await page
       .getByRole("button", { name: "Send verification link", exact: true })
       .click();
-    expect((await refused).ok()).toBeFalsy();
-    await expect(page.getByRole("alert")).toBeVisible();
+    const unavailable = await refused;
+    expect(unavailable.status()).toBe(503);
+    expect(unavailable.headers()["retry-after"]).toBe("30");
+    expect((await unavailable.json()).code).toBe("ACCOUNT_MAIL_UNAVAILABLE");
+    await expect(page.getByRole("main").getByRole("alert")).toBeVisible();
     await expect(page.getByLabel("Email address")).toHaveValue(email);
     await expect(
       page.getByRole("button", { name: "Send verification link", exact: true }),
@@ -117,7 +120,7 @@ test("missed verification recovers after a full private queue without losing ema
     await expect(page.getByRole("status")).toContainText(
       "If this address has an unverified account",
     );
-    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
     await expect(page.getByLabel("Email address")).toHaveValue(email);
     const matching = [];
     for (const name of (await readdir(directory)).filter((name) =>
