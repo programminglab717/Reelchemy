@@ -29,6 +29,16 @@ export async function GET(req: Request) {
 }
 export async function POST(req: Request) {
   try {
+    const origin = req.headers.get("origin");
+    if (
+      origin &&
+      new URL(origin).origin !==
+        new URL(process.env.BETTER_AUTH_URL || "http://127.0.0.1:3001").origin
+    )
+      return Response.json(
+        { error: "Cross-origin authentication requests are not allowed." },
+        { status: 403, headers: { "Cache-Control": "private, no-store" } },
+      );
     const auth = await getAuth();
     // Match this exact request's cookie before reading its body or invoking
     // any auth action. Bound session reads and mutations share one contract.
