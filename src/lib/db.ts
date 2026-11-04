@@ -104,6 +104,15 @@ import { ownedMediaCatalogue } from "./media-catalogue";
 import { ownedEditorProject, ownedConversationPage } from "./editor-project";
 import { ProviderUsageStore } from "./provider-usage-store";
 import {
+  migrateAccountErasures,
+  beginStudioErasure,
+  pendingStudioErasures,
+  blockStudioErasure,
+} from "./account-erasure-store";
+import { detachErasedProviderUsage } from "./account-erasure-provider";
+import type { PrivacyVault } from "./privacy-vault";
+import { AccountErasureUnavailable } from "./account-erasure-policy";
+import {
   migrateProjectStorage,
   admitProjectData,
   projectDataUsage,
@@ -190,6 +199,27 @@ db.transaction(() => {
 }).immediate();
 export const mediaProcessing = new MediaProcessingStore(db);
 export const providerUsage = new ProviderUsageStore(db);
+migrateAccountErasures(db);
+export const accountErasures = {
+  begin(
+    vault: PrivacyVault,
+    input: { requestId: string; ownerId: string; workspaceId: string },
+  ) {
+    return beginStudioErasure(db, vault, input);
+  },
+  pending(limit = 10) {
+    return pendingStudioErasures(db, limit);
+  },
+  block(workspaceId: string) {
+    return blockStudioErasure(db, workspaceId);
+  },
+  detachProvider(
+    vault: PrivacyVault,
+    input: { requestId: string; ownerId: string; workspaceId: string },
+  ) {
+    return detachErasedProviderUsage(db, vault, input);
+  },
+};
 export const mediaInputs = new MediaInputFiles(dataDir);
 export function cleanupUnreferencedMediaOutputs(ids: string[]) {
   return db
@@ -662,6 +692,7 @@ function projectFilter(
   const clauses: string[] = [
       trashed ? "trashed_at IS NOT NULL" : "trashed_at IS NULL",
       "NOT EXISTS(SELECT 1 FROM project_deletions d WHERE d.project_id=projects.id)",
+      "NOT EXISTS(SELECT 1 FROM account_erasures e WHERE e.workspace_id=projects.workspace_id)",
     ],
     values: (string | number)[] = [];
   if (workspaceId) {
@@ -1368,6 +1399,8 @@ export function projectExportPage(
 }
 export type Workspace = { id: string; ownerId: string; name: string };
 export function ensureWorkspace(userId: string, name: string): Workspace {
+  if (db.prepare("SELECT 1 FROM account_erasures WHERE owner_id=?").get(userId))
+    throw new AccountErasureUnavailable();
   // Established accounts stay read-only on private GET requests. Only creation
   // needs a write lock, with a second check after admission.
   const lookup = db.prepare(
@@ -1400,7 +1433,7 @@ export function projectInWorkspace(
 ) {
   return !!db
     .prepare(
-      `SELECT id FROM projects WHERE id=? AND workspace_id=?${includeTrashed ? "" : " AND trashed_at IS NULL"} AND NOT EXISTS(SELECT 1 FROM project_deletions d WHERE d.project_id=projects.id)`,
+      `SELECT id FROM projects WHERE id=? AND workspace_id=?${includeTrashed ? "" : " AND trashed_at IS NULL"} AND NOT EXISTS(SELECT 1 FROM project_deletions d WHERE d.project_id=projects.id) AND NOT EXISTS(SELECT 1 FROM account_erasures e WHERE e.workspace_id=projects.workspace_id)`,
     )
     .get(id, workspaceId);
 }

@@ -186,3 +186,9 @@ export async function migrateAuth() {
   await migrations.runMigrations();
   if (instance.vault) migrateAuthErasures(instance.database, instance.vault);
 }
+// Private orchestration only: never return this connection/authority to a DTO.
+export async function accountAuthContext() {
+  await getAuth();
+  if (!instance?.vault) throw new AccountErasureUnavailable();
+  return { database: instance.database, vault: instance.vault };
+}
