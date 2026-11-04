@@ -2,6 +2,11 @@ import { getAuth } from "@/lib/auth";
 import { readLimitedBody, RequestBodyError } from "@/lib/http";
 import { ACCOUNT_HEADER, accountMismatch } from "@/lib/account-session";
 export const runtime = "nodejs";
+function privateResponse(response: Response) {
+  response.headers.set("Cache-Control", "private, no-store");
+  response.headers.set("Referrer-Policy", "no-referrer");
+  return response;
+}
 async function boundAccount(
   req: Request,
   auth: Awaited<ReturnType<typeof getAuth>>,
@@ -19,7 +24,7 @@ export async function GET(req: Request) {
   try {
     const auth = await getAuth();
     const mismatch = await boundAccount(req, auth);
-    return mismatch || (await auth.handler(req));
+    return privateResponse(mismatch || (await auth.handler(req)));
   } catch {
     return Response.json(
       { error: "Authentication service is not configured or available." },
@@ -45,12 +50,14 @@ export async function POST(req: Request) {
     const mismatch = await boundAccount(req, auth);
     if (mismatch) return mismatch;
     const bytes = await readLimitedBody(req, 16000, { timeoutMs: 15000 });
-    return await auth.handler(
-      new Request(req.url, {
-        method: "POST",
-        headers: req.headers,
-        body: bytes,
-      }),
+    return privateResponse(
+      await auth.handler(
+        new Request(req.url, {
+          method: "POST",
+          headers: req.headers,
+          body: bytes,
+        }),
+      ),
     );
   } catch (error) {
     const interrupted =

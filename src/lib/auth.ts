@@ -7,6 +7,16 @@ import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { deliverMail, mailConfig, type Mail } from "./mail";
 import { authStorageDirectory } from "./auth-storage";
+import { configuredPrivacyVault } from "./privacy-storage";
+import { privacyVaultWatermark } from "./privacy-vault";
+import {
+  assertAuthErasureSchema,
+  migrateAuthErasures,
+  registerAuthErasureReader,
+} from "./auth-erasure-store";
+import { AccountErasureUnavailable } from "./account-erasure-policy";
+import { bindEmailVerificationLink } from "./email-verification";
+import { authPrivacyHooks } from "./auth-privacy";
 async function queueAccountMail(mail: Mail) {
   try {
     await deliverMail(mail);
@@ -55,8 +65,15 @@ function createAuth() {
       "Production authentication requires an HTTPS BETTER_AUTH_URL.",
     );
   const dir = authStorageDirectory();
+  const vault =
+    process.env.NODE_ENV === "production" ||
+    Object.keys(process.env).some((key) => key.startsWith("REELCHEMY_PRIVACY_"))
+      ? configuredPrivacyVault()
+      : undefined;
+  if (vault) privacyVaultWatermark(vault);
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   chmodSync(dir, 0o700);
+  const secret = signingSecret(dir);
   const authFile = path.join(dir, "auth.sqlite");
   const database = new Database(authFile);
   for (const file of [authFile, authFile + "-wal", authFile + "-shm"]) {
@@ -68,10 +85,21 @@ function createAuth() {
   }
   database.pragma("journal_mode = WAL");
   database.pragma("busy_timeout = 5000");
-  return betterAuth({
+  if (vault) {
+    registerAuthErasureReader(database, vault);
+  } else if (
+    database
+      .prepare("SELECT 1 FROM sqlite_master WHERE name='auth_erasure_protocol'")
+      .get()
+  ) {
+    database.close();
+    throw new AccountErasureUnavailable();
+  }
+  const auth = betterAuth({
     database,
     baseURL,
-    secret: signingSecret(dir),
+    secret,
+    hooks: authPrivacyHooks(secret, baseURL, vault),
     trustedOrigins: [new URL(baseURL).origin],
     logger: { disabled: true },
     emailAndPassword: {
@@ -93,11 +121,17 @@ function createAuth() {
       sendOnSignUp: true,
       autoSignInAfterVerification: true,
       sendVerificationEmail: async ({ user, url }) => {
+        const bound = await bindEmailVerificationLink(
+          secret,
+          user,
+          url,
+          baseURL,
+        );
         await queueAccountMail({
           to: user.email,
           accountId: user.id,
           subject: "Verify your Reelchemy email",
-          text: `Verify your account using this private link: ${url}`,
+          text: `Verify your account using this private link: ${bound}`,
         });
       },
     },
@@ -122,6 +156,7 @@ function createAuth() {
       },
     },
   });
+  return { auth, database, vault };
 }
 let instance: ReturnType<typeof createAuth> | undefined,
   ready: Promise<ReturnType<typeof createAuth>> | undefined;
@@ -130,18 +165,24 @@ export async function getAuth() {
     .then(async () => {
       instance ??= createAuth();
       if (process.env.NODE_ENV !== "production") {
-        const migrations = await getMigrations(instance.options);
+        const migrations = await getMigrations(instance.auth.options);
         await migrations.runMigrations();
+        if (instance.vault)
+          migrateAuthErasures(instance.database, instance.vault);
       }
       return instance;
     })
     .catch((e) => {
       ready = undefined;
       throw e;
-    }));
+    })).then((context) => {
+    if (context.vault) assertAuthErasureSchema(context.database, context.vault);
+    return context.auth;
+  });
 }
 export async function migrateAuth() {
   instance ??= createAuth();
-  const migrations = await getMigrations(instance.options);
+  const migrations = await getMigrations(instance.auth.options);
   await migrations.runMigrations();
+  if (instance.vault) migrateAuthErasures(instance.database, instance.vault);
 }

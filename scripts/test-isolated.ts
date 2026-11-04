@@ -11,6 +11,7 @@ import { randomBytes } from "node:crypto";
 import { tmpdir } from "node:os";
 import { testTls } from "./test-tls";
 import { DEFAULT_MEDIA_STORAGE_BYTES } from "../src/lib/media-storage-policy";
+import { initializePrivacyVault } from "../src/lib/privacy-vault";
 const production = process.argv.includes("--production");
 if (production && process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0")
   throw new Error(
@@ -68,6 +69,7 @@ let result = 1;
 try {
   if (production) tls = await testTls(port, dir);
   const baseURL = tls?.origin || `http://127.0.0.1:${port}`;
+  const vault = initializePrivacyVault(path.join(dir, "privacy"));
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     NODE_ENV: production ? "production" : "development",
@@ -112,6 +114,9 @@ try {
     REELCHEMY_PROJECT_MESSAGES: "10000",
     REELCHEMY_DATA_DIR: path.join(dir, "data"),
     REELCHEMY_AUTH_DIR: path.join(dir, "auth"),
+    REELCHEMY_PRIVACY_DIR: vault.directory,
+    REELCHEMY_PRIVACY_ID: vault.id,
+    REELCHEMY_PRIVACY_KEY_FINGERPRINT: vault.keyFingerprint,
     REELCHEMY_ARTIFACT_DIR: path.join(dir, "artifacts"),
     REELCHEMY_RENDER_CACHE_DIR: path.join(dir, "cache"),
     REELCHEMY_NEXT_DIST_DIR: ".next",

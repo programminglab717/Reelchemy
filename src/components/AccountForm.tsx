@@ -18,7 +18,11 @@ export function AccountForm() {
     ),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
-    [message, setMessage] = useState("");
+    [message, setMessage] = useState(
+      search.get("notice") === "verification"
+        ? "That verification link expired or is no longer valid. Enter your email to request a new one."
+        : "",
+    );
   return (
     <main className="account-page">
       <section className="account-card">

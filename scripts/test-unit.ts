@@ -7,10 +7,12 @@ import { mkdtemp, readdir, rm, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { DEFAULT_MEDIA_STORAGE_BYTES } from "../src/lib/media-storage-policy";
+import { initializePrivacyVault } from "../src/lib/privacy-vault";
 
 // Older media-only tests import ingestion before setting any environment. Give
 // every unit run a private fallback root so they cannot write into user storage.
 const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-unit-"));
+const vault = initializePrivacyVault(path.join(dir, "privacy"));
 const args = process.argv.slice(2);
 if (!args.some((arg) => arg.endsWith(".test.ts")))
   args.push(
@@ -26,6 +28,9 @@ const env: NodeJS.ProcessEnv = {
   AI_PROVIDER: "mock",
   BETTER_AUTH_URL: "http://127.0.0.1:3001",
   REELCHEMY_DATA_DIR: path.join(dir, "data"),
+  REELCHEMY_PRIVACY_DIR: vault.directory,
+  REELCHEMY_PRIVACY_ID: vault.id,
+  REELCHEMY_PRIVACY_KEY_FINGERPRINT: vault.keyFingerprint,
   REELCHEMY_ARTIFACT_DIR: path.join(dir, "artifacts"),
   REELCHEMY_RENDER_CACHE_DIR: path.join(dir, "cache"),
   REELCHEMY_MEDIA_STORAGE_BYTES: String(DEFAULT_MEDIA_STORAGE_BYTES),
