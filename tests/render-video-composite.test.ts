@@ -162,9 +162,17 @@ test(
             { id: "two", text: "Second cue", startFrame: 45, endFrame: 90 },
             { id: "three", text: "Final cue", startFrame: 120, endFrame: 145 },
           ];
+          if (variant === "portrait-hd")
+            timeline.captions = Array.from({ length: 14 }, (_, i) => ({
+              id: `dense-${i}`,
+              text: `Cue ${i + 1}`,
+              startFrame: i * 10,
+              endFrame: i * 10 + 8,
+            }));
           const input = timelineSchema.parse(timeline);
           const plan = videoCompositePlan(input)!;
           assert(plan);
+          if (variant === "portrait-hd") assert(plan.capturedFrames.length > 8);
           const media = await serveRenderAssets(input);
           try {
             const options = {

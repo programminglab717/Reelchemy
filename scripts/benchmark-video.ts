@@ -31,8 +31,10 @@ try {
     .enum(["standard", "1080p"])
     .parse(args.get("resolution") || "1080p");
   const profile = z
-    .enum(["static", "motion", "footage"])
+    .enum(["static", "motion", "footage", "full-footage"])
     .parse(args.get("profile") || "footage");
+  const fullFootage = profile === "full-footage";
+  const withFootage = profile === "footage" || fullFootage;
   const supplied = args.get("output");
   if (process.platform !== "linux" || !supplied || !path.isAbsolute(supplied))
     throw new Error();
@@ -108,11 +110,12 @@ try {
   const { beginExportMeter } = await import("../src/lib/export-storage-meter");
   const { runCommand } = await import("../src/lib/process");
   const { storeVideo } = await import("../src/lib/video");
-  const clipSeconds = Math.min(20, settings.duration);
+  const sceneSeconds = fullFootage ? 10 : 20;
+  const clipSeconds = Math.min(sceneSeconds, settings.duration);
   const source = path.join(output, "synthetic-source.mp4");
   stage = "Generating synthetic footage";
   let asset: Awaited<ReturnType<typeof storeVideo>> | undefined;
-  if (profile === "footage") {
+  if (withFootage) {
     await runCommand(
       "ffmpeg",
       [
@@ -121,7 +124,7 @@ try {
         "-f",
         "lavfi",
         "-i",
-        `testsrc2=size=1280x720:rate=30:duration=${clipSeconds}`,
+        `testsrc2=size=${fullFootage ? "1920x1080" : "1280x720"}:rate=30:duration=${clipSeconds}`,
         "-f",
         "lavfi",
         "-i",
@@ -153,7 +156,7 @@ try {
     duration: clipSeconds,
     format,
   });
-  const sceneCount = Math.ceil(settings.duration / 20);
+  const sceneCount = Math.ceil(settings.duration / sceneSeconds);
   const timeline = {
     fps: 30 as const,
     format,
@@ -162,7 +165,10 @@ try {
       const scene = structuredClone(base.scenes[0]);
       scene.id = `section-${i + 1}`;
       scene.title = `Synthetic section ${i + 1}`;
-      scene.durationFrames = Math.min(600, settings.duration * 30 - i * 600);
+      scene.durationFrames = Math.min(
+        sceneSeconds * 30,
+        settings.duration * 30 - i * sceneSeconds * 30,
+      );
       const title = {
         ...scene.layers[0],
         id: "title",
@@ -177,18 +183,17 @@ try {
           ...title,
           id: "visual",
           text: "",
-          kind:
-            profile === "footage"
-              ? ("video" as const)
-              : profile === "motion"
-                ? ("nodes" as const)
-                : ("gradient" as const),
+          kind: withFootage
+            ? ("video" as const)
+            : profile === "motion"
+              ? ("nodes" as const)
+              : ("gradient" as const),
           x: 0.08,
           y: 0.22,
           width: 0.84,
           height: 0.5,
           color: "#d5f281",
-          ...(profile === "footage" && asset
+          ...(withFootage && asset
             ? {
                 assetId: asset.id,
                 video: {
@@ -203,18 +208,41 @@ try {
             : {}),
         },
       ];
+      if (fullFootage) {
+        const video = { ...scene.layers[1], x: 0, y: 0, width: 1, height: 1 };
+        if (video.video) video.video = { ...video.video, fit: "cover" };
+        scene.layers = [
+          video,
+          {
+            ...title,
+            id: "title-background",
+            kind: "rectangle",
+            text: "",
+            x: 0.04,
+            y: 0.04,
+            width: 0.92,
+            height: 0.14,
+            color: "#101D31",
+          },
+          title,
+        ];
+      }
       return scene;
     }),
-    captions: Array.from({ length: sceneCount }, (_, i) => {
-      const start = i * 600,
-        end = Math.min(settings.duration * 30, start + 600);
-      return {
-        id: `cue-${i}`,
-        text: `Synthetic caption / ${i + 1}`,
-        startFrame: start,
-        endFrame: end - 1,
-      };
-    }),
+    captions: Array.from(
+      { length: fullFootage ? Math.ceil(settings.duration / 3) : sceneCount },
+      (_, i) => {
+        const span = fullFootage ? 90 : 600;
+        const start = i * span,
+          end = Math.min(settings.duration * 30, start + span);
+        return {
+          id: `cue-${i}`,
+          text: `Synthetic caption / ${i + 1}`,
+          startFrame: start,
+          endFrame: end - 1,
+        };
+      },
+    ),
   };
   // Each scene is a valid bounded composition. Aggregate longer timelines are
   // trusted test input; public creation/edit/export admission remains unchanged.
@@ -224,7 +252,16 @@ try {
   if (settings.duration <= 60 && !acceptedByPublicSchema) throw new Error();
   await writeFile(
     path.join(output, "input.json"),
-    JSON.stringify({ settings, acceptedByPublicSchema, timeline }, null, 2),
+    JSON.stringify(
+      {
+        settings,
+        acceptedByPublicSchema,
+        timeline,
+        assets: asset ? [asset] : [],
+      },
+      null,
+      2,
+    ),
     { mode: 0o600 },
   );
   const resources = async () => ({
@@ -242,6 +279,27 @@ try {
     ),
     cpuLimit: await readFile("/sys/fs/cgroup/cpu.max", "utf8").catch(
       () => null,
+    ),
+    memoryPeakBytes:
+      Number(
+        await readFile("/sys/fs/cgroup/memory.peak", "utf8").catch(() => "NaN"),
+      ) || null,
+    memorySwapBytes: await readFile(
+      "/sys/fs/cgroup/memory.swap.current",
+      "utf8",
+    )
+      .then((value) => Number(value))
+      .catch(() => null),
+    processLimit: await readFile("/sys/fs/cgroup/pids.max", "utf8").catch(
+      () => null,
+    ),
+    memoryCategories: Object.fromEntries(
+      (await readFile("/sys/fs/cgroup/memory.stat", "utf8").catch(() => ""))
+        .trim()
+        .split("\n")
+        .map((line) => line.split(" "))
+        .filter(([key]) => ["anon", "file", "shmem", "kernel"].includes(key))
+        .map(([key, value]) => [key, Number(value)]),
     ),
   });
   const before = await resources();
@@ -307,6 +365,8 @@ try {
       settings,
       acceptedByPublicSchema,
       totalFrames: totalFrames(timeline),
+      sceneCount: timeline.scenes.length,
+      captionCount: timeline.captions.length,
       preparationMs,
       elapsedMs: performance.now() - started,
       export: report.export,
@@ -361,7 +421,7 @@ try {
       { mode: 0o600 },
     ).catch(() => {});
   console.error(
-    "Synthetic benchmark unavailable or incomplete. Use --output=/new/absolute/directory outside source/live storage [--duration=5|60|180|300] [--format=landscape|portrait|square] [--resolution=standard|1080p] [--profile=static|motion|footage]. Existing outputs are never reused. Review owned fixture evidence; public video limits remain unchanged.",
+    "Synthetic benchmark unavailable or incomplete. Use --output=/new/absolute/directory outside source/live storage [--duration=5|60|180|300] [--format=landscape|portrait|square] [--resolution=standard|1080p] [--profile=static|motion|footage|full-footage]. Existing outputs are never reused. Review owned fixture evidence; public video limits remain unchanged.",
   );
   process.exitCode = 1;
 }

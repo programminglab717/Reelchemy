@@ -30,14 +30,17 @@ export function videoCompositePlan(
     video.y + video.height > 1
   )
     return null;
-  const still = staticScenePlan({
-    ...timeline,
-    scenes: [
-      {
-        ...scene,
-        layers: scene.layers.filter((layer) => layer.id !== video.id),
-      },
-    ],
-  });
+  const still = staticScenePlan(
+    {
+      ...timeline,
+      scenes: [
+        {
+          ...scene,
+          layers: scene.layers.filter((layer) => layer.id !== video.id),
+        },
+      ],
+    },
+    32,
+  );
   return still ? { ...still, video } : null;
 }

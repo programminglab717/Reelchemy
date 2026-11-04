@@ -16,7 +16,16 @@ export type StaticScenePlan = {
   capturedFrames: number[];
   sourceFrames: number[];
 };
-export function staticScenePlan(timeline: Timeline): StaticScenePlan | null {
+export function staticScenePlan(
+  timeline: Timeline,
+  maximumCapturedStates = 8,
+): StaticScenePlan | null {
+  if (
+    !Number.isSafeInteger(maximumCapturedStates) ||
+    maximumCapturedStates < 1 ||
+    maximumCapturedStates > 32
+  )
+    return null;
   if (timeline.scenes.length !== 1) return null;
   const scene = timeline.scenes[0];
   if (
@@ -44,7 +53,7 @@ export function staticScenePlan(timeline: Timeline): StaticScenePlan | null {
       capturedFrames.push(frame);
       // Each still has its own bounded browser capture. Avoid turning caption
       // heavy scenes into hundreds of still operations or full-frame disk IO.
-      if (capturedFrames.length > 8) return null;
+      if (capturedFrames.length > maximumCapturedStates) return null;
     }
     sourceFrames.push(representative);
     previous = state;

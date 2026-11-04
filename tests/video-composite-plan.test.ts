@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import { blankTimeline } from "../src/lib/editor";
 import { videoCompositePlan } from "../src/lib/video-composite-plan";
 import type { Timeline } from "../src/lib/schema";
+import { staticScenePlan } from "../src/lib/static-scene";
+import { captionAt } from "../src/lib/captions";
 
 function fixture() {
   const timeline = blankTimeline({
@@ -78,11 +80,11 @@ test("transforms, continuous motion, multiple clips, fades/cameras and caption-h
       t.scenes[0].layers[1].assetId = undefined;
     },
     (t) => {
-      t.captions = Array.from({ length: 10 }, (_, i) => ({
+      t.captions = Array.from({ length: 18 }, (_, i) => ({
         id: `cue-${i}`,
         text: "Dense",
-        startFrame: i * 10,
-        endFrame: i * 10 + 5,
+        startFrame: i * 8,
+        endFrame: i * 8 + 4,
       }));
     },
     (t) => {
@@ -95,4 +97,30 @@ test("transforms, continuous motion, multiple clips, fades/cameras and caption-h
     mutate(timeline);
     assert.equal(videoCompositePlan(timeline), null);
   }
+});
+
+test("bounded dense footage captions retain exact cue gaps without broadening ordinary still capture limits", () => {
+  const timeline = fixture();
+  timeline.captions = Array.from({ length: 14 }, (_, i) => ({
+    id: `cue-${i}`,
+    text: `Cue ${i + 1}`,
+    startFrame: i * 10,
+    endFrame: i * 10 + 8,
+  }));
+  const still = {
+    ...timeline,
+    scenes: [{ ...timeline.scenes[0], layers: [timeline.scenes[0].layers[0]] }],
+  };
+  assert.equal(staticScenePlan(still), null);
+  const plan = videoCompositePlan(timeline)!;
+  assert(
+    plan && plan.capturedFrames.length > 8 && plan.capturedFrames.length <= 32,
+  );
+  for (let frame = 0; frame < 150; frame++)
+    assert.deepEqual(
+      captionAt(timeline, frame),
+      captionAt(timeline, plan.sourceFrames[frame]),
+    );
+  for (const bound of [0, 33, NaN])
+    assert.equal(staticScenePlan(still, bound), null);
 });
