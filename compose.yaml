@@ -1,4 +1,14 @@
 name: reelchemy
+x-privacy-environment: &privacy
+  REELCHEMY_PRIVACY_DIR: /app/private-privacy
+  REELCHEMY_PRIVACY_ID: ${REELCHEMY_PRIVACY_ID:?Set the initialized independent privacy vault ID}
+  REELCHEMY_PRIVACY_KEY_FINGERPRINT: ${REELCHEMY_PRIVACY_KEY_FINGERPRINT:?Set the initialized privacy key fingerprint}
+x-privacy-mount: &privacy-mount
+  type: bind
+  source: ${REELCHEMY_PRIVACY_DIR_ON_HOST:?Set the existing independent privacy directory}
+  target: /app/private-privacy
+  bind:
+    create_host_path: false
 x-auth-environment: &auth
   BETTER_AUTH_URL: ${BETTER_AUTH_URL:?Set an HTTPS authentication URL}
   BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set a strong authentication signing secret}
@@ -72,11 +82,12 @@ services:
     healthcheck:
       disable: true
     environment:
-      <<: [*paths, *auth]
+      <<: [*paths, *auth, *privacy]
     volumes:
       - studio-data:/app/.data
       - studio-artifacts:/app/artifacts
       - studio-auth:/app/private-auth
+      - *privacy-mount
   web:
     <<: *runtime
     depends_on:
@@ -91,8 +102,18 @@ services:
       - studio-data:/app/.data
       - studio-artifacts:/app/artifacts
       - studio-auth:/app/private-auth
+      - *privacy-mount
     environment:
-      <<: [*paths, *auth, *media, *projectdata, *exportfiles, *mailqueue]
+      <<:
+        [
+          *paths,
+          *auth,
+          *privacy,
+          *media,
+          *projectdata,
+          *exportfiles,
+          *mailqueue,
+        ]
       AI_PROVIDER: ${AI_PROVIDER:-mock}
       AI_BASE_URL: ${AI_BASE_URL:-}
       AI_MODEL: ${AI_MODEL:-}

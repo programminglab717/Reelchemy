@@ -67,14 +67,17 @@ export function authPrivacyHooks(
             ? { user: current, accounts: [] }
             : null;
         },
-        updateUserByEmail: async (email, data) => {
+        async updateUserByEmail<T extends Record<string, unknown>>(
+          email: string,
+          data: Parameters<typeof adapter.updateUserByEmail>[1],
+        ) {
           if (email.toLowerCase() !== claims.email || denied(vault, user.id))
             throw new APIError("BAD_REQUEST", {
               code: "VERIFICATION_LINK_INVALID",
               message:
                 "Verification link expired or invalid. Request a new one.",
             });
-          const updated = await adapter.updateUser(claims.accountId, data);
+          const updated = await adapter.updateUser<T>(claims.accountId, data);
           if (!updated)
             throw new APIError("BAD_REQUEST", {
               code: "VERIFICATION_LINK_INVALID",

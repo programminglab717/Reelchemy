@@ -6,6 +6,7 @@ next-env.d.ts
 !.env.example
 .data/
 private-auth/
+private-privacy/
 artifacts/
 test-results/
 playwright-report/

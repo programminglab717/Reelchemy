@@ -6,9 +6,11 @@ const configuredRoots = [
   ".data",
   "artifacts",
   "private-auth",
+  "private-privacy",
   process.env.REELCHEMY_DATA_DIR,
   process.env.REELCHEMY_ARTIFACT_DIR,
   process.env.REELCHEMY_AUTH_DIR,
+  process.env.REELCHEMY_PRIVACY_DIR,
 ]
   .filter((v): v is string => !!v)
   .map((v) => path.resolve(v));

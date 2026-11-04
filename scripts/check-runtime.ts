@@ -1,8 +1,8 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { mkdtemp, writeFile, readFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import net from "node:net";
 import assert from "node:assert/strict";
 
@@ -27,6 +27,8 @@ for (let i = 0; i < args.length; i++) {
 if (!/^[a-z0-9][a-z0-9._:/-]{0,180}$/.test(image))
   throw new Error("Invalid test image.");
 const directory = await mkdtemp(path.join(tmpdir(), "reelchemy-runtime-"));
+const privacyDirectory = path.join(directory, "privacy");
+await mkdir(privacyDirectory, { mode: 0o700 });
 const project = `reelchemy-check-${randomBytes(6).toString("hex")}`;
 const listener = net.createServer();
 await new Promise<void>((resolve, reject) => {
@@ -52,6 +54,11 @@ const environment = {
   AI_BASE_URL: "",
   AI_MODEL: "",
   REELCHEMY_HTTP_PORT: String(port),
+  REELCHEMY_PRIVACY_DIR_ON_HOST: privacyDirectory,
+  // Temporary syntactically valid pins allow the explicit init command to
+  // parse Compose. That command does not start auth or use these placeholders.
+  REELCHEMY_PRIVACY_ID: String(randomUUID()),
+  REELCHEMY_PRIVACY_KEY_FINGERPRINT: "0".repeat(64),
   RENDER_CONCURRENCY: "2",
   REELCHEMY_WRITES_PER_MINUTE: "120",
   REELCHEMY_MAIL_PENDING_COUNT: "1000",
@@ -239,6 +246,31 @@ try {
   console.log(
     "Starting disposable read-only production services; no mail worker or live AI.",
   );
+  const initialized = JSON.parse(
+    (
+      await run([
+        ...compose,
+        "run",
+        "--rm",
+        "--no-deps",
+        "--pull",
+        "never",
+        "migrate",
+        "node",
+        "--import",
+        "tsx",
+        "scripts/privacy-vault.ts",
+        "init",
+        "--directory",
+        "/app/private-privacy",
+      ])
+    ).output,
+  ) as { vault: { id: string; keyFingerprint: string } };
+  assert.match(initialized.vault.id, /^[a-f0-9-]{36}$/);
+  assert.match(initialized.vault.keyFingerprint, /^[a-f0-9]{64}$/);
+  environment.REELCHEMY_PRIVACY_ID = initialized.vault.id;
+  environment.REELCHEMY_PRIVACY_KEY_FINGERPRINT =
+    initialized.vault.keyFingerprint;
   await run([
     ...compose,
     "run",
@@ -276,6 +308,9 @@ try {
     privateMount?.Name,
     "Web must have a distinct private authentication volume.",
   );
+  assert(
+    authMounts.some((mount) => mount.Destination === "/app/private-privacy"),
+  );
   for (const id of [web, render, ingest]) {
     const config = JSON.parse(
       (await run(["inspect", "--format", "{{json .HostConfig}}", id])).output,
@@ -310,6 +345,7 @@ try {
         !mounts.some(
           (m) =>
             m.Destination === "/app/private-auth" ||
+            m.Destination === "/app/private-privacy" ||
             m.Name === privateMount.Name,
         ),
       );
@@ -320,7 +356,7 @@ try {
         assert(!mounts.some((mount) => mount.Destination === "/app/artifacts"));
         assert(
           !env.some((value) =>
-            /^(REELCHEMY_AUTH_DIR|REELCHEMY_ARTIFACT_DIR|SMTP_HOST|SMTP_USER|EMAIL_FROM)=/.test(
+            /^(REELCHEMY_AUTH_DIR|REELCHEMY_ARTIFACT_DIR|REELCHEMY_PRIVACY_DIR|REELCHEMY_PRIVACY_ID|REELCHEMY_PRIVACY_KEY_FINGERPRINT|SMTP_HOST|SMTP_USER|EMAIL_FROM)=/.test(
               value,
             ),
           ),
