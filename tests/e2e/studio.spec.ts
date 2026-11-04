@@ -412,6 +412,9 @@ test("scene-only preview and generic character/arrow/camera primitives render to
   await expect(page.getByText("Your film is ready.")).toBeVisible({
     timeout: 200000,
   });
-  await page.getByText("Export activity").click();
+  await page
+    .locator("summary")
+    .filter({ hasText: /^Export activity$/ })
+    .click();
   await expect(page.getByText(/Preparing scene previews/)).toBeVisible();
 });
