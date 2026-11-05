@@ -1,3 +1,4 @@
+import { MAX_TIMELINE_SECONDS } from "../src/lib/timeline-limits";
 import path from "node:path";
 import { mkdir, readFile, writeFile, realpath } from "node:fs/promises";
 import { execFile } from "node:child_process";
@@ -64,7 +65,7 @@ try {
     exportResolution,
     profile,
     experimentalPipelineOnly: true,
-    publicSupportedSeconds: 60,
+    publicSupportedSeconds: MAX_TIMELINE_SECONDS,
     deadlineMs: 600000,
     outputCeilingBytes: 512 * 1024 ** 2,
   };
@@ -249,7 +250,8 @@ try {
   for (let i = 0; i < timeline.scenes.length; i++)
     timelineSchema.parse(localSceneTimeline(timeline, i));
   const acceptedByPublicSchema = timelineSchema.safeParse(timeline).success;
-  if (settings.duration <= 60 && !acceptedByPublicSchema) throw new Error();
+  if (settings.duration <= MAX_TIMELINE_SECONDS && !acceptedByPublicSchema)
+    throw new Error();
   await writeFile(
     path.join(output, "input.json"),
     JSON.stringify(

@@ -109,6 +109,7 @@ async function fingerprint() {
     "src/lib/render-resources.ts",
     "src/lib/render-browser.ts",
     "src/lib/schema.ts",
+    "src/lib/timeline-limits.ts",
     "src/lib/text-style.ts",
     "src/lib/media-style.ts",
     "src/lib/layer-geometry.ts",

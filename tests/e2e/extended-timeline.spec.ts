@@ -227,13 +227,11 @@ test("500 imported caption cues stay searchable and paged through undo, reload a
   }));
   await page.goto("/");
   await page.getByRole("button", { name: project.name, exact: false }).click();
-  await page
-    .getByLabel("Import subtitles", { exact: true })
-    .setInputFiles({
-      name: "long.srt",
-      mimeType: "text/plain",
-      buffer: Buffer.from(subtitles(timeline, "srt")),
-    });
+  await page.getByLabel("Import subtitles", { exact: true }).setInputFiles({
+    name: "long.srt",
+    mimeType: "text/plain",
+    buffer: Buffer.from(subtitles(timeline, "srt")),
+  });
   await expect(
     page.getByRole("region", { name: "Subtitle import preview" }),
   ).toContainText("500 cues");

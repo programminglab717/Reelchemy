@@ -428,3 +428,10 @@ Add a selected-layer duplicate action to the canvas and advanced layer controls.
 - Reuse bounded still artwork around one eligible moving video while preserving exact trim, layer depth, crop and caption boundaries; unsupported motion/transforms retain ordinary rendering. Pin native frame-cache memory explicitly.
 - Finalize audio directly into the metered export while holding the private silent input in the derived cache. Verify every encoded frame count and derive review PNGs, thumbnail and final-frame proof from one complete error-checking MP4 decode.
 - Keep temporary/final verification bytes in the strict quota and reviewed-cleanup inventory. Complete backend/native regression passes 509 checks. Production build/browser and longer synthetic measurements remain pending; public limits remain 60 seconds/12 scenes.
+
+## 0.56.0 — 2026-11-05 candidate
+
+- Extend editing to five minutes/sixty scenes, twelve audio tracks and five hundred caption cues, with existing per-scene/media/provider/native-output limits retained. Demo plans allocate enough bounded scenes for longer briefs.
+- Add searchable/paged caption editing, scene-scoped long-film caption tracks, longer timeline zoom and correct late narration positions.
+- Fence extended current/history/brief/job data with independent archive/backup capabilities; preserve legacy and native-HD behavior. Align detailed-save, bounded reopen and compact downloadable recovery limits.
+- A constrained synthetic full-frame HD five-minute pipeline passes in 545.831 seconds with a 1.82 GiB container peak and 371.5 MiB final output. Complete current-source backend/build/browser acceptance remains pending. No deployment or live SMTP/AI verification.
