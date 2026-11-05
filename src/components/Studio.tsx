@@ -874,8 +874,9 @@ export function Studio({
                     Save now
                   </button>
                   <small>
-                    Unsaved timeline edits have recovery copies on this device.
-                    Signing out clears this account’s copies.
+                    Device recovery protects unsaved edits when storage is
+                    available. Download a copy if recovery is unavailable.
+                    Signing out clears this account’s device copies.
                   </small>
                 </div>
                 {editor.saveError && (

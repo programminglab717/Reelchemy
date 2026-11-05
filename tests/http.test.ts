@@ -25,3 +25,12 @@ test("streamed request limits stop chunked oversized input before parsing", asyn
     { ok: true },
   );
 });
+
+test("large timeline requests opt into a bounded allowance while ordinary JSON routes keep their smaller cap", async () => {
+  const payload = JSON.stringify({ text: "x".repeat(100001) });
+  const request = () =>
+    new Request("http://local", { method: "PATCH", body: payload });
+  await assert.rejects(() => body(request()), /too large/);
+  assert.equal((await body(request(), 110000)).text.length, 100001);
+  await assert.rejects(() => body(request(), 100002), /too large/);
+});

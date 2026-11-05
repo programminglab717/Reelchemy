@@ -3,9 +3,9 @@ export const MAX_TIMELINE_FRAMES = MAX_TIMELINE_SECONDS * 30;
 export const MAX_SCENES = 60;
 export const MAX_AUDIO_TRACKS = 12;
 export const MAX_CAPTIONS = 500;
-// Match the bounded current-editor read. Reject before saving a film that the
-// maker could not subsequently reopen through the ordinary editor.
-export const MAX_EDITABLE_TIMELINE_BYTES = 2 * 1024 ** 2;
+// Keep current/history reads and compact downloaded recovery documents within
+// the existing 2 MiB bound, including their small account/CAS envelope.
+export const MAX_EDITABLE_TIMELINE_BYTES = 2 * 1024 ** 2 - 4096;
 export const DURATION_PRESETS = [5, 15, 30, 60, 180, 300] as const;
 
 // Fixed legacy capabilities: do not replace these thresholds with current limits.

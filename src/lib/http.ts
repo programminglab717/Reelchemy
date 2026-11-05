@@ -336,9 +336,9 @@ export async function readLimitedBody(
   }
   return result;
 }
-export async function body(req: Request) {
+export async function body(req: Request, maxBytes = 100000) {
   return JSON.parse(
-    new TextDecoder().decode(await readLimitedBody(req, 100000)),
+    new TextDecoder().decode(await readLimitedBody(req, maxBytes)),
   );
 }
 export async function multipart(

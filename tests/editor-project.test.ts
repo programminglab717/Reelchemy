@@ -487,3 +487,34 @@ test("unusable latest revision and oversized current films refuse privately with
     assert.equal(hash(p.id), before);
   }
 });
+
+test("detailed longer films cross the ordinary JSON body limit without losing save/reopen or stale-write protection", async () => {
+  const p = project();
+  const timeline = blankTimeline({ ...brief, duration: 300 });
+  const keys = Array.from({ length: 30 }, (_, frame) => ({
+    frame,
+    x: 0,
+    y: 0,
+    scale: 1,
+    opacity: 1,
+  }));
+  for (const scene of timeline.scenes)
+    scene.layers = Array.from({ length: 10 }, (_, i) => ({
+      ...scene.layers[0],
+      id: `layer-${i}`,
+      keyframes: keys,
+    }));
+  const data = { timeline, baseRevisionId: null };
+  assert(Buffer.byteLength(JSON.stringify(data)) > 100000);
+  const response = await PATCH(mutation(p, data), context(p.id));
+  privateResponse(response);
+  const saved = await response.json();
+  assert.equal(saved.timeline.scenes.length, 15);
+  assert.equal(saved.timeline.scenes.at(-1).layers.length, 10);
+  const readback = await read(p.id);
+  privateResponse(readback);
+  assert.deepEqual((await readback.json()).timeline, saved.timeline);
+  const before = hash(p.id);
+  privateResponse(await PATCH(mutation(p, data), context(p.id)), 409);
+  assert.equal(hash(p.id), before);
+});

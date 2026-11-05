@@ -1,3 +1,4 @@
+import { MAX_EDITABLE_TIMELINE_BYTES } from "@/lib/timeline-limits";
 import { secureRoute, type Access } from "@/lib/access";
 import { getProject, reviseOwnedProject } from "@/lib/db";
 import { timelineSchema } from "@/lib/schema";
@@ -35,7 +36,7 @@ async function PATCHHandler(req: Request, { params }: Context, access: Access) {
         timeline: timelineSchema,
         baseRevisionId: z.string().min(1).max(80).nullable(),
       })
-      .parse(await body(req));
+      .parse(await body(req, MAX_EDITABLE_TIMELINE_BYTES + 1024));
     // Read after the asynchronous body, then compare and commit synchronously.
     const latest = getProject(p.id)!;
     if (revisionId(latest) !== baseRevisionId) throw new RevisionConflict();
