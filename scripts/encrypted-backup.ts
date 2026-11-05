@@ -87,8 +87,12 @@ try {
     });
   else throw new EncryptedBackupUnavailable();
   console.log(JSON.stringify(result));
-} catch {
-  console.error(new EncryptedBackupUnavailable().message);
+} catch (error) {
+  console.error(
+    error instanceof EncryptedBackupUnavailable
+      ? error.message
+      : new EncryptedBackupUnavailable().message,
+  );
   process.exitCode = 1;
 } finally {
   process.off("SIGINT", cancel);

@@ -647,6 +647,19 @@ test("snapshot inventory and oversized restore metadata refuse before upload or 
       false,
     );
     assert.deepEqual((await inspectEncryptedBackups(f.options)).snapshots, []);
+    await writeFile(
+      fake,
+      `#!/usr/bin/env node\nconst fs = require('node:fs');\nif(process.argv.includes('cat')) console.log(JSON.stringify({id:${JSON.stringify(f.options.repositoryId)},version:2}));\nelse if(process.argv.includes('snapshots')) console.log('[]');\nelse {fs.writeFileSync(${JSON.stringify(marker)},'attempted');console.log(JSON.stringify({message_type:'summary',snapshot_id:'invalid-reply'}));}\n`,
+      { mode: 0o700 },
+    );
+    await assert.rejects(
+      () => uploadEncryptedBackup({ ...f.options, binary: fake }, source),
+      (error) =>
+        error instanceof EncryptedBackupUnavailable &&
+        error.mutationStarted &&
+        error.message.includes("started remote mutation"),
+    );
+    assert.equal(await readFile(marker, "utf8"), "attempted");
   } finally {
     await f.close();
   }

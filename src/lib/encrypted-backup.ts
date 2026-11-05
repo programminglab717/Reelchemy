@@ -36,9 +36,12 @@ export type EncryptedBackupOptions = {
   timeoutMs?: number;
 };
 export class EncryptedBackupUnavailable extends Error {
-  constructor() {
+  constructor(readonly mutationStarted = false) {
     super(
-      "Encrypted backup operation unavailable. Check the explicit repository/authority pins, private password file, repository locks, free space and completed snapshot. No live application data is initialized or repaired. A started remote mutation may have completed; inspect the repository before retrying.",
+      "Encrypted backup operation unavailable. Check the explicit repository/authority pins, private password file, repository locks, free space and completed snapshot. No live application data is initialized or repaired." +
+        (mutationStarted
+          ? " A started remote mutation may have completed; inspect the repository before retrying."
+          : ""),
     );
   }
 }
@@ -131,6 +134,7 @@ async function withRepository<T>(
     tags: string[];
   }) => Promise<T>,
 ): Promise<T> {
+  let mutationStarted = false;
   let directory: string | undefined,
     identity: { dev: number; ino: number } | undefined,
     password: FileHandle | undefined;
@@ -157,6 +161,11 @@ async function withRepository<T>(
     const run = async (args: string[], cwd?: string) => {
       if (options.signal?.aborted) throw new EncryptedBackupUnavailable();
       return await new Promise<string>((resolve, reject) => {
+        if (
+          args[0] === "backup" ||
+          (args[0] === "forget" && !args.includes("--dry-run"))
+        )
+          mutationStarted = true;
         const child = spawn(config.binary, ["--no-cache", "--json", ...args], {
           cwd,
           env,
@@ -247,7 +256,7 @@ async function withRepository<T>(
       tags: config.tags,
     });
   } catch {
-    throw new EncryptedBackupUnavailable();
+    throw new EncryptedBackupUnavailable(mutationStarted);
   } finally {
     await password?.close();
     if (directory && identity) {
