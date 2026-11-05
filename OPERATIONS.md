@@ -340,7 +340,7 @@ Eligible single-footage scenes capture fixed background and transparent foregrou
 
 The experimental `--profile=full-footage` measurement uses generated native 1920×1080 full-frame footage, ten-second scene cuts, fixed readable title backing, synthetic source-tone audio and three-second captions with one-frame gaps. Existing static/motion/footage profiles keep their prior inputs. Fresh source-mounted resource checks and every-frame technical comparisons are recorded separately in VALIDATION.md; neither source mounts nor synthetic tones establish immutable-image, narration/creator, hosting or five-minute product admission acceptance.
 
-## Physical database maintenance (candidate, not yet accepted)
+## Physical database maintenance (0.57)
 
 Application database writers enable SQLite secure deletion for newly removed cell/overflow payload. It is connection-local and does not retroactively scrub old free pages, open WAL readers, previous snapshots or storage-device remnants. New privately owned backup/restore copies compact obsolete payload after their existing privacy reconciliation, before publication. Existing source backups stay byte-for-byte intact. This does not replace historical/off-host backup retention or current deletion-authority reconciliation.
 
@@ -348,4 +348,4 @@ Use `npm run storage:compact -- --data /absolute/existing-data --auth /absolute/
 
 After a verified coordinated backup and stopping **all** web, render, ingestion, mail and privacy services, the same explicit command with `--apply` compacts current stores. Both exclusive SQLite locks, private file/directory identities, schema roles, integrity and free-space preflights must pass before either database is compacted. Existing WAL connections and newly competing readers/writers refuse. Do not replace permanent lifecycle files or a database under a live process. The command keeps every retained row and database inode; it never vacuums the independent approval journal. It prints only aggregate scopes/capacity, without account contents or credentials. Per-database VACUUM is atomic; a later scope failure reports completed scopes and can be retried after correcting the cause. SQLite may create ordinary coordination sidecars during an apply attempt; inspection remains descriptor-only.
 
-This implementation and its fixtures are pending validation. Do not treat it as acceptance for actual installation maintenance, historical backup disposal or forensic erasure.
+The implementation passes 521 complete backend/native checks, the production build and eight relevant production HTTPS workflows; exact source and resource records are in VALIDATION.md. Actual installation maintenance still requires the stated operational preconditions. Historical/off-host backup disposal and forensic storage-device erasure are separate procedures.
