@@ -457,6 +457,7 @@ Add a selected-layer duplicate action to the canvas and advanced layer controls.
 
 ## 0.60.0 — 2026-11-05 candidate
 
+- Make Scene notes readable on mobile with a 16px editing field, comfortable line spacing and padding.
 - Add explicit operator inspection/upload/restore verification and preview-by-default expiry for existing encrypted Restic repositories, pinned to repository and privacy authority identities. Keep original local snapshots and other installations intact.
 - Verify fresh admitted sources, encrypted manifest binding, complete restored payload/SQLite/reference integrity and scratch capacity before a recent-anchor retention apply. Use native repository locks and fixed namespace filters independent of staging paths.
 - Minimize child credentials, pin the password descriptor, bound output/deadlines and await cancellation teardown. Provide an independent backup image target; actual encrypted-repository tests and current-source acceptance remain pending. No real repository, local historical snapshot, deployment or live SMTP/AI operation is performed.
