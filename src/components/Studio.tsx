@@ -1,4 +1,5 @@
 "use client";
+import { DURATION_PRESETS } from "@/lib/timeline-limits";
 import type { EditorProject as Project } from "@/lib/project-view";
 import { clipAudioTracks } from "@/lib/clip-audio";
 import { CanvasEditor } from "./CanvasEditor";
@@ -630,7 +631,7 @@ export function Studio({
                       value={duration}
                       onChange={(e) => setDuration(Number(e.target.value))}
                     >
-                      {[5, 15, 30, 60].map((d) => (
+                      {DURATION_PRESETS.map((d) => (
                         <option key={d} value={d}>
                           {d} seconds
                         </option>
@@ -1433,6 +1434,7 @@ export function Studio({
                   onChange={changeTimeline}
                 />
                 <MediaEditor
+                  key={project.id}
                   timeline={timeline}
                   assets={project.assets || []}
                   onChange={changeTimeline}

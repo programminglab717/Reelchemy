@@ -1,4 +1,12 @@
 import { z } from "zod";
+import {
+  MAX_TIMELINE_SECONDS,
+  MAX_TIMELINE_FRAMES,
+  MAX_SCENES,
+  MAX_AUDIO_TRACKS,
+  MAX_CAPTIONS,
+  MAX_EDITABLE_TIMELINE_BYTES,
+} from "./timeline-limits";
 export const FPS = 30;
 export const formats = {
   landscape: { width: 1280, height: 720 },
@@ -80,23 +88,32 @@ export const sceneSchema = z.object({
   layers: z.array(layerSchema).max(20),
   transition: z.enum(["fade", "cut"]).default("fade"),
   camera: z.array(keyframeSchema).max(30).optional(),
-  motionOffsetFrames: z.number().int().min(0).max(1799).optional(),
+  motionOffsetFrames: z
+    .number()
+    .int()
+    .min(0)
+    .max(MAX_TIMELINE_FRAMES - 1)
+    .optional(),
   fadeIn: z.boolean().optional(),
   fadeOut: z.boolean().optional(),
 });
 export const audioTrackSchema = z.object({
   id: z.string().min(1).max(80),
   assetId: z.string().uuid(),
-  startFrame: z.number().int().min(0).max(1799),
+  startFrame: z
+    .number()
+    .int()
+    .min(0)
+    .max(MAX_TIMELINE_FRAMES - 1),
   offsetFrames: z.number().int().min(0).max(3599).default(0),
-  durationFrames: z.number().int().min(1).max(1800),
+  durationFrames: z.number().int().min(1).max(MAX_TIMELINE_FRAMES),
   volume: z.number().min(0).max(1).default(0.8),
   fadeFrames: z.number().int().min(0).max(150).default(6),
 });
 export const captionSchema = z.object({
   id: z.string().min(1).max(80),
   startFrame: z.number().int().min(0),
-  endFrame: z.number().int().max(1800),
+  endFrame: z.number().int().max(MAX_TIMELINE_FRAMES),
   text: z
     .string()
     .trim()
@@ -120,12 +137,23 @@ export const timelineSchema = z
     fps: z.literal(30),
     format: z.enum(["landscape", "portrait", "square"]),
     exportResolution: z.enum(["standard", "1080p"]).optional(),
-    scenes: z.array(sceneSchema).min(1).max(12),
-    audioTracks: z.array(audioTrackSchema).max(4).optional(),
-    captions: z.array(captionSchema).max(100).optional(),
+    scenes: z.array(sceneSchema).min(1).max(MAX_SCENES),
+    audioTracks: z.array(audioTrackSchema).max(MAX_AUDIO_TRACKS).optional(),
+    captions: z.array(captionSchema).max(MAX_CAPTIONS).optional(),
     captionStyle: captionStyleSchema.optional(),
   })
   .superRefine((t, ctx) => {
+    if (
+      new TextEncoder().encode(JSON.stringify(t)).length >
+      MAX_EDITABLE_TIMELINE_BYTES
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        message:
+          "This film has too much editing detail to reopen safely. Reduce its keyframes or layers before saving.",
+      });
+      return;
+    }
     const frames = t.scenes.reduce((n, s) => n + s.durationFrames, 0);
     const tracks = t.audioTracks || [],
       captions = [...(t.captions || [])].sort(
@@ -180,18 +208,21 @@ export const timelineSchema = z
         message:
           "Captions must have positive duration, fit the timeline, and not overlap.",
       });
-    if (t.scenes.reduce((n, s) => n + s.durationFrames, 0) > 1800)
+    if (frames > MAX_TIMELINE_FRAMES)
       ctx.addIssue({
         code: "custom",
-        message: "Video must be 60 seconds or less.",
+        message: `Video must be ${MAX_TIMELINE_SECONDS} seconds or less.`,
       });
     if (new Set(t.scenes.map((s) => s.id)).size !== t.scenes.length)
       ctx.addIssue({ code: "custom", message: "Scene IDs must be unique." });
     for (const scene of t.scenes)
-      if ((scene.motionOffsetFrames || 0) + scene.durationFrames > 1800)
+      if (
+        (scene.motionOffsetFrames || 0) + scene.durationFrames >
+        MAX_TIMELINE_FRAMES
+      )
         ctx.addIssue({
           code: "custom",
-          message: "Scene motion phase must fit within 60 seconds.",
+          message: `Scene motion phase must fit within ${MAX_TIMELINE_SECONDS} seconds.`,
         });
     for (const scene of t.scenes)
       if (

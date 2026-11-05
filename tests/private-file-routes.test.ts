@@ -222,7 +222,7 @@ test("job status and the evidence allowlist remain enforced for GET and HEAD", a
   for (const file of [
     "video.mp4",
     "../video.mp4",
-    "scene-13-middle.png",
+    "scene-61-middle.png",
     "private.sqlite",
   ]) {
     const denied = await evidence.GET(request(), {

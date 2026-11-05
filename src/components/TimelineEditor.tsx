@@ -1,4 +1,5 @@
 "use client";
+import { MAX_SCENES } from "@/lib/timeline-limits";
 import { TimedTrack } from "./TimedTrack";
 import { AudioWaveform } from "./AudioWaveform";
 import { useEffect, useState, type RefObject } from "react";
@@ -62,7 +63,7 @@ export function TimelineEditor({
             aria-label="Timeline zoom"
             type="range"
             min={1}
-            max={4}
+            max={Math.max(4, Math.ceil(duration / 1800) * 4)}
             step={0.5}
             value={zoom}
             onChange={(e) => setZoom(Number(e.target.value))}
@@ -71,7 +72,7 @@ export function TimelineEditor({
         <button
           className="subtle"
           disabled={
-            timeline.scenes.length >= 12 ||
+            timeline.scenes.length >= MAX_SCENES ||
             frame - scenes[selected].start < 30 ||
             frame - scenes[selected].start >
               scenes[selected].durationFrames - 30
@@ -240,40 +241,52 @@ export function TimelineEditor({
                   ],
             ),
           )}
+          {duration > 1800 && (timeline.captions || []).length > 0 && (
+            <p>
+              Caption tracks for {scenes[selected].title}. Select another scene
+              to edit its captions.
+            </p>
+          )}
           {[...(timeline.captions || [])]
             .sort((a, b) => a.startFrame - b.startFrame)
-            .map((cue, i, cues) => (
-              <TimedTrack
-                key={`caption-${cue.id}`}
-                label={`Caption ${i + 1}`}
-                displayName={cue.text}
-                range={{
-                  startFrame: cue.startFrame,
-                  offsetFrames: 0,
-                  durationFrames: cue.endFrame - cue.startFrame,
-                }}
-                totalFrames={duration}
-                bounds={{
-                  minFrame: cues[i - 1]?.endFrame || 0,
-                  maxFrame: cues[i + 1]?.startFrame ?? duration,
-                }}
-                className="caption-track"
-                onChange={(range) =>
-                  onChange({
-                    ...timeline,
-                    captions: timeline.captions!.map((old) =>
-                      old.id === cue.id
-                        ? {
-                            ...old,
-                            startFrame: range.startFrame,
-                            endFrame: range.startFrame + range.durationFrames,
-                          }
-                        : old,
-                    ),
-                  })
-                }
-              />
-            ))}
+            .map((cue, i, cues) =>
+              duration > 1800 &&
+              (cue.endFrame <= scenes[selected].start ||
+                cue.startFrame >=
+                  scenes[selected].start +
+                    scenes[selected].durationFrames) ? null : (
+                <TimedTrack
+                  key={`caption-${cue.id}`}
+                  label={`Caption ${i + 1}`}
+                  displayName={cue.text}
+                  range={{
+                    startFrame: cue.startFrame,
+                    offsetFrames: 0,
+                    durationFrames: cue.endFrame - cue.startFrame,
+                  }}
+                  totalFrames={duration}
+                  bounds={{
+                    minFrame: cues[i - 1]?.endFrame || 0,
+                    maxFrame: cues[i + 1]?.startFrame ?? duration,
+                  }}
+                  className="caption-track"
+                  onChange={(range) =>
+                    onChange({
+                      ...timeline,
+                      captions: timeline.captions!.map((old) =>
+                        old.id === cue.id
+                          ? {
+                              ...old,
+                              startFrame: range.startFrame,
+                              endFrame: range.startFrame + range.durationFrames,
+                            }
+                          : old,
+                      ),
+                    })
+                  }
+                />
+              ),
+            )}
           <div className="timeline-ruler">
             <span>0s</span>
             <span>{(duration / 60).toFixed(1)}s</span>

@@ -1,3 +1,4 @@
+import { MAX_TIMELINE_SECONDS, MAX_CAPTIONS } from "./timeline-limits";
 import {
   captionSchema,
   timelineSchema,
@@ -38,9 +39,9 @@ export function parseSubtitles(
         Number(match[3])) *
         1000 +
       Number(match[4]);
-    if (!Number.isSafeInteger(ms) || ms > 60000)
+    if (!Number.isSafeInteger(ms) || ms > MAX_TIMELINE_SECONDS * 1000)
       throw new Error(
-        "Subtitle times must fit the current 60-second project limit.",
+        `Subtitle times must fit the current ${MAX_TIMELINE_SECONDS}-second project limit.`,
       );
     return Math.round((ms * 30) / 1000);
   }
@@ -99,7 +100,8 @@ export function parseSubtitles(
         `Cue ${cues.length + 1} needs 1–80 characters of text and valid timing.`,
       );
     cues.push(parsed.data);
-    if (cues.length > 100) throw new Error("Import at most 100 subtitle cues.");
+    if (cues.length > MAX_CAPTIONS)
+      throw new Error(`Import at most ${MAX_CAPTIONS} subtitle cues.`);
   }
   if (!cues.length) throw new Error("No subtitle cues found.");
   return cues.sort((a, b) => a.startFrame - b.startFrame);
@@ -119,7 +121,7 @@ export function importCaptions(
   });
   if (!result.success)
     throw new Error(
-      "Imported captions must fit this video, have at least one frame per cue, contain at most 100 cues, and not overlap existing or imported cues.",
+      `Imported captions must fit this video, have at least one frame per cue, contain at most ${MAX_CAPTIONS} cues, and not overlap existing or imported cues.`,
     );
   return result.data;
 }

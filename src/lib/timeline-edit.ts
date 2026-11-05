@@ -1,3 +1,4 @@
+import { MAX_SCENES } from "./timeline-limits";
 import {
   keyframeMotion,
   timelineSchema,
@@ -86,7 +87,8 @@ export function splitScene(
     frame > s.durationFrames - 30
   )
     throw new Error("Each split scene needs at least one second.");
-  if (t.scenes.length >= 12) throw new Error("The limit is 12 scenes.");
+  if (t.scenes.length >= MAX_SCENES)
+    throw new Error(`The limit is ${MAX_SCENES} scenes.`);
   const left = { ...sceneSlice(s, 0, frame), fadeOut: false };
   const right = {
     ...sceneSlice(s, frame, s.durationFrames),

@@ -50,7 +50,7 @@ const integer = z.string().regex(/^\d{1,30}$/);
 export const exportFileIdentity = z
   .object({ dev: integer, ino: integer })
   .strict();
-const numbered = "(?:[1-9]|1[0-2])";
+const numbered = "(?:[1-9]|[1-5][0-9]|60)";
 const filename = new RegExp(
   `^(?:video\\.mp4|muxed\\.mp4|thumbnail\\.png|report\\.json|captions\\.(?:srt|vtt)|concat-scenes\\.txt|scene-${numbered}-(?:begin\\.png|middle\\.png|end\\.png|event-[0-9]{1,3}\\.png|motion\\.mp4)|layout-${numbered}-(?:before|after)\\.png)$`,
 );

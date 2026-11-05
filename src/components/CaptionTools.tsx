@@ -1,4 +1,5 @@
 "use client";
+import { MAX_CAPTIONS } from "@/lib/timeline-limits";
 import { useRef, useState } from "react";
 import {
   importCaptions,
@@ -220,10 +221,10 @@ export function CaptionTools({
         </button>
       </div>
       <p>
-        UTF-8, up to 64 KB, 100 non-overlapping cues and 80 characters per cue.
-        Import rounds timing to 30 fps and flattens line breaks. Basic
-        bold/italic/underline/voice tags are removed; embedded styling and cue
-        positioning are rejected.
+        UTF-8, up to 64 KB, {MAX_CAPTIONS} non-overlapping cues and 80
+        characters per cue. Import rounds timing to 30 fps and flattens line
+        breaks. Basic bold/italic/underline/voice tags are removed; embedded
+        styling and cue positioning are rejected.
       </p>
       {pending && (
         <div

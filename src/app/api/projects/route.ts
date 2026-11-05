@@ -1,3 +1,4 @@
+import { MAX_TIMELINE_SECONDS } from "@/lib/timeline-limits";
 import { secureRoute, type Access } from "@/lib/access";
 import { z } from "zod";
 import {
@@ -60,7 +61,7 @@ async function POSTHandler(req: Request, _ctx: unknown, access: Access) {
     const brief = z
       .object({
         prompt: z.string().trim().min(3).max(1200),
-        duration: z.number().int().min(5).max(60),
+        duration: z.number().int().min(5).max(MAX_TIMELINE_SECONDS),
         format: z.enum(["landscape", "portrait", "square"]),
         blank: z.boolean().optional(),
       })

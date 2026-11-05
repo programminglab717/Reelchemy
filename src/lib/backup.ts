@@ -1,3 +1,4 @@
+import { usesExtendedTimeline } from "./timeline-limits";
 import Database from "better-sqlite3";
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
@@ -64,10 +65,11 @@ const manifestSchema = z.object({
         "job-history-v1",
         "account-erasure-v1",
         "native-hd-v1",
+        "extended-timeline-v1",
       ]),
     )
     .min(1)
-    .max(5)
+    .max(6)
     .optional(),
   createdAt: z.string().datetime(),
   entries: z
@@ -203,12 +205,22 @@ async function listedFiles(root: string, prefix = ""): Promise<string[]> {
 }
 function snapshotReferences(db: Database.Database) {
   const assets = new Set<string>();
-  let nativeHd = false;
+  let nativeHd = false,
+    extendedTimeline = false;
   const projects = db.prepare("SELECT data FROM projects").all() as {
     data: string;
   }[];
   for (const row of projects) {
     const p = JSON.parse(row.data);
+    if (
+      p.brief?.duration > 60 ||
+      usesExtendedTimeline(p.timeline) ||
+      (Array.isArray(p.revisions) &&
+        p.revisions.some((r: { timeline?: unknown }) =>
+          usesExtendedTimeline(r.timeline),
+        ))
+    )
+      extendedTimeline = true;
     if (
       p.timeline?.exportResolution === "1080p" ||
       (Array.isArray(p.revisions) &&
@@ -254,22 +266,27 @@ function snapshotReferences(db: Database.Database) {
     }[]
   ).map((w) => w.owner_id);
   if (
-    !nativeHd &&
+    (!nativeHd || !extendedTimeline) &&
     (db.pragma("table_info(jobs)") as { name: string }[]).some(
       (c) => c.name === "timeline",
     )
-  )
-    nativeHd = !!db
-      .prepare(
-        "SELECT 1 FROM jobs WHERE json_extract(CASE WHEN json_valid(timeline) THEN timeline ELSE 'null' END,'$.exportResolution')='1080p' LIMIT 1",
-      )
-      .get();
+  ) {
+    for (const row of db
+      .prepare("SELECT timeline FROM jobs WHERE json_valid(timeline)")
+      .iterate() as Iterable<{ timeline: string }>) {
+      const timeline = JSON.parse(row.timeline);
+      if (timeline?.exportResolution === "1080p") nativeHd = true;
+      if (usesExtendedTimeline(timeline)) extendedTimeline = true;
+      if (nativeHd && extendedTimeline) break;
+    }
+  }
   return {
     assets,
     jobs,
     owners,
     removed,
     nativeHd,
+    extendedTimeline,
     budget: snapshotHasExportStorage(db),
     history: snapshotHasJobHistory(db),
     privacy: !!db
@@ -420,7 +437,7 @@ export async function createBackup(options: {
       });
     const manifest = manifestSchema.parse({
       format: "reelchemy-backup",
-      version: refs.nativeHd ? 6 : 5,
+      version: refs.nativeHd || refs.extendedTimeline ? 6 : 5,
       privacy,
       capabilities: [
         ...(refs.removed.size ? ["removed-export-files-v1"] : []),
@@ -428,6 +445,7 @@ export async function createBackup(options: {
         ...(refs.history ? ["job-history-v1"] : []),
         "account-erasure-v1",
         ...(refs.nativeHd ? ["native-hd-v1"] : []),
+        ...(refs.extendedTimeline ? ["extended-timeline-v1"] : []),
       ],
       createdAt: new Date().toISOString(),
       entries,
@@ -528,10 +546,11 @@ export async function verifyBackup(root: string): Promise<Manifest> {
     ...(refs.history ? ["job-history-v1"] : []),
     ...(needsPrivacy ? ["account-erasure-v1"] : []),
     ...(refs.nativeHd ? ["native-hd-v1"] : []),
+    ...(refs.extendedTimeline ? ["extended-timeline-v1"] : []),
   ];
   if (
     manifest.version !==
-      (refs.nativeHd
+      (refs.nativeHd || refs.extendedTimeline
         ? 6
         : needsPrivacy
           ? 5
@@ -554,7 +573,8 @@ export async function verifyBackup(root: string): Promise<Manifest> {
                 | "export-storage-v1"
                 | "job-history-v1"
                 | "account-erasure-v1"
-                | "native-hd-v1",
+                | "native-hd-v1"
+                | "extended-timeline-v1",
             ),
         ) ||
         new Set(manifest.capabilities).size !== required.length)

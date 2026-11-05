@@ -1,3 +1,7 @@
+import {
+  MAX_TIMELINE_SECONDS,
+  MAX_EDITABLE_TIMELINE_BYTES,
+} from "./timeline-limits";
 import type Database from "better-sqlite3";
 import { z } from "zod";
 import { timelineSchema } from "./schema";
@@ -7,7 +11,7 @@ import type { ConversationPage, EditorProject } from "./project-view";
 export class EditorProjectUnavailable extends Error {}
 const active =
   "p.id=? AND p.workspace_id=? AND p.trashed_at IS NULL AND NOT EXISTS(SELECT 1 FROM project_deletions d WHERE d.project_id=p.id)";
-const MAX_TIMELINE_BYTES = 2 * 1024 * 1024;
+const MAX_TIMELINE_BYTES = MAX_EDITABLE_TIMELINE_BYTES;
 function owned(db: Database.Database, projectId: string, workspaceId: string) {
   const row = db
     .prepare(
@@ -71,7 +75,7 @@ const baseSchema = z.object({
   createdAt: z.string().max(40),
   brief: z.object({
     prompt: z.string().min(1).max(1200),
-    duration: z.number().int().min(5).max(60),
+    duration: z.number().int().min(5).max(MAX_TIMELINE_SECONDS),
     format: z.enum(["landscape", "portrait", "square"]),
   }),
 });

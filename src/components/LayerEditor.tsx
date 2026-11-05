@@ -1,4 +1,5 @@
 "use client";
+import { MAX_SCENES, MAX_TIMELINE_FRAMES } from "@/lib/timeline-limits";
 import { MotionJson } from "./MotionJson";
 import { VideoClipEditor } from "./VideoClipEditor";
 import { KeyframeControls } from "./KeyframeControls";
@@ -133,7 +134,15 @@ export function LayerEditor({
         </label>
         <button
           className="subtle"
-          disabled={timeline.scenes.length >= 12}
+          disabled={
+            timeline.scenes.length >= MAX_SCENES ||
+            timeline.scenes.reduce(
+              (frames, scene) => frames + scene.durationFrames,
+              0,
+            ) +
+              scene.durationFrames >
+              MAX_TIMELINE_FRAMES
+          }
           onClick={() =>
             update({
               ...timeline,

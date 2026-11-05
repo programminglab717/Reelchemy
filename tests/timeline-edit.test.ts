@@ -15,11 +15,11 @@ const base = () =>
   blankTimeline({ prompt: "Split", duration: 5, format: "landscape" });
 test("accepted motion-phase boundaries stay valid after repeated splits", () => {
   const t = base();
-  t.scenes[0].motionOffsetFrames = 1650;
+  t.scenes[0].motionOffsetFrames = 8850;
   assert(timelineSchema.safeParse(t).success);
   const cut = splitScene(splitScene(t, 0, 30), 1, 30);
   assert(timelineSchema.safeParse(cut).success);
-  t.scenes[0].motionOffsetFrames = 1651;
+  t.scenes[0].motionOffsetFrames = 8851;
   assert.equal(timelineSchema.safeParse(t).success, false);
 });
 const keys = [
@@ -139,12 +139,12 @@ test("invalid scene splits and invalid byte ranges are rejected", () => {
   for (const f of [-1, 0, 29, 121, 150, 30.5])
     assert.throws(() => splitScene(base(), 0, f));
   const t = base();
-  t.scenes = Array.from({ length: 12 }, (_, i) => ({
+  t.scenes = Array.from({ length: 60 }, (_, i) => ({
     ...t.scenes[0],
     id: `s${i}`,
     durationFrames: 60,
   }));
-  assert.throws(() => splitScene(t as Timeline, 0, 30), /12 scenes/);
+  assert.throws(() => splitScene(t as Timeline, 0, 30), /60 scenes/);
   assert.equal(byteRange(null, 100), null);
   assert.deepEqual(byteRange("bytes=0-31", 100), { start: 0, end: 31 });
   assert.deepEqual(byteRange("bytes=50-", 100), { start: 50, end: 99 });

@@ -1,3 +1,4 @@
+import { MAX_TIMELINE_SECONDS, usesExtendedTimeline } from "./timeline-limits";
 import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
 import {
   constants,
@@ -37,7 +38,7 @@ const portableProject = z.object({
   createdAt: z.string().datetime(),
   brief: z.object({
     prompt: z.string().min(1).max(1200),
-    duration: z.number().int().min(5).max(60),
+    duration: z.number().int().min(5).max(MAX_TIMELINE_SECONDS),
     format: z.enum(["landscape", "portrait", "square"]),
   }),
   assets: z
@@ -119,12 +120,20 @@ const envelopeSchema = z.discriminatedUnion("version", [
     format: z.literal("reelchemy"),
     version: z.literal(4),
     requiredFeatures: z
-      .array(z.enum(["native-hd-v1", "large-history-v1", "layer-rotation-v1"]))
+      .array(
+        z.enum([
+          "native-hd-v1",
+          "extended-timeline-v1",
+          "large-history-v1",
+          "layer-rotation-v1",
+        ]),
+      )
       .min(1)
-      .max(3)
+      .max(4)
       .refine(
         (features) =>
-          features.includes("native-hd-v1") &&
+          (features.includes("native-hd-v1") ||
+            features.includes("extended-timeline-v1")) &&
           new Set(features).size === features.length,
       ),
     project: portableProject,
@@ -133,6 +142,16 @@ const envelopeSchema = z.discriminatedUnion("version", [
 function hasNativeHd(project: Pick<Project, "timeline" | "revisions">) {
   return [project.timeline, ...project.revisions.map((r) => r.timeline)].some(
     (t) => t?.exportResolution === "1080p",
+  );
+}
+function hasExtendedTimeline(
+  project: Pick<Project, "timeline" | "revisions" | "brief">,
+) {
+  return (
+    project.brief.duration > 60 ||
+    [project.timeline, ...project.revisions.map((r) => r.timeline)].some(
+      usesExtendedTimeline,
+    )
   );
 }
 // Reject counts before recursive schema validation can allocate errors for
@@ -218,14 +237,17 @@ export async function exportArchive(project: Project) {
     ...input.revisions.map((r) => r.timeline),
   ].some((t) => t?.scenes.some((s) => s.layers.some((l) => !!l.rotation)));
   const nativeHd = hasNativeHd(input);
+  const extended = hasExtendedTimeline(input);
   const manifest = strToU8(
     JSON.stringify({
       format: "reelchemy",
-      version: nativeHd ? 4 : largeHistory ? 3 : needsRotation ? 2 : 1,
-      ...(nativeHd || largeHistory || needsRotation
+      version:
+        nativeHd || extended ? 4 : largeHistory ? 3 : needsRotation ? 2 : 1,
+      ...(nativeHd || extended || largeHistory || needsRotation
         ? {
             requiredFeatures: [
               ...(nativeHd ? ["native-hd-v1"] : []),
+              ...(extended ? ["extended-timeline-v1"] : []),
               ...(largeHistory ? ["large-history-v1"] : []),
               ...(needsRotation ? ["layer-rotation-v1"] : []),
             ],
@@ -305,13 +327,17 @@ export async function importArchive(
   );
   const envelope = envelopeSchema.parse(raw);
   const input = envelope.project;
-  if (hasNativeHd(input) !== (envelope.version === 4))
+  if (
+    (hasNativeHd(input) || hasExtendedTimeline(input)) !==
+    (envelope.version === 4)
+  )
     throw new Error(
-      "Native HD archives require the matching archive feature version.",
+      "Native HD or extended timelines require the matching archive feature version.",
     );
   if (envelope.version === 4) {
     const required = [
-      "native-hd-v1",
+      ...(hasNativeHd(input) ? ["native-hd-v1"] : []),
+      ...(hasExtendedTimeline(input) ? ["extended-timeline-v1"] : []),
       ...(input.revisions.length > 500 || input.messages.length > 1000
         ? ["large-history-v1"]
         : []),
