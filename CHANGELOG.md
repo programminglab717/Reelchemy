@@ -455,9 +455,9 @@ Add a selected-layer duplicate action to the canvas and advanced layer controls.
 - Refuse atomically if splitting would exceed twelve audio tracks or existing saved-film limits, and explain the operation beside its editor action.
 - All 534 backend/native checks, production build and the complete 89-case production HTTPS browser regression pass. A real captioned/voiced scene cut retains the exact surviving audio frequencies through undo, reload, archives and native-HD export. No deployment or live SMTP/AI verification.
 
-## 0.60.0 — 2026-11-05 candidate
+## 0.60.0 — 2026-11-05
 
 - Make Scene notes readable on mobile with a 16px editing field, comfortable line spacing and padding.
 - Add explicit operator inspection/upload/restore verification and preview-by-default expiry for existing encrypted Restic repositories, pinned to repository and privacy authority identities. Keep original local snapshots and other installations intact.
 - Verify fresh admitted sources, encrypted manifest binding, complete restored payload/SQLite/reference integrity and scratch capacity before a recent-anchor retention apply. Use native repository locks and fixed namespace filters independent of staging paths.
-- Minimize child credentials, pin the password descriptor, bound output/deadlines and await cancellation teardown. Provide an independent backup image target; actual encrypted-repository tests and current-source acceptance remain pending. No real repository, local historical snapshot, deployment or live SMTP/AI operation is performed.
+- Minimize child credentials, pin the password descriptor, bound output/deadlines and await cancellation teardown. Provide an independent backup image target and matching host/operator CI checks. All 543 backend/native checks, production guards and five current relevant HTTPS browser workflows pass; the complete 89-case 0.59 browser baseline is recorded separately. Nine focused encrypted-repository checks and mobile notes visual review pass. No real repository, local historical snapshot, deployment or live SMTP/AI operation is performed.

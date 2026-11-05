@@ -4,7 +4,7 @@ A conversation-first creative studio. Start with an idea, review a storyboard, e
 
 This is an actively developed local build toward the public product, with release gates still open. Demo mode uses a deterministic planner with bounded procedural scenes; it is explicitly not an AI model. An OpenAI-compatible adapter is available and tested against mocked API responses. Native Claude Messages is also implemented. Both adapters have mocked-response tests; real paid-provider requests have not been verified.
 
-Current engineering checkpoint (0.59): five-minute/native-HD editing, private multi-user accounts, media/recording/captions and verified MP4s are implemented. Three editable starters, scene narration notes, desktop/mobile shortcuts and synchronized scene deletion are available without AI. All **534 backend/native checks**, the production build and the complete **89/89 production HTTPS browser regression** pass. Historical/off-host retention, remaining creator usability/acceptance, hosted/immutable-image checks and final live SMTP/AI remain open. See [VALIDATION.md](VALIDATION.md) for exact evidence and limits.
+Current engineering checkpoint (0.60): five-minute/native-HD editing, private multi-user accounts, media/recording/captions and verified MP4s are implemented. Authored starters, readable scene notes, desktop/mobile shortcuts and synchronized scene deletion work without AI. All **543 backend/native checks** and production guards pass. The complete **89/89 production HTTPS browser baseline at 0.59** is supplemented by five current creator/mobile browser checks. Encrypted backup upload/restore/retention passes real local-repository tests; actual hosted/off-host restore, provider-version disposal, creator acceptance, immutable images and final live SMTP/AI remain open. See [VALIDATION.md](VALIDATION.md) for exact evidence and limits.
 
 ## Run
 
@@ -412,3 +412,7 @@ SRT/WebVTT imports accept up to 256 KiB of UTF-8 and 500 bounded cues, enough to
 ### Scene removal with synchronized timing (0.59)
 
 **Delete scene and close gap** removes that scene and its contained captions/audio from the timeline, moves later global material earlier and preserves uploaded assets. Crossing captions shorten; spanning audio splits into its exact surviving source ranges with existing fades capped to fit. Remaining scene-local footage and motion keep their source phase. One Undo restores the full edit. A split that would exceed twelve audio tracks or saved-film limits refuses before changing the film; shorten/remove a crossing audio track first. Other scene/timeline actions retain their own existing timing rules.
+
+### Encrypted backup operator (0.60)
+
+`npm run backup:encrypted` inspects an existing pinned Restic repository, uploads a fresh completed verified snapshot, verifies a full private restore, and previews namespace retention. `expire --apply` requires a recent fully verified anchor and preserves other installations and original local snapshots. Repository/authority pins and a private password file are explicit; the operator receives only its selected storage credentials. See [OPERATIONS.md](OPERATIONS.md) and the separate `.env.backup.example` for setup and limits. The operator image and CI are configured; actual immutable images and hosted storage still require release acceptance.

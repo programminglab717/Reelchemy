@@ -1039,7 +1039,6 @@ The isolated candidate centralizes five-minute/sixty-scene/twelve-track/five-hun
 
 Archives/backups explicitly require `extended-timeline-v1` for extended current/history/brief or immutable-job data, independently of native HD. Retagged/missing declarations are refused before import/restore; legacy forms remain unchanged. Initial type/lint pass, followed by nine direct planning/schema/subtitle/split/archive/backup checks in 0.625 seconds, no failures/skips (`0.56-extended-contract-initial.log/status`). These checks precede the later caption-navigation UI detail. The 0.55 five-minute native measurement is still pending, and complete current-source backend/build/browser/creator acceptance remains pending. User installation data and live AI/SMTP are untouched.
 
-
 The save-path review also finds ordinary JSON requests were capped at 100 KB. Timeline PATCH now opts into its own bounded allowance while other routes retain that cap, and the DSL reserves 4 KiB inside the existing 2 MiB recovery/read envelope. Downloaded recovery JSON is compact, preventing formatting alone from making an otherwise valid detailed timeline unrecoverable. A real authenticated detailed-save/reopen/stale-write regression and separate bounded-body contract are prepared. Two new HTTPS scenarios cover a full five-minute public export with independently decoded late narration and five hundred searchable/paged captions. All current-source static/native/browser checks are pending; the earlier nine focused checks remain separately recorded.
 
 ### Five-minute constrained native-HD acceptance
@@ -1082,13 +1081,11 @@ Independent work adds descriptor-only physical usage inspection and an explicit 
 
 A disposable SQLite experiment confirms an existing WAL reader refuses exclusive acquisition and a new reader is blocked while maintenance holds its locks, with retained rows unchanged through vacuum/checkpoint. Real raw-byte deletion, missing/unsafe scope, actual CLI and copied-backup/restore regression tests are prepared; all current-source static/native checks are pending. This does not establish forensic device erasure or physical retention of historical/off-host backups, host snapshots, downloaded data or the independent append-only approval authority. No operation is performed on the user's installation.
 
-
 ### First physical-retention native acceptance
 
 Frozen `1afc09001c18cc5a4dcb9070edfccc03599cbdde` passes **21 focused real SQLite/CLI/mail/backup checks in 3.566 seconds**, zero failures/cancellations/skips; exit 0 (`0.57-physical.log/status`), all **481** inputs exact (`0.57-physical-source-check.json`). Type/lint/targeted format pass (`0.57-{type,lint,format}-physical-initial.log`). Raw deleted overflow payload disappears from compacted current stores and new inactive backup/restore copies; retained rows/schema/database inodes, originals and prior snapshots stay intact. Genuine open WAL readers, wrong/missing roles, links, unsafe permissions and substituted sidecars refuse. The real credential-free operator command works only with explicitly named stores. Restored/fresh filtered account copies no longer contain the erased synthetic email/direction in raw bytes, while the retained maker's email remains and original source/older snapshot hashes stay unchanged. All mail fixtures use fake delivery.
 
 Complete integrated backend/native/build and relevant production browser acceptance remain pending. Actual installation compaction, physical historical/off-host backup disposal and forensic storage-device erasure are not performed or claimed. The separate complete 0.56 production HTTPS regression is running against its already verified source/build.
-
 
 ### Complete physical-retention backend/build acceptance
 
@@ -1109,7 +1106,6 @@ Initial creator type/lint/targeted format checks pass (`0.58-{type,lint,format}-
 The first frozen creator API run at `28c4c7f` passes seven of eight contracts in 1.312 seconds; its quota exercise stops on the test's own size assertion because the generated dense film is still smaller than 1 MiB when doubled. No product creation occurs in that failing check. The test now uses higher-precision but valid keyframe values to genuinely exceed the same existing allowance; the rollback assertion is retained. Initial failed log/status and exact 485-input source proof remain in `0.58-creator.*`. Starter portrait body/caption text is enlarged for smaller-screen reading before native visual acceptance.
 
 The corrected creator/API suite at frozen `5e9657c38be2dad625b2deb603cf490c1800ea25` passes **8/8 in 1.262 seconds**, no failures/skips (`0.58-creator-corrected.log/status`, all **485** inputs exact). It genuinely crosses the unchanged 1 MiB quota with a valid dense film, refuses atomically and preserves indexed usage/project count. Native/browser checks remain pending. Four HTTPS creator scenarios are now prepared: all three full-duration native-HD template exports plus note/caption undo and live microphone continuity. Starter caption/card sizes are adjusted against the shared caption geometry before actual visual acceptance.
-
 
 ### Creator navigation and complete subtitle portability — candidate
 
@@ -1168,3 +1164,13 @@ Frozen `b885d04c9bb6e7417f33a209f05ea5e564b508e0` passes **9/9 focused real encr
 CI configuration is corrected separately: install the required host Restic tool, build/check the operator image without networking or real data, and allow a 90-minute overall job budget for the measured 38.7-minute browser suite plus backend/build/runtime work. No individual application/test deadline is increased. Hosted CI/immutable images still require actual execution; configuration is not a pass.
 
 Frozen completed test media is deduplicated only after producer services stop: 712 byte-identical paths retain their bytes/modes/owners, with all original times/inodes recorded in `frozen-visual-evidence-duplicates-060.json/jsonl`; observed free capacity increases from 110,321,664 to 203,198,464 bytes. No original storage/backups, live fixtures or Docker internals change. Copy a frozen proof before editing it.
+
+### Complete encrypted-backup and mobile-readability acceptance
+
+Frozen `b885d04c9bb6e7417f33a209f05ea5e564b508e0` passes **543/543 complete backend/native checks in 520.081 seconds**, zero failures/cancellations/skips (`0.60/fresh-unit`), all **493** inputs exact. The fresh 4 CPU/6 GiB/512-task source-mounted runner peaks at **2,093,137,920 bytes**, zero memory-max/OOM/kills/swap. It includes all nine real encrypted repository/CLI/lock/cancellation cases alongside existing account/privacy/native-render/media/storage/history/backup regression.
+
+Production build `cbd6f4d40d051c289021ed549d3ecf3f47af7f14` passes dynamic-page/private-trace/prepared-renderer guards, all 493 inputs exact (`0.60-build*`, BUILD_ID `I2fopbbwAIoj6FA11K2XS`). Its changes since the complete unit source are CI/docs only; runtime/config/test inputs remain byte-identical. Current-source type/lint pass (`0.60-{type,lint}-first-complete.log`).
+
+The same build passes **5/5 relevant production HTTPS browser workflows in 247.249 seconds**, zero skipped/unexpected/flaky cases or harness errors (`0.60/fresh-mobile-creator`, fixture `reelchemy-e2e-mBMSXa`), all **491** browser inputs exact and all **288** runtime inputs matching the build. The fresh combined runner peaks at **3,871,137,792 bytes**, no memory-max/OOM/kills/swap. Real microphone continuity, mixed-media 60-second HD export, exact source-tone scene removal/undo/archive/native-HD output, mobile typography and desktop/mobile account/navigation stay usable. The current 390px screenshot is visually reviewed: the notes editor is now readable at 16px, the text scrolls inside its editing field and actions stay in the viewport. Native export text/caption geometry is unaffected.
+
+This accepts the encrypted-backup/readability feature checkpoint, with the separate complete 89-case browser baseline at 0.59 retained explicitly. Hosted/image/real S3 restore/monitoring/load, historical local/provider-object disposal, final maker/artistic review and live SMTP/AI remain open. Only disposable local encrypted repositories/snapshots are used; original application data, local backups and independent authority are untouched. No deployment or actual storage upgrade is performed. Broader five-minute motion/format capacity remains the next independent measurement.
