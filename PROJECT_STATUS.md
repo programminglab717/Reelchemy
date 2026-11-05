@@ -1,14 +1,13 @@
 # Reelchemy project status
 
-Reviewed 6 November 2026 (Asia/Karachi). This records implemented functionality and executed evidence, not a production approval or a measured completion percentage.
+Reviewed 6 November 2026 (Asia/Karachi); updated after 0.61 acceptance on 5 November 2026 (UTC). This records implemented functionality and executed evidence, not a production approval or a measured completion percentage.
 
 ## Committed checkpoints
 
-- Accepted application code: `ece58be`, version **0.60.0**, on `work` (this branch also contains this status report).
-- Latest candidate: `7768981`, version **0.61.0**, on `codex/render-budget`; implementation commit `59c6ec5`.
-- The candidate is committed separately because its complete regression/build acceptance is pending. It is not silently treated as part of the accepted application release.
-- All live worktrees were checked and had no uncommitted source changes before this report. Generated videos, screenshots, logs and isolated test fixtures are retained outside Git under `/workspace/Reelchemy-evidence`; source and validation records are committed.
+- Accepted application code: **0.61.0** on `work`, accepted from frozen source `5567641` (render-budget candidate plus native-release fix and handoff documentation). The previous accepted code was `ece58be` (0.60.0).
+- `codex/render-budget` (`7768981`) is superseded by `work`; its history is preserved in `work`.
 - No production deployment, original database migration/compaction, original backup removal or live AI/SMTP operation has been performed.
+- The 0.61 acceptance ran in a new cloud environment. The previous workspace's `/workspace/Reelchemy-evidence` tree and private drivers were not available; new-environment evidence logs are outside Git and are summarized in VALIDATION.md.
 
 ## Implemented creator application
 
@@ -72,6 +71,9 @@ Reviewed 6 November 2026 (Asia/Karachi). This records implemented functionality 
 | Focused encrypted repository/CLI tests                        | **9/9**, 107.825 seconds      | Real encrypted local repositories; no actual S3 service or production backup was used.                                                 |
 | Production build/type/lint/format at 0.60                     | Passed                        | Includes dynamic-page, private-trace and prepared-renderer guards. Actual immutable service images remain a separate gate.             |
 | 0.61 policy/startup contracts                                 | **3/3**, plus type/lint       | Focused candidate checks; not a full candidate regression.                                                                             |
+| Complete backend/native suite at 0.61                         | **548/548**, 735.0 seconds    | Frozen `5567641`, non-root, new 4-CPU cloud container without a resource cgroup; includes real-worker deadline/native-release checks.  |
+| Production build/guards/type/lint/format at 0.61              | Passed, 64.6 seconds          | BUILD_ID `jhCNJk17WYSUPgO7rQEn4`; ten pre-existing Turbopack tracing warnings, identical at 0.60; private-trace guard passes.          |
+| Complete production HTTPS browser regression at 0.61          | **89/89**, 41.7 minutes       | Same frozen source/build; zero skipped/unexpected/flaky. Disposable cloud container, not a Docker test image; no peak memory recorded. |
 | Five-minute landscape HD footage/caption/audio measurement    | Passed in **545.831 seconds** | Synthetic 2 CPU/4 GiB case, 9,000 frames; not a general load/quality guarantee.                                                        |
 | Five-minute portrait HD procedural-motion measurement at 0.61 | Passed in **680.990 seconds** | 1080×1920, 30 fps, 9,000 frames, 15 scenes; approximately 1.26 GiB peak, no OOM/swap, within a bounded 15-minute budget.               |
 
@@ -81,7 +83,7 @@ Detailed frozen-source identifiers, resource records, failures/corrections and a
 
 ## Remaining coding and acceptance work
 
-1. **Finish 0.61 acceptance.** Run its complete backend/native regression, production build/guards and relevant real worker/browser checks. Verify explicit deadline enforcement and clean recovery into a subsequent export. Review final configuration/documentation, then integrate the candidate into accepted `work`.
+1. **0.61 acceptance — done.** Real-worker deadline enforcement exposed and fixed a consumer exit caused by an orphaned FFmpeg stitcher. The complete suites pass from one frozen source; see VALIDATION.md.
 2. **Broader render capacity.** Current long-form evidence covers specific synthetic landscape-footage and portrait-motion cases. Broaden representative format/motion/mixed-media cases and measure service throughput, queue behavior and failure recovery under load. These results may require further performance fixes or clearer supported-workload guidance.
 3. **Creator acceptance and usability.** Complete real editing sessions against useful videos, review the whole exported films and fix the resulting workflow/visual/audio issues. Synthetic microphone tones and codec checks cannot establish spoken narration or artistic quality. A review pack with actual exports/notes/screenshots is available in the workspace.
 4. **Remaining advanced editing scope.** Custom uploaded brand fonts, arbitrary layer masks, animated rotation and a general linked-track ripple/grouping workflow are not implemented. Existing static rotation, system typography, scene splitting, track manipulation and synchronized scene deletion are available. Longer continuous source imports/takes would also need additional ingestion/recording work. Whether these capabilities are required for the first launch needs creator/use-case feedback.

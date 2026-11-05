@@ -2,7 +2,11 @@
 
 Prepared 28 October 2026 from the repository at `1d3d601`. This is a proposed release definition and effort estimate, not a statement that the listed features are implemented or a promised delivery date. Live AI verification is deliberately deferred until the final release gate; missing API keys do not block independent development or offline tests.
 
-## Current engineering checkpoint — 5 November 2026 (0.60.0)
+## Current engineering checkpoint — 5 November 2026 (0.61.0)
+
+0.61 adds duration-based render-attempt budgets within the existing fifteen-minute ceiling and bounded release of a consumer's own orphaned native processes after deadline/cancelled attempts. A new real-worker test found that a deadline-expired long export left Remotion's FFmpeg stitcher alive and the consumer exited; that is fixed and covered. One frozen source (`5567641`) passes **548/548 backend/native checks**, production build/guards and the **complete 89/89 production HTTPS browser regression** (non-root, new 4-CPU cloud container, no resource cgroup). This supersedes the mixed 0.59/0.60 browser evidence below for functional coverage. It does not cover constrained capacity, immutable images, hosted CI or maker review.
+
+## Previous engineering checkpoint — 5 November 2026 (0.60.0)
 
 The studio has manual canvas/timeline editing, autosave/CAS/undo and bounded recovery, footage/images/audio/recording/captions, native 1080p, five-minute/sixty-scene editing, private multi-user accounts and real verified MP4 export. Source/project/export/job allowances and reviewed cleanup preserve current films and referenced media. Coordinated deletion, credential-free cleanup/retry and current-authority restore fencing are implemented. No real provider or SMTP delivery has been used.
 
