@@ -17,7 +17,7 @@ async function GETHandler(
     job.files ||
     !validAssetId(job.id) ||
     !["completed", "failed"].includes(job.status) ||
-    !/^(report\.json|captions\.srt|captions\.vtt|thumbnail\.png|scene-(?:[1-9]|[1-5][0-9]|60)-(?:begin\.png|middle\.png|end\.png|event-[0-9]{1,3}\.png|motion\.mp4)|layout-(?:[1-9]|[1-5][0-9]|60)-(?:before|after)\.png)$/.test(
+    !/^(report\.json|captions\.srt|captions\.vtt|thumbnail\.png|verification-tail\.png|scene-(?:[1-9]|[1-5][0-9]|60)-(?:begin\.png|middle\.png|end\.png|event-[0-9]{1,3}\.png|motion\.mp4)|layout-(?:[1-9]|[1-5][0-9]|60)-(?:before|after)\.png)$/.test(
       file,
     )
   )

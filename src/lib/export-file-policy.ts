@@ -50,9 +50,11 @@ const integer = z.string().regex(/^\d{1,30}$/);
 export const exportFileIdentity = z
   .object({ dev: integer, ino: integer })
   .strict();
+// Inventory supports the bounded experimental longer-render fixture as well as
+// public jobs. Public scene admission remains enforced separately by the DSL.
 const numbered = "(?:[1-9]|[1-5][0-9]|60)";
 const filename = new RegExp(
-  `^(?:video\\.mp4|muxed\\.mp4|thumbnail\\.png|report\\.json|captions\\.(?:srt|vtt)|concat-scenes\\.txt|scene-${numbered}-(?:begin\\.png|middle\\.png|end\\.png|event-[0-9]{1,3}\\.png|motion\\.mp4)|layout-${numbered}-(?:before|after)\\.png)$`,
+  `^(?:video\\.mp4|muxed\\.mp4|thumbnail\\.png|verification-tail\\.png|encoded-frame-[0-9]{4}\\.png|report\\.json|captions\\.(?:srt|vtt)|concat-scenes\\.txt|scene-${numbered}-(?:begin\\.png|middle\\.png|end\\.png|event-[0-9]{1,3}\\.png|motion\\.mp4)|layout-${numbered}-(?:before|after)\\.png)$`,
 );
 export const validExportFilename = (name: string) => filename.test(name);
 export const exportFileEntry = exportFileIdentity

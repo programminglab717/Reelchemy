@@ -422,3 +422,9 @@ Add a selected-layer duplicate action to the canvas and advanced layer controls.
 - Preserve an explicit standard/1080p export setting through undo, saving, versions, archives, scene-local rendering/cache and preview/layout/caption geometry. Existing films keep their original dimensions; landscape/portrait HD render natively at 1920×1080/1080×1920.
 - Require archive v4/backup format 6 with explicit native-HD capability, including retained versions and immutable job inputs; refuse retagged/inconsistent declarations and retain supported legacy formats.
 - All 503 backend/native checks pass. A one-minute generated-footage native-HD pipeline passes in 210.514 seconds on the recorded 4 CPU/6 GiB mounted runner; production-sized resource/longer-video acceptance remains open. The production build and both new verified-HTTPS maker flows pass, with actual decoded HD downloads and mobile controls. The complete mixed browser baseline stays 79/79 at 0.52; no complete 81-case run is inferred. Public duration/scene limits are unchanged; no deployment is claimed.
+
+## 0.55.0 — 2026-11-05
+
+- Reuse bounded still artwork around one eligible moving video while preserving exact trim, layer depth, crop and caption boundaries; unsupported motion/transforms retain ordinary rendering. Pin native frame-cache memory explicitly.
+- Finalize audio directly into the metered export while holding the private silent input in the derived cache. Verify every encoded frame count and derive review PNGs, thumbnail and final-frame proof from one complete error-checking MP4 decode.
+- Keep temporary/final verification bytes in the strict quota and reviewed-cleanup inventory. Complete backend/native regression passes 509 checks. Production build/browser and longer synthetic measurements remain pending; public limits remain 60 seconds/12 scenes.

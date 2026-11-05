@@ -3,8 +3,8 @@ import { execFileSync } from "node:child_process";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
-// Decode the actual downloaded MP4. Remotion's evidence stills are separate
-// renderings, so they cannot alone prove that encoded/cache output is correct.
+// Decode the actual downloaded MP4 independently of the review-image pipeline,
+// so browser assertions also verify the encoded/cache output directly.
 export async function encodedFrame(
   request: APIRequestContext,
   jobId: string,

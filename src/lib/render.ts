@@ -2,14 +2,10 @@ import { serveRenderAssets } from "./render-assets";
 import { withRenderBrowser } from "./render-browser";
 import { renderCachedScenes, type SceneCacheResult } from "./render-cache";
 import { runCommand } from "./process";
-import { muxAudio } from "./audio";
+import { muxAudio, type AudioMixReport } from "./audio";
 import { subtitles } from "./captions";
 import { rendererBundle } from "./renderer-bundle";
-import {
-  selectComposition,
-  renderStill,
-  makeCancelSignal,
-} from "@remotion/renderer";
+import { makeCancelSignal } from "@remotion/renderer";
 import { mkdir, writeFile, stat } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -21,7 +17,8 @@ import {
 } from "./schema";
 import { checkLayout, RenderQCError } from "./layout-qc";
 import { repairBounds } from "./qc";
-import { renderMediaResources } from "./render-resources";
+import { clipAudioTracks } from "./clip-audio";
+import { captureEncodedEvidence } from "./render-evidence";
 export async function renderFilm(
   input: Timeline,
   outputDir: string,
@@ -83,16 +80,17 @@ async function renderResolved(
   if (isCancelled()) throw new Error("Render cancelled.");
   const browserExecutable = process.env.CHROMIUM_PATH || "/usr/bin/chromium";
   return withRenderBrowser(browserExecutable, async (puppeteerInstance) => {
-    const options = {
-      serveUrl,
-      id: "Reelchemy",
-      inputProps: { timeline, assetSources },
-      browserExecutable,
-      puppeteerInstance,
-    };
-    const composition = await selectComposition(options);
     const outputLocation = path.join(outputDir, "video.mp4");
     let sceneCache: SceneCacheResult[] = [];
+    let audioReport: AudioMixReport = {
+      tracks: 0,
+      codec: null,
+      peakDb: null,
+      duration: null,
+    };
+    const hasAudio =
+      (timeline.audioTracks || []).length + clipAudioTracks(timeline).length >
+      0;
     const cancel = makeCancelSignal();
     const timer = setInterval(() => {
       if (isCancelled()) cancel.cancel();
@@ -111,13 +109,25 @@ async function renderResolved(
         cancelSignal: cancel.cancelSignal,
         isCancelled,
         onProgress,
+        ...(hasAudio
+          ? {
+              finalize: async (silentVideo: string) => {
+                onStage("Mixing audio");
+                audioReport = await muxAudio(
+                  timeline,
+                  silentVideo,
+                  isCancelled,
+                  outputLocation,
+                );
+              },
+            }
+          : {}),
       });
     } finally {
       clearInterval(timer);
     }
     if (isCancelled()) throw new Error("Render cancelled.");
-    onStage("Mixing audio");
-    const audioReport = await muxAudio(timeline, outputLocation, isCancelled);
+
     await writeFile(
       path.join(outputDir, "captions.srt"),
       subtitles(timeline, "srt"),
@@ -159,50 +169,26 @@ async function renderResolved(
       throw new Error(
         "Encoded video failed codec/dimensions/fps/duration verification.",
       );
-    // Decode all encoded frames: catches damaged files, not artistic motion defects.
-    await runCommand(
-      "ffmpeg",
-      ["-v", "error", "-xerror", "-i", outputLocation, "-f", "null", "-"],
-      { timeoutMs: 120000, cancelled: isCancelled },
+    if (Number(video.nb_frames) !== totalFrames(timeline))
+      throw new Error("Encoded video frame-count verification failed.");
+    onStage("Verifying encoded frames and scene previews");
+    const samples = await captureEncodedEvidence(
+      timeline,
+      outputLocation,
+      outputDir,
+      isCancelled,
     );
-    onStage("Preparing scene previews");
     let start = 0;
-    const samples = [];
     for (const [i, scene] of timeline.scenes.entries()) {
       if (isCancelled()) throw new Error("Render cancelled.");
-      for (const [label, offset] of [
-        ["begin", Math.min(10, scene.durationFrames - 1)],
-        ["middle", Math.floor(scene.durationFrames / 2)],
-        ["end", Math.max(0, scene.durationFrames - 11)],
-        ...[
-          ...new Set([
-            ...scene.layers.flatMap((l) =>
-              (l.keyframes || []).map((k) => k.frame),
-            ),
-            ...(scene.camera || []).map((k) => k.frame),
-          ]),
-        ]
-          .slice(0, 8)
-          .map((f) => [`event-${f}`, f] as const),
-      ] as const) {
-        if (isCancelled()) throw new Error("Render cancelled.");
-        const name = `scene-${i + 1}-${label}.png`;
-        await renderStill({
-          ...renderMediaResources,
-          ...options,
-          composition,
-          frame: start + offset,
-          output: path.join(outputDir, name),
-        });
-        samples.push({ sceneId: scene.id, frame: start + offset, file: name });
-      }
-      // Actual moving segment for manual temporal review; screenshots alone are not motion QC.
       await runCommand(
         "ffmpeg",
         [
           "-v",
           "error",
           "-y",
+          "-threads",
+          "2",
           "-ss",
           String(start / 30),
           "-i",
@@ -214,6 +200,8 @@ async function renderResolved(
           "libx264",
           "-preset",
           "fast",
+          "-threads",
+          "2",
           path.join(outputDir, `scene-${i + 1}-motion.mp4`),
         ],
         { timeoutMs: 30000, cancelled: isCancelled },
@@ -221,13 +209,6 @@ async function renderResolved(
       start += scene.durationFrames;
       onProgress(0.88 + (0.1 * (i + 1)) / timeline.scenes.length);
     }
-    await renderStill({
-      ...renderMediaResources,
-      ...options,
-      composition,
-      frame: Math.min(25, totalFrames(timeline) - 1),
-      output: path.join(outputDir, "thumbnail.png"),
-    });
     const audioIssues: QCIssue[] =
       audioReport.tracks &&
       audioReport.peakDb !== null &&
