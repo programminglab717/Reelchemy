@@ -406,7 +406,7 @@ export async function uploadEncryptedBackup(
     const output = await session.run(
       [
         "backup",
-        ".",
+        source,
         "--host",
         session.host,
         ...[...session.tags, `manifest-${hash}`].flatMap((tag) => [
@@ -431,6 +431,8 @@ export async function uploadEncryptedBackup(
     const current = await lstat(input);
     if (
       matches.length !== 1 ||
+      matches[0].paths[0] !== source ||
+      !matches[0].tags.includes(`manifest-${hash}`) ||
       current.dev !== info.dev ||
       current.ino !== info.ino ||
       current.isSymbolicLink()

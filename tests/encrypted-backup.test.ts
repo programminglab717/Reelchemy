@@ -117,7 +117,7 @@ async function fixture() {
     const lines = run(
       [
         "backup",
-        ".",
+        input,
         "--host",
         `reelchemy-${opts.authorityId}`,
         "--time",
