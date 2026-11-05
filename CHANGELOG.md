@@ -429,22 +429,22 @@ Add a selected-layer duplicate action to the canvas and advanced layer controls.
 - Finalize audio directly into the metered export while holding the private silent input in the derived cache. Verify every encoded frame count and derive review PNGs, thumbnail and final-frame proof from one complete error-checking MP4 decode.
 - Keep temporary/final verification bytes in the strict quota and reviewed-cleanup inventory. Complete backend/native regression passes 509 checks. Production build/browser and longer synthetic measurements remain pending; public limits remain 60 seconds/12 scenes.
 
-## 0.56.0 — 2026-11-05 candidate
+## 0.56.0 — 2026-11-05
 
 - Extend editing to five minutes/sixty scenes, twelve audio tracks and five hundred caption cues, with existing per-scene/media/provider/native-output limits retained. Demo plans allocate enough bounded scenes for longer briefs.
 - Add searchable/paged caption editing, scene-scoped long-film caption tracks, longer timeline zoom and correct late narration positions.
 - Fence extended current/history/brief/job data with independent archive/backup capabilities; preserve legacy and native-HD behavior. Align detailed-save, bounded reopen and compact downloadable recovery limits.
-- A constrained synthetic full-frame HD five-minute pipeline passes in 545.831 seconds with a 1.82 GiB container peak and 371.5 MiB final output. Complete current-source backend/build/browser acceptance remains pending. No deployment or live SMTP/AI verification.
+- A constrained synthetic full-frame HD five-minute pipeline passes in 545.831 seconds with a 1.82 GiB container peak and 371.5 MiB final output. All 515 backend/native checks and production build pass; the full HTTPS regression has 83 passes and one obsolete stage-label assertion corrected and passed separately. No deployment or live SMTP/AI verification.
 
-## 0.57.0 — 2026-11-05 candidate
+## 0.57.0 — 2026-11-05
 
 - Add descriptor-only database storage inspection and explicit offline compaction of current studio/account databases under both exclusive locks, preserving retained rows, schema and database inodes. Refuse missing/private-unsafe stores, busy WAL readers and insufficient capacity without initializing or migrating anything.
 - Enable connection-local secure deletion for application/private-auth/mail writers. Compact only owned inactive backup/restore copies after existing privacy reconciliation, clearing obsolete payload before publication while preserving source databases and older snapshots.
-- Twenty-one focused real SQLite/command/mail/backup checks pass, including raw-byte deleted-data checks. Complete current-source backend/build/browser acceptance remains pending. Historical/off-host backup and device-level retention remain separate gates; no actual installation is compacted.
+- All 521 backend/native checks, production build and eight relevant HTTPS workflows pass, including raw-byte deleted-data checks. Historical/off-host backup and device-level retention remain separate gates; no actual installation is compacted.
 
-## 0.58.0 — 2026-11-05 candidate
+## 0.58.0 — 2026-11-05
 
 - Add three authored editable native-HD starters: a 45-second vertical launch, three-minute explainer and one-minute brand story. Admit the complete first film/version atomically, including storage quota enforcement, without an AI request.
 - Edit and read scene narration notes alongside microphone capture, step between notes without interrupting a take, and replace one scene’s captions with a single undoable action.
 - Add keyboard-focusable desktop shortcuts and a mobile tool picker for navigating longer editing sessions. Expand bounded subtitle imports to 256 KiB so all 500 allowed Unicode or escaped cues can round-trip from their own SRT/VTT exports.
-- Eight focused authenticated creator/template checks pass. Complete integrated backend/native, production build, creator export/browser and visual acceptance remain pending; no deployment or live SMTP/AI verification.
+- All 530 backend/native checks and production build pass. All three complete HD starter exports pass; the expanded microphone-to-mixed-media story passes separately after test selector corrections. Exact outcomes and visual review are in VALIDATION.md; this is not a complete 88-case browser rerun. No deployment or live SMTP/AI verification.

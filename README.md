@@ -4,7 +4,7 @@ A conversation-first creative studio. Start with an idea, review a storyboard, e
 
 This is an actively developed local build toward the public product, with release gates still open. Demo mode uses a deterministic planner with bounded procedural scenes; it is explicitly not an AI model. An OpenAI-compatible adapter is available and tested against mocked API responses. Native Claude Messages is also implemented. Both adapters have mocked-response tests; real paid-provider requests have not been verified.
 
-Current engineering checkpoint (0.57): five-minute editing, native HD, searchable captions and exact encoded-frame evidence are implemented. All 521 backend/native checks pass, with a production build and eight relevant privacy/history/mail browser regressions; the preceding complete production browser run has 83 passes and one obsolete stage-label assertion, with that corrected case passing separately on the same runtime build. The constrained synthetic five-minute HD case passes within its existing resource/output limits. Creator polish, historical/off-host retention, hosted/immutable-image acceptance and final live SMTP/AI checks remain open. See [VALIDATION.md](VALIDATION.md) for exact evidence and limits.
+Current engineering checkpoint (0.58): five-minute/native-HD editing, private multi-user accounts, media/recording/captions and verified MP4s are implemented. Three editable starters, scene narration notes and desktop/mobile tool shortcuts are available without AI. All 530 backend/native checks and production build pass; each full-duration starter export and the expanded recorded mixed-media story pass in targeted HTTPS runs. The preceding complete browser baseline is 83/84 plus its separately corrected stage-label case, not a current full 88-case pass. Historical/off-host retention, remaining creator editing/acceptance, hosted/immutable-image checks and final live SMTP/AI remain open. See [VALIDATION.md](VALIDATION.md) for exact evidence and limits.
 
 ## Run
 
@@ -400,3 +400,11 @@ The full-frame synthetic five-minute HD pipeline passes under 2 CPU/4 GiB in 545
 ### Current database/copy retention (0.57)
 
 Application writers opt into SQLite secure deletion. An explicit offline `storage:compact` command inspects without opening SQLite and can compact existing private studio/account stores under both exclusive locks, preserving retained rows/schema/inodes. Newly owned backup/restore copies compact obsolete private payload after privacy filtering. No original backup is rewritten. The complete 521-case backend/native regression, production build and eight relevant HTTPS workflows pass. Read OPERATIONS.md before actual maintenance; this is separate from historical/off-host backup retention or forensic device erasure.
+
+### Authored starters and scene narration (0.58)
+
+Choose an editable starter on the home screen: a 45-second vertical launch, three-minute explainer or one-minute story. Each begins with complete HD scenes, original procedural artwork, captions and editable Scene notes; no planning request or external assets are required.
+
+Edit Scene notes, then use **Use notes as captions for this scene** to replace its contained cues in one undo step. Cues crossing a scene boundary must be trimmed or split first. Open **Scene notes to read while recording** beside the microphone, then step between notes while capturing or reviewing a take. Save takes as assets, add them to Sound & captions, and place them at the shown scene start frame. Each take remains limited to 60 seconds. **Editing tools** provides desktop shortcuts and a mobile picker without leaving the film.
+
+SRT/WebVTT imports accept up to 256 KiB of UTF-8 and 500 bounded cues, enough to reimport this app’s maximum-length Unicode or escaped caption exports. See the recorded technical/visual evidence for the current limits; template artwork is a starting point and does not replace a maker’s complete review.
