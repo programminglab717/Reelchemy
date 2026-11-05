@@ -33,6 +33,7 @@ import { measureExportFiles } from "../src/lib/export-storage-files";
 import { processExportFileRemoval } from "../src/lib/export-file-cleanup";
 import {
   liveNativeRenderJobs,
+  releaseNativeRenderJob,
   RenderProcessInspectionError,
   renderJobMarker,
   renderRootMarker,
@@ -254,14 +255,20 @@ async function main() {
       }
       maintenanceDue = true;
       const { job, timeline } = claimed;
-      console.log(JSON.stringify({ event: "render.start", jobId: job.id }));
-      const deadline = Date.now() + attemptBudget(totalFrames(timeline));
+      const budgetMs = attemptBudget(totalFrames(timeline));
+      const deadline = Date.now() + budgetMs;
+      console.log(
+        JSON.stringify({ event: "render.start", jobId: job.id, budgetMs }),
+      );
       let meter: Awaited<ReturnType<typeof beginExportMeter>> | undefined;
       let footprint: { bytes: number; files: number } | undefined;
       let nativeClosed = false;
       const verifyClosed = async () => {
         if (nativeClosed) return;
-        if ((await liveNativeRenderJobs(dataDir)).has(job.id)) {
+        // Native libraries can leave a stitcher blocked on an abandoned pipe
+        // after a cancelled/deadline attempt settles. Release this consumer's
+        // own marked processes within a bound; fail closed if any remain.
+        if (!(await releaseNativeRenderJob(dataDir, job.id))) {
           cacheReady = false;
           await beat();
           throw new Error(

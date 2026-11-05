@@ -13,7 +13,7 @@ export class RenderProcessInspectionError extends Error {
     );
   }
 }
-type Identity = { started: string; state: string };
+type Identity = { started: string; state: string; parent: number };
 async function boundedRead(
   pid: string,
   name: "stat" | "environ",
@@ -49,7 +49,11 @@ async function identity(pid: string): Promise<Identity> {
     throw Object.assign(new Error("Invalid process identity."), {
       code: "INVALID_STAT",
     });
-  return { started: fields[19], state: fields[0] };
+  return {
+    started: fields[19],
+    state: fields[0],
+    parent: Number(fields[1]),
+  };
 }
 const dead = (value: Identity) => ["Z", "X"].includes(value.state);
 const gone = (error: unknown) =>
@@ -72,20 +76,20 @@ async function inspect(pid: string, root: string) {
     environment.get(renderRootMarker) === root &&
     z.uuid().safeParse(id).success
   )
-    return id;
+    return { id: id!, started: after.started };
 }
 // Read only same-UID metadata, with before/after PID-start identity. An exiting
 // task can briefly lose its address space while its proc entry still exists.
 // Recheck that transition; never treat an unreadable live task as stopped.
-export async function liveNativeRenderJobs(root: string) {
-  const jobs = new Set<string>();
-  if (process.platform !== "linux") return jobs;
+async function nativeRenderProcesses(root: string) {
+  const processes = new Map<number, { id: string; started: string }>();
+  if (process.platform !== "linux") return processes;
   for (const name of await readdir("/proc")) {
     if (!/^[0-9]+$/.test(name) || Number(name) <= 1) continue;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const id = await inspect(name, root);
-        if (id) jobs.add(id);
+        const found = await inspect(name, root);
+        if (found) processes.set(Number(name), found);
         break;
       } catch (error) {
         if (gone(error)) break;
@@ -108,5 +112,70 @@ export async function liveNativeRenderJobs(root: string) {
       }
     }
   }
-  return jobs;
+  return processes;
+}
+export async function liveNativeRenderJobs(root: string) {
+  return new Set(
+    [...(await nativeRenderProcesses(root)).values()].map((entry) => entry.id),
+  );
+}
+async function descendsFromThisProcess(pid: number) {
+  let current = pid;
+  for (let depth = 0; depth < 64; depth++) {
+    let parent: number;
+    try {
+      parent = (await identity(String(current))).parent;
+    } catch (error) {
+      if (gone(error)) return false;
+      throw error;
+    }
+    if (parent === process.pid) return true;
+    if (!Number.isSafeInteger(parent) || parent <= 1) return false;
+    current = parent;
+  }
+  return false;
+}
+const pause = (milliseconds: number) =>
+  new Promise((resolve) => setTimeout(resolve, milliseconds));
+// Release the current consumer's OWN marked native processes after an attempt
+// has ended (deadline, cancellation or failure). Native libraries can leave a
+// child blocked on an abandoned pipe after their promise settles. Wait briefly
+// for natural exit, then signal only same-UID descendants of this process that
+// carry this job/root marker and the same PID-start identity, escalating from
+// SIGTERM to SIGKILL. Processes of earlier consumers or other studios are never
+// signalled here; startup recovery still waits for operator review of those.
+// Returns false when marked work remains, so callers keep failing closed.
+export async function releaseNativeRenderJob(
+  root: string,
+  jobId: string,
+  { graceMs = 3000, signalMs = 5000 } = {},
+) {
+  const remaining = async () =>
+    [...(await nativeRenderProcesses(root))].filter(
+      ([, entry]) => entry.id === jobId,
+    );
+  const waitFor = async (milliseconds: number) => {
+    const end = Date.now() + milliseconds;
+    for (;;) {
+      const live = await remaining();
+      if (!live.length || Date.now() >= end) return live;
+      await pause(100);
+    }
+  };
+  let live = await waitFor(graceMs);
+  for (const signal of ["SIGTERM", "SIGKILL"] as const) {
+    if (!live.length) return true;
+    for (const [pid, entry] of live) {
+      if (!(await descendsFromThisProcess(pid))) continue;
+      try {
+        const current = await identity(String(pid));
+        if (current.started !== entry.started || dead(current)) continue;
+        process.kill(pid, signal);
+      } catch (error) {
+        if (!gone(error)) throw error;
+      }
+    }
+    live = await waitFor(signalMs);
+  }
+  return !live.length;
 }

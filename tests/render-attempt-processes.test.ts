@@ -11,6 +11,7 @@ import {
 } from "../scripts/test-process";
 import {
   liveNativeRenderJobs,
+  releaseNativeRenderJob,
   renderJobMarker,
   renderRootMarker,
 } from "../src/lib/render-attempt-processes";
@@ -109,4 +110,62 @@ test("an unreaped non-dumpable zombie cannot block recovery because it has stopp
   } finally {
     await shutdownTestProcesses([parent]);
   }
+});
+
+test("attempt release escalates to SIGKILL for this consumer's own blocked marked child but never signals a marked process it did not start", async () => {
+  const root = path.join(tmpdir(), `release-native-${randomUUID()}`),
+    job = randomUUID();
+  const env = {
+    ...process.env,
+    [renderJobMarker]: job,
+    [renderRootMarker]: root,
+  };
+  // Detached grandchild: reparented away from this process, still marked.
+  const launcher = spawnTestProcess(
+    "python3",
+    [
+      "-c",
+      "import os,signal,time\nif os.fork()==0:\n os.setsid()\n if os.fork()==0:\n  signal.signal(signal.SIGTERM, signal.SIG_IGN); print(os.getpid(),flush=True); time.sleep(60)\n os._exit(0)\nos.wait()",
+    ],
+    { stdio: ["ignore", "pipe", "pipe"], env },
+  );
+  const [bytes] = await once(launcher.stdout!, "data"),
+    orphan = Number(bytes.toString().trim());
+  assert(Number.isSafeInteger(orphan) && orphan > 1);
+  const owned = spawnTestProcess(
+    "python3",
+    [
+      "-c",
+      "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); print('ready',flush=True); time.sleep(60)",
+    ],
+    { stdio: ["ignore", "pipe", "pipe"], env },
+  );
+  try {
+    await once(owned.stdout!, "data");
+    // The detached grandchild keeps the pipe open; wait for process exit only.
+    if (launcher.exitCode === null && !launcher.signalCode)
+      await once(launcher, "exit");
+    assert.deepEqual([...(await liveNativeRenderJobs(root))], [job]);
+    const begun = Date.now();
+    assert.equal(
+      await releaseNativeRenderJob(root, job, { graceMs: 200, signalMs: 1500 }),
+      false,
+    );
+    assert(Date.now() - begun < 10000);
+    // The owned child ignored SIGTERM and was killed; the foreign one remains.
+    assert.notEqual(owned.exitCode ?? owned.signalCode, null);
+    assert.equal(owned.signalCode, "SIGKILL");
+    process.kill(orphan, 0);
+    assert.deepEqual([...(await liveNativeRenderJobs(root))], [job]);
+  } finally {
+    try {
+      process.kill(orphan, "SIGKILL");
+    } catch {}
+    await shutdownTestProcesses([owned, launcher]);
+  }
+  const end = Date.now() + 5000;
+  while ((await liveNativeRenderJobs(root)).size && Date.now() < end)
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.deepEqual([...(await liveNativeRenderJobs(root))], []);
+  assert.equal(await releaseNativeRenderJob(root, job), true);
 });
