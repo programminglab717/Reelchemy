@@ -449,8 +449,8 @@ Add a selected-layer duplicate action to the canvas and advanced layer controls.
 - Add keyboard-focusable desktop shortcuts and a mobile tool picker for navigating longer editing sessions. Expand bounded subtitle imports to 256 KiB so all 500 allowed Unicode or escaped cues can round-trip from their own SRT/VTT exports.
 - All 530 backend/native checks and production build pass. All three complete HD starter exports pass; the expanded microphone-to-mixed-media story passes separately after test selector corrections. Exact outcomes and visual review are in VALIDATION.md; this is not a complete 88-case browser rerun. No deployment or live SMTP/AI verification.
 
-## 0.59.0 — 2026-11-05 candidate
+## 0.59.0 — 2026-11-05
 
 - Delete a scene and close its global gap in one undoable edit. Later captions/audio move earlier, contained material is removed from the timeline, crossing cues shorten and crossing audio splits into the exact retained source ranges with fades capped to fit. Keep source assets and remaining scene-local footage/motion unchanged.
 - Refuse atomically if splitting would exceed twelve audio tracks or existing saved-film limits, and explain the operation beside its editor action.
-- Four focused contracts pass, including the previously unusable delete operation on an authored captioned starter. Full integrated/native/build/browser acceptance is pending.
+- All 534 backend/native checks, production build and the complete 89-case production HTTPS browser regression pass. A real captioned/voiced scene cut retains the exact surviving audio frequencies through undo, reload, archives and native-HD export. No deployment or live SMTP/AI verification.
