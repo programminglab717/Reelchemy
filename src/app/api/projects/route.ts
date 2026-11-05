@@ -1,3 +1,8 @@
+import {
+  creatorTemplateIds,
+  creatorTemplate,
+  creatorTemplateTimeline,
+} from "@/lib/creator-templates";
 import { MAX_TIMELINE_SECONDS } from "@/lib/timeline-limits";
 import { secureRoute, type Access } from "@/lib/access";
 import { z } from "zod";
@@ -6,7 +11,7 @@ import {
   listProjects,
   listProjectSummaries,
   countProjects,
-  reviseProject,
+  createComposedProject,
 } from "@/lib/db";
 import { projectResponse, privateProjectHeaders } from "@/lib/project-http";
 import { blankTimeline } from "@/lib/editor";
@@ -64,13 +69,48 @@ async function POSTHandler(req: Request, _ctx: unknown, access: Access) {
         duration: z.number().int().min(5).max(MAX_TIMELINE_SECONDS),
         format: z.enum(["landscape", "portrait", "square"]),
         blank: z.boolean().optional(),
+        templateId: z.enum(creatorTemplateIds).optional(),
       })
       .parse(await body(req));
-    const p = createProject(
-      { prompt: brief.prompt, duration: brief.duration, format: brief.format },
-      access.workspace.id,
-    );
-    if (brief.blank) reviseProject(p, blankTimeline(brief), "Blank canvas");
+    if (brief.blank && brief.templateId)
+      throw new Error("Choose a blank canvas or a starter template.");
+    if (brief.templateId) {
+      const template = creatorTemplate(brief.templateId);
+      if (
+        brief.duration !== template.duration ||
+        brief.format !== template.format
+      )
+        throw new Error(
+          "Use the selected template's duration and format, then edit the saved film.",
+        );
+    }
+    const projectBrief = {
+      prompt: brief.prompt,
+      duration: brief.duration,
+      format: brief.format,
+    };
+    const initial = brief.templateId
+      ? creatorTemplateTimeline(brief.templateId)
+      : brief.blank
+        ? blankTimeline(brief)
+        : undefined;
+    const p = initial
+      ? createComposedProject(
+          projectBrief,
+          access.workspace.id,
+          initial,
+          brief.templateId
+            ? `Starter template: ${creatorTemplate(brief.templateId).name}`
+            : "Blank canvas",
+        )
+      : createProject(
+          {
+            prompt: brief.prompt,
+            duration: brief.duration,
+            format: brief.format,
+          },
+          access.workspace.id,
+        );
     return projectResponse(req, p, access.workspace.id, 201);
   } catch (e) {
     return failure(e);

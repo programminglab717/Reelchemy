@@ -1,4 +1,10 @@
 "use client";
+import {
+  creatorTemplates,
+  creatorTemplate,
+  type CreatorTemplateId,
+} from "@/lib/creator-templates";
+import { captionSceneNotes } from "@/lib/scene-notes";
 import { DURATION_PRESETS } from "@/lib/timeline-limits";
 import type { EditorProject as Project } from "@/lib/project-view";
 import { clipAudioTracks } from "@/lib/clip-audio";
@@ -229,16 +235,18 @@ export function Studio({
     editor.open(p);
     if (p) setListRefresh((n) => n + 1);
   }
-  async function create(blank = false) {
+  async function create(blank = false, templateId?: CreatorTemplateId) {
     await run(async () => {
+      const template = templateId ? creatorTemplate(templateId) : undefined;
       let p = await api<Project>("/api/projects", "POST", {
-        prompt: blank ? "Untitled creation" : prompt,
+        prompt: template?.name || (blank ? "Untitled creation" : prompt),
         blank,
-        duration,
-        format,
+        duration: template?.duration || duration,
+        format: template?.format || format,
+        ...(templateId ? { templateId } : {}),
       });
       remember(p);
-      if (!blank)
+      if (!blank && !templateId)
         p = await api<Project>(`/api/projects/${p.id}/plan`, "POST", {});
       remember(p);
       setSelected(0);
@@ -659,6 +667,42 @@ export function Studio({
               <Icon name="sparkle" size={12} /> Demo director · Procedural
               animation · You approve before export
             </div>
+            <section
+              className="starter-templates"
+              aria-labelledby="starter-heading"
+            >
+              <div className="section-heading">
+                <h2 id="starter-heading">Editable starter templates</h2>
+                <span>SCENES, CAPTIONS & NARRATION NOTES</span>
+              </div>
+              <p>
+                Choose a structure, then make it yours with your own words,
+                footage and voice.
+              </p>
+              <div className="starter-grid">
+                {creatorTemplates.map((template) => (
+                  <article className="starter-card" key={template.id}>
+                    <span className="eyebrow">
+                      {template.duration < 60
+                        ? `${template.duration} seconds`
+                        : `${template.duration / 60} minute${template.duration > 60 ? "s" : ""}`}{" "}
+                      · {template.format === "portrait" ? "9:16" : "16:9"} ·
+                      Full HD
+                    </span>
+                    <h3>{template.name}</h3>
+                    <p>{template.summary}</p>
+                    <button
+                      className="subtle"
+                      disabled={!ready || busy}
+                      onClick={() => void create(false, template.id)}
+                      aria-label={`Use ${template.name} template`}
+                    >
+                      Use template <Icon name="arrow-up-right" size={14} />
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </section>
             <div className="section-heading">
               <h2>A starting point for your imagination</h2>
               <span>YOUR IDEA, YOUR DIRECTION</span>
@@ -1164,6 +1208,45 @@ export function Studio({
                         onChange={(e) => changeScene({ title: e.target.value })}
                       />
                     </label>
+                    <label>
+                      Scene notes
+                      <textarea
+                        aria-label="Scene notes"
+                        value={scene.intent}
+                        maxLength={500}
+                        rows={4}
+                        onChange={(e) =>
+                          changeScene({ intent: e.target.value })
+                        }
+                      />
+                    </label>
+                    <small>
+                      Keep shot directions or narration here. These notes are
+                      saved with the scene. You can read them in Record
+                      narration.
+                    </small>
+                    <button
+                      className="subtle"
+                      disabled={!scene.intent.trim() || busy}
+                      onClick={() => {
+                        try {
+                          changeTimeline(captionSceneNotes(timeline, selected));
+                          setError("");
+                        } catch (error) {
+                          setError(
+                            error instanceof Error
+                              ? error.message
+                              : "Could not create captions from these notes.",
+                          );
+                        }
+                      }}
+                    >
+                      Use notes as captions for this scene
+                    </button>
+                    <small>
+                      This replaces captions inside this scene. Check their
+                      timing against your finished voice recording.
+                    </small>
                     <label>
                       On-screen text
                       <input

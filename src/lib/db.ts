@@ -1,3 +1,4 @@
+import { timelineSchema } from "./schema";
 import { enableSecureDeletion } from "./sqlite-private";
 import Database from "better-sqlite3";
 import { assertRestoreComplete } from "./restore-state";
@@ -900,6 +901,23 @@ export function createProject(brief: CreativeBrief, workspaceId?: string) {
     },
     workspaceId,
   );
+}
+// Admit the initial film and its first version in the same writer transaction.
+// A rejected template/blank film cannot leave an empty project or quota record.
+export function createComposedProject(
+  brief: CreativeBrief,
+  workspaceId: string,
+  timeline: Timeline,
+  source: string,
+) {
+  const validated = timelineSchema.parse(timeline);
+  return db
+    .transaction(() => {
+      const project = createProject(brief, workspaceId);
+      validateProjectAssets(project, validated);
+      return reviseProject(project, validated, source);
+    })
+    .immediate();
 }
 export function renameProject(id: string, name: string, baseName: string) {
   return db

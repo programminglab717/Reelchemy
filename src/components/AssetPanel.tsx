@@ -41,6 +41,15 @@ export function AssetPanel({
         onProject={onProject}
       />
       <NarrationRecorder
+        notes={(project.timeline?.scenes || []).map((scene, index, scenes) => ({
+          id: scene.id,
+          title: scene.title,
+          text: scene.intent,
+          durationFrames: scene.durationFrames,
+          startFrame: scenes
+            .slice(0, index)
+            .reduce((frames, prior) => frames + prior.durationFrames, 0),
+        }))}
         projectId={project.id}
         onProject={onProject}
         onPendingChange={onRecordingPending}

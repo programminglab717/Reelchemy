@@ -15,17 +15,27 @@ type Capture = {
 };
 export function NarrationRecorder({
   projectId,
+  notes = [],
   onProject,
   onPendingChange,
   onActiveChange,
   onStart,
 }: {
   projectId: string;
+  notes?: {
+    id: string;
+    title: string;
+    text: string;
+    durationFrames: number;
+    startFrame: number;
+  }[];
   onProject: (p: AssetUpdate) => void;
   onPendingChange: (pending: boolean) => void;
   onActiveChange?: (active: boolean) => void;
   onStart: () => void;
 }) {
+  const [noteId, setNoteId] = useState("");
+  const currentNote = notes.find((note) => note.id === noteId) || notes[0];
   const upload = useMediaSubmission(`/api/projects/${projectId}/assets`);
   const [state, setState] = useState<
     "idle" | "permission" | "recording" | "stopping" | "review" | "saving"
@@ -221,6 +231,58 @@ export function NarrationRecorder({
         saving it to project assets, then add it to the timeline. Playback
         pauses when recording begins; use headphones to avoid feedback.
       </p>
+      {currentNote && (
+        <details className="recording-notes">
+          <summary>Scene notes to read while recording</summary>
+          <label>
+            Notes for scene
+            <select
+              aria-label="Recording scene notes"
+              value={currentNote.id}
+              onChange={(e) => setNoteId(e.target.value)}
+            >
+              {notes.map((note, index) => (
+                <option key={note.id} value={note.id}>
+                  {index + 1} · {note.title} ·{" "}
+                  {(note.durationFrames / 30).toFixed(1)}s
+                </option>
+              ))}
+            </select>
+          </label>
+          <p aria-label="Recording notes text">
+            {currentNote.text ||
+              "Write your narration or shot directions in Scene notes."}
+          </p>
+          <p>
+            Scene start: {(currentNote.startFrame / 30).toFixed(2)}s · timeline
+            frame {currentNote.startFrame}.
+          </p>
+          <div className="layer-fields">
+            <button
+              className="subtle"
+              disabled={notes.indexOf(currentNote) === 0}
+              onClick={() =>
+                setNoteId(notes[notes.indexOf(currentNote) - 1].id)
+              }
+            >
+              Previous scene notes
+            </button>
+            <button
+              className="subtle"
+              disabled={notes.indexOf(currentNote) === notes.length - 1}
+              onClick={() =>
+                setNoteId(notes[notes.indexOf(currentNote) + 1].id)
+              }
+            >
+              Next scene notes
+            </button>
+          </div>
+          <small>
+            Longer films can use several takes. Save each take, add it to Sound
+            & captions, and place it at the matching timeline frame.
+          </small>
+        </details>
+      )}
       {state === "idle" && (
         <button className="subtle" onClick={() => void start()}>
           Start microphone recording
