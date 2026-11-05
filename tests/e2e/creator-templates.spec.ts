@@ -138,6 +138,10 @@ test("scene notes and captions save as undoable edits while changing recording n
   await expect(page.getByLabel("Scene notes", { exact: true })).toBeVisible();
   const [project] = await (await request.get("/api/projects")).json();
   const saved = page.getByRole("status", { name: "Save status" });
+  await page
+    .getByRole("navigation", { name: "Editing tools" })
+    .getByRole("link", { name: "Scene & notes", exact: true })
+    .click();
   const firstNotes = "A clear voice makes a useful story easier to follow.";
   await page.getByLabel("Scene notes", { exact: true }).fill(firstNotes);
   await expect(saved).toHaveText("All changes saved");
@@ -256,6 +260,10 @@ test("scene notes and captions save as undoable edits while changing recording n
     recorder.getByLabel("Recording notes text", { exact: true }),
   ).toHaveText(secondNotes);
   await page.setViewportSize({ width: 390, height: 844 });
+  await page
+    .getByLabel("Jump to editing tool", { exact: true })
+    .selectOption("studio-tool-media");
+  await expect(page.locator("#studio-tool-media")).toBeFocused();
   await recorder.scrollIntoViewIfNeeded();
   expect(
     await page.evaluate(

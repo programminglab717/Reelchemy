@@ -441,3 +441,10 @@ Add a selected-layer duplicate action to the canvas and advanced layer controls.
 - Add descriptor-only database storage inspection and explicit offline compaction of current studio/account databases under both exclusive locks, preserving retained rows, schema and database inodes. Refuse missing/private-unsafe stores, busy WAL readers and insufficient capacity without initializing or migrating anything.
 - Enable connection-local secure deletion for application/private-auth/mail writers. Compact only owned inactive backup/restore copies after existing privacy reconciliation, clearing obsolete payload before publication while preserving source databases and older snapshots.
 - Twenty-one focused real SQLite/command/mail/backup checks pass, including raw-byte deleted-data checks. Complete current-source backend/build/browser acceptance remains pending. Historical/off-host backup and device-level retention remain separate gates; no actual installation is compacted.
+
+## 0.58.0 — 2026-11-05 candidate
+
+- Add three authored editable native-HD starters: a 45-second vertical launch, three-minute explainer and one-minute brand story. Admit the complete first film/version atomically, including storage quota enforcement, without an AI request.
+- Edit and read scene narration notes alongside microphone capture, step between notes without interrupting a take, and replace one scene’s captions with a single undoable action.
+- Add keyboard-focusable desktop shortcuts and a mobile tool picker for navigating longer editing sessions. Expand bounded subtitle imports to 256 KiB so all 500 allowed Unicode or escaped cues can round-trip from their own SRT/VTT exports.
+- Eight focused authenticated creator/template checks pass. Complete integrated backend/native, production build, creator export/browser and visual acceptance remain pending; no deployment or live SMTP/AI verification.

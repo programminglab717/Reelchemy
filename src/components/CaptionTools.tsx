@@ -187,7 +187,7 @@ export function CaptionTools({
               if (!file) return;
               try {
                 if (file.size > MAX_SUBTITLE_BYTES)
-                  throw new Error("Subtitle files must be 64 KB or smaller.");
+                  throw new Error("Subtitle files must be 256 KB or smaller.");
                 const extension = file.name.split(".").at(-1)?.toLowerCase();
                 if (extension !== "srt" && extension !== "vtt")
                   throw new Error("Select an .srt or .vtt subtitle file.");
@@ -221,10 +221,10 @@ export function CaptionTools({
         </button>
       </div>
       <p>
-        UTF-8, up to 64 KB, {MAX_CAPTIONS} non-overlapping cues and 80
-        characters per cue. Import rounds timing to 30 fps and flattens line
-        breaks. Basic bold/italic/underline/voice tags are removed; embedded
-        styling and cue positioning are rejected.
+        UTF-8, up to {MAX_SUBTITLE_BYTES / 1024} KB, {MAX_CAPTIONS}{" "}
+        non-overlapping cues and 80 characters per cue. Import rounds timing to
+        30 fps and flattens line breaks. Basic bold/italic/underline/voice tags
+        are removed; embedded styling and cue positioning are rejected.
       </p>
       {pending && (
         <div

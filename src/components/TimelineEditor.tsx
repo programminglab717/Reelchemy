@@ -50,7 +50,11 @@ export function TimelineEditor({
   });
   const marker = (n: number) => `${(n / duration) * 100}%`;
   return (
-    <section className="layer-editor timeline-editor">
+    <section
+      id="studio-tool-timeline"
+      tabIndex={-1}
+      className="layer-editor timeline-editor"
+    >
       <div className="panel-heading">
         <h2>Timeline</h2>
         <output aria-label="Playhead time">

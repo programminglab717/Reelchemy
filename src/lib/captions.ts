@@ -6,7 +6,7 @@ import {
   type Timeline,
 } from "./schema";
 
-export const MAX_SUBTITLE_BYTES = 64 * 1024;
+export const MAX_SUBTITLE_BYTES = 256 * 1024;
 
 // A deliberately bounded plain-text SRT/WebVTT importer. Unsupported positioning,
 // styling and embedded timestamps fail explicitly instead of silently changing them.
@@ -15,7 +15,7 @@ export function parseSubtitles(
   format: "srt" | "vtt",
 ): Caption[] {
   if (new TextEncoder().encode(input).length > MAX_SUBTITLE_BYTES)
-    throw new Error("Subtitle files must be 64 KB or smaller.");
+    throw new Error("Subtitle files must be 256 KB or smaller.");
   const text = input
     .replace(/^\uFEFF/, "")
     .replace(/\r\n?/g, "\n")

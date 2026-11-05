@@ -103,7 +103,11 @@ export function CanvasEditor({
       }
     : scene;
   return (
-    <section className="canvas-editor layer-editor">
+    <section
+      id="studio-tool-canvas"
+      tabIndex={-1}
+      className="canvas-editor layer-editor"
+    >
       <div className="panel-heading">
         <h2>Arrange scene {selected + 1}</h2>
         <label>

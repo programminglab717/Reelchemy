@@ -39,7 +39,7 @@ export function MediaEditor({
     } else setError(result.error.issues.map((i) => i.message).join(" "));
   }
   return (
-    <section className="layer-editor">
+    <section id="studio-tool-captions" tabIndex={-1} className="layer-editor">
       <h2>Sound & captions</h2>
       <p>
         Timing is in frames at 30 fps. Captions are included in the MP4. Keep

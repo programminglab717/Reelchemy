@@ -29,7 +29,7 @@ export function AssetPanel({
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   return (
-    <section className="layer-editor">
+    <section id="studio-tool-media" tabIndex={-1} className="layer-editor">
       <h2>Project assets</h2>
       <MediaStorage
         projectId={project.id}

@@ -1,6 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseSubtitles, importCaptions, subtitles } from "../src/lib/captions";
+import {
+  MAX_SUBTITLE_BYTES,
+  parseSubtitles,
+  importCaptions,
+  subtitles,
+} from "../src/lib/captions";
+import { MAX_CAPTIONS } from "../src/lib/timeline-limits";
 import { blankTimeline } from "../src/lib/editor";
 import { captionStyleSchema } from "../src/lib/schema";
 import { localSceneTimeline, sceneCacheKey } from "../src/lib/render-cache";
@@ -67,7 +73,7 @@ test("subtitle import fails atomically on invalid timing, overlap, limits and un
     "1\n00:00:00,000 --> 00:00:02,000 align:start\nPositioning",
     "1\n00:00:00,000 --> 00:00:02,000\n<script>custom</script>",
     `1\n00:00:00,000 --> 00:00:02,000\n${"a".repeat(81)}`,
-    "a".repeat(65537),
+    "a".repeat(MAX_SUBTITLE_BYTES + 1),
   ])
     assert.throws(() => parseSubtitles(input, "srt"));
   assert.throws(() =>
@@ -132,4 +138,43 @@ test("Chromium checks every caption for clipping in each output geometry", async
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test("all 500 maximum-length Unicode and escaped captions reimport from exported subtitles", () => {
+  const t = blankTimeline({
+    duration: 300,
+    format: "portrait",
+    prompt: "Full subtitles",
+  });
+  for (const text of ["&".repeat(80), "界".repeat(80), "😀".repeat(40)]) {
+    t.captions = Array.from({ length: MAX_CAPTIONS }, (_, i) => ({
+      id: `cue-${i}`,
+      startFrame: i * 18,
+      endFrame: (i + 1) * 18,
+      text,
+    }));
+    for (const format of ["srt", "vtt"] as const) {
+      const exported = subtitles(t, format);
+      const bytes = Buffer.byteLength(exported);
+      assert(bytes > 64 * 1024);
+      assert(bytes <= MAX_SUBTITLE_BYTES);
+      const imported = importCaptions(
+        t,
+        parseSubtitles(exported, format),
+        "replace",
+      );
+      assert.deepEqual(
+        imported.captions?.map(({ id: _id, ...cue }) => cue),
+        t.captions.map(({ id: _id, ...cue }) => cue),
+      );
+    }
+  }
+  assert.throws(
+    () =>
+      parseSubtitles(
+        "界".repeat(Math.floor(MAX_SUBTITLE_BYTES / 3) + 1),
+        "srt",
+      ),
+    /256 KB/,
+  );
 });

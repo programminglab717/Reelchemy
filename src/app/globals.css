@@ -2371,3 +2371,61 @@ main.account-page {
     grid-template-columns: 1fr;
   }
 }
+
+.editor-shortcuts {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  min-width: 0;
+  max-width: 100%;
+  padding: 8px;
+  margin: 12px 0;
+  background: #f7f9f5f5;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.editor-tool-links {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.editor-tool-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 12px;
+  text-decoration: none;
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 12px;
+}
+.editor-tool-links a:hover,
+.editor-tool-links a:focus-visible {
+  background: #e2eadb;
+}
+.mobile-tool-picker {
+  display: none;
+}
+[id^="studio-tool-"] {
+  scroll-margin-top: 90px;
+}
+[id^="studio-tool-"]:focus-visible {
+  outline: 2px solid #344f46;
+  outline-offset: 3px;
+}
+@media (max-width: 800px) {
+  .editor-tool-links {
+    display: none;
+  }
+  .mobile-tool-picker {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+  }
+  .mobile-tool-picker select {
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+  }
+}

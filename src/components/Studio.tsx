@@ -5,6 +5,7 @@ import {
   type CreatorTemplateId,
 } from "@/lib/creator-templates";
 import { captionSceneNotes } from "@/lib/scene-notes";
+import { EditorToolsNav } from "./EditorToolsNav";
 import { DURATION_PRESETS } from "@/lib/timeline-limits";
 import type { EditorProject as Project } from "@/lib/project-view";
 import { clipAudioTracks } from "@/lib/clip-audio";
@@ -842,6 +843,7 @@ export function Studio({
             </div>
             {timeline && (
               <fieldset className="editor-content" disabled={busy}>
+                <EditorToolsNav />
                 <div className="editor-actions">
                   {timeline.format === "square" ? (
                     <span>Export size: 1080 × 1080</span>
@@ -1005,7 +1007,11 @@ export function Studio({
                   onDiscard={(draft) => editor.discardDraft(draft)}
                 />
                 <div className="work-grid">
-                  <section className="preview-panel">
+                  <section
+                    id="studio-tool-preview"
+                    tabIndex={-1}
+                    className="preview-panel"
+                  >
                     <div className="panel-heading">
                       <h2>Live preview</h2>
                       <label>
@@ -1195,7 +1201,11 @@ export function Studio({
                   ))}
                 </div>
                 {scene && (
-                  <section className="scene-editor">
+                  <section
+                    id="studio-tool-scene"
+                    tabIndex={-1}
+                    className="scene-editor"
+                  >
                     <div>
                       <span className="eyebrow">SCENE {selected + 1}</span>
                       <h2>Make it yours.</h2>
@@ -1523,7 +1533,11 @@ export function Studio({
                   assets={project.assets || []}
                   onChange={changeTimeline}
                 />
-                <section className="export-panel">
+                <section
+                  id="studio-tool-export"
+                  tabIndex={-1}
+                  className="export-panel"
+                >
                   <div>
                     <span className="eyebrow">READY WHEN YOU ARE</span>
                     <h2>Bring your story to life.</h2>
