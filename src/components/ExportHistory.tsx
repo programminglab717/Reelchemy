@@ -210,7 +210,7 @@ function ExportHistoryPage({
               {job.fileState
                 ? ` · files ${job.fileState === "completed" ? "removed" : job.fileState}`
                 : ""}{" "}
-              · {job.id.slice(0, 6)}
+              · Export #{job.id.slice(0, 6)}
             </button>
           ))}
         </div>

@@ -1643,9 +1643,11 @@ main.account-page {
   width: 100%;
   min-width: 0;
   margin-top: 5px;
-  background: #ffffff10;
-  border: 1px solid #ffffff30;
-  color: inherit;
+  padding: 8px 10px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
 }
 .mobile-project-library,
 .mobile-sign-out {
@@ -2388,7 +2390,8 @@ main.account-page {
   max-width: 100%;
   padding: 8px;
   margin: 12px 0;
-  background: #f7f9f5f5;
+  background: #f7f9f5;
+  box-shadow: 0 6px 14px -12px #202a2566;
   border: 1px solid var(--line);
   border-radius: 10px;
 }
@@ -2435,5 +2438,48 @@ main.account-page {
     flex: 1;
     min-width: 0;
     min-height: 44px;
+  }
+}
+/* Account-wide storage and records follow the creative work. */
+.studio-records {
+  margin: 48px 0 0;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.studio-records > h2 {
+  margin: 0 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+@media (max-width: 720px) {
+  .mobile-project-library .library-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .mobile-project-library h2 {
+    margin: 0;
+    font-size: 20px;
+  }
+  .mobile-project-library label {
+    display: grid;
+    gap: 6px;
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .mobile-project-library input {
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: #fff;
+    color: var(--ink);
+    font-size: 16px;
+  }
+  .mobile-project-library p {
+    color: var(--muted);
   }
 }

@@ -152,7 +152,11 @@ export function AccountForm() {
               Password
               <input
                 aria-label="Password"
-                aria-describedby="account-password-help"
+                aria-describedby={
+                  token || mode === "sign-up"
+                    ? "account-password-help"
+                    : undefined
+                }
                 name="password"
                 type="password"
                 autoComplete={
@@ -164,9 +168,11 @@ export function AccountForm() {
                 maxLength={128}
                 required
               />
-              <small id="account-password-help">
-                Use at least 12 characters.
-              </small>
+              {(token || mode === "sign-up") && (
+                <small id="account-password-help">
+                  Use at least 12 characters.
+                </small>
+              )}
             </label>
           )}
           <button className="primary" disabled={busy}>

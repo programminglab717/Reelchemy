@@ -428,7 +428,6 @@ export function Studio({
           <Icon name="grid" /> <span>Studio</span>
           <span className="count">{projectCount}</span>
         </button>
-        <div className="recent-label">RECENT PROJECTS</div>
         <button
           className="nav-item"
           aria-label="Trash"
@@ -448,6 +447,7 @@ export function Studio({
           <Icon name="lock" />
           <span>Account settings</span>
         </button>
+        <div className="recent-label">RECENT PROJECTS</div>
         <label className="project-search">
           Find a project
           <input
@@ -557,36 +557,6 @@ export function Studio({
         <MediaProcessing
           onOpen={(id) => navigate({ id })}
           disabled={busy || editor.saving}
-        />
-        <ExportStorage
-          onRetired={(receipt) => {
-            setExportActivityRevision((value) => value + 1);
-            setJob((current) =>
-              current?.id === receipt.jobId
-                ? {
-                    ...current,
-                    retired: true,
-                    report: null,
-                    issues: [],
-                    events: [],
-                    attempts: 0,
-                    retryCount: 0,
-                    error: null,
-                    stage: "Details retired",
-                  }
-                : current,
-            );
-          }}
-          refreshKey={
-            job ? `${job.id}:${job.status}:${job.files?.state ?? ""}` : ""
-          }
-          onChange={(receipt) => {
-            setJob((current) =>
-              current?.id === receipt.jobId
-                ? { ...current, files: receipt }
-                : current,
-            );
-          }}
         />
         {!project ? (
           <div className="home">
@@ -753,10 +723,12 @@ export function Studio({
               className="mobile-project-library"
               aria-label="Your projects"
             >
-              <h2>Your projects</h2>
-              <Link href="/trash" className="subtle">
-                Open Trash
-              </Link>
+              <div className="library-heading">
+                <h2>Your projects</h2>
+                <Link href="/trash" className="subtle">
+                  Open Trash
+                </Link>
+              </div>
               <label>
                 Find a project
                 <input
@@ -1630,33 +1602,12 @@ export function Studio({
                       )}
                     </div>
                     <progress max={1} value={job.progress} />
-                    <details>
-                      <summary>
-                        Export activity
-                        {job.retryCount ? ` · ${job.retryCount} retry` : ""}
-                      </summary>
-                      {job.events?.map((event, index) => (
-                        <p key={index}>
-                          {event.at.slice(11, 19)} UTC · {event.message}
-                        </p>
-                      ))}
-                    </details>
-                    {!active && (
-                      <ExportFiles
-                        job={job}
-                        onChange={(files) =>
-                          setJob((current) =>
-                            current?.id === job.id
-                              ? { ...current, files }
-                              : current,
-                          )
-                        }
-                      />
-                    )}
                     {job.error && <p role="alert">{job.error}</p>}
                     {job.status === "queued" && (
                       <p>
-                        Keep the render worker running alongside the web app.
+                        Exports render one at a time on the shared studio
+                        renderer. You can keep editing; this export uses the
+                        version you approved.
                       </p>
                     )}
                     {job.status === "completed" && !job.files && (
@@ -1707,12 +1658,73 @@ export function Studio({
                         </p>
                       </>
                     )}
+                    <details>
+                      <summary>
+                        Export activity
+                        {job.retryCount ? ` · ${job.retryCount} retry` : ""}
+                      </summary>
+                      {job.events?.map((event, index) => (
+                        <p key={index}>
+                          {event.at.slice(11, 19)} UTC · {event.message}
+                        </p>
+                      ))}
+                    </details>
+                    {!active && (
+                      <ExportFiles
+                        job={job}
+                        onChange={(files) =>
+                          setJob((current) =>
+                            current?.id === job.id
+                              ? { ...current, files }
+                              : current,
+                          )
+                        }
+                      />
+                    )}
                   </section>
                 )}
               </fieldset>
             )}
           </div>
         )}
+        {/* Account-wide accounting stays available but follows the creative
+            work instead of leading every page. */}
+        <section
+          className="studio-records"
+          aria-labelledby="studio-records-title"
+        >
+          <h2 id="studio-records-title">Storage and export records</h2>
+          <ExportStorage
+            onRetired={(receipt) => {
+              setExportActivityRevision((value) => value + 1);
+              setJob((current) =>
+                current?.id === receipt.jobId
+                  ? {
+                      ...current,
+                      retired: true,
+                      report: null,
+                      issues: [],
+                      events: [],
+                      attempts: 0,
+                      retryCount: 0,
+                      error: null,
+                      stage: "Details retired",
+                    }
+                  : current,
+              );
+            }}
+            refreshKey={
+              job ? `${job.id}:${job.status}:${job.files?.state ?? ""}` : ""
+            }
+            onChange={(receipt) => {
+              setJob((current) =>
+                current?.id === receipt.jobId
+                  ? { ...current, files: receipt }
+                  : current,
+              );
+            }}
+          />
+        </section>
         {error && (
           <div className="error-banner" role="alert" aria-label="Studio error">
             <strong>Something needs attention.</strong> {error}
