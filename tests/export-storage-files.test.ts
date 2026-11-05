@@ -119,10 +119,11 @@ test("encoded verification files remain metered through frame promotion and fail
     await mkdir(f.dir);
     await writeFile(path.join(f.dir, "encoded-frame-0001.png"), "PENDING");
     await writeFile(path.join(f.dir, "verification-tail.png"), "TAIL");
+    await writeFile(path.join(f.dir, "layout-60-before.png"), "LAYOUT");
     for (const working of [true, false])
       assert.deepEqual(await measureExportFiles(f.root, f.jobId, { working }), {
-        bytes: 11,
-        files: 2,
+        bytes: 17,
+        files: 3,
       });
     const { inspectExportFiles, removeReviewedExportFiles } =
       await import("../src/lib/export-file-tree");
@@ -131,7 +132,7 @@ test("encoded verification files remain metered through frame promotion and fail
       projectId: "project",
       workspaceId: "studio",
     });
-    assert.equal(reviewed.files.length, 2);
+    assert.equal(reviewed.files.length, 3);
     await removeReviewedExportFiles(f.root, reviewed, () => false);
     await assert.rejects(lstat(f.dir), { code: "ENOENT" });
   }));
