@@ -179,6 +179,20 @@ test("current authority removes a later-deleted identity from old and new snapsh
     studio.close();
     accounts.close();
   }
+  const restoredAuthBytes = await readFile(
+    path.join(restored.auth, "auth.sqlite"),
+  );
+  assert(
+    !restoredAuthBytes.includes(Buffer.from("backup-erased@example.test")),
+    "reconciled inactive authentication copies must not retain an erased email in free pages",
+  );
+  assert(restoredAuthBytes.includes(Buffer.from("backup-kept@example.test")));
+  assert(
+    !(await readFile(path.join(restored.data, "studio.sqlite"))).includes(
+      Buffer.from("Synthetic backup-erased film"),
+    ),
+    "removed private directions must not survive in copied free pages",
+  );
   await assert.rejects(() =>
     access(path.join(restored.data, "assets", a.assetId)),
   );
@@ -236,6 +250,16 @@ process.stdout.write(JSON.stringify({kept:kept.status,erased:erased.status}));`,
   await createBackup({ ...backupOptions, output: fresh });
   const freshManifest = await verifyBackup(fresh);
   assert.equal(freshManifest.privacy?.sequence, 1);
+  assert(
+    !(await readFile(path.join(fresh, "data/auth.sqlite"))).includes(
+      Buffer.from("backup-erased@example.test"),
+    ),
+  );
+  assert(
+    !(await readFile(path.join(fresh, "data/studio.sqlite"))).includes(
+      Buffer.from("Synthetic backup-erased film"),
+    ),
+  );
   assert(
     !freshManifest.entries.some(
       (entry) =>

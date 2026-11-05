@@ -1,3 +1,4 @@
+import { enableSecureDeletion } from "../src/lib/sqlite-private";
 import { z } from "zod";
 import { configuredPrivacyVault } from "../src/lib/privacy-storage";
 import { erasureApprovalForRequest } from "../src/lib/privacy-vault";
@@ -63,6 +64,7 @@ function openStudio() {
     assertCurrent();
     db = new Database(file, { fileMustExist: true });
     db.pragma("busy_timeout=5000");
+    enableSecureDeletion(db);
     assertCurrent();
     const opened = db;
     return {

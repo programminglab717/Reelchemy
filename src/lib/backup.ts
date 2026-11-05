@@ -1,3 +1,4 @@
+import { enableSecureDeletion } from "./sqlite-private";
 import { usesExtendedTimeline } from "./timeline-limits";
 import Database from "better-sqlite3";
 import { createHash, randomUUID } from "node:crypto";
@@ -146,6 +147,7 @@ function openVerified(
     fileMustExist: true,
   });
   try {
+    if (options.allowSnapshotWrites) enableSecureDeletion(db);
     const result = db.pragma("integrity_check", { simple: true });
     if (result !== "ok")
       throw new Error("Backup database integrity check failed.");
@@ -428,6 +430,18 @@ export async function createBackup(options: {
         copy.close();
       }
     }
+    for (const file of [
+      path.join(output, "data/studio.sqlite"),
+      copiedAuthFile,
+    ]) {
+      if (!(await exists(file))) continue;
+      const copy = openVerified(file, { allowSnapshotWrites: true });
+      try {
+        copy.exec("VACUUM");
+      } finally {
+        copy.close();
+      }
+    }
     const entries: Manifest["entries"] = [];
     for (const file of (await listedFiles(output)).sort())
       entries.push({
@@ -690,6 +704,7 @@ export async function restoreBackup(
     if (await exists(authFile)) {
       const auth = new Database(authFile);
       try {
+        enableSecureDeletion(auth);
         auth.transaction(() => {
           for (const table of ["session", "verification"])
             if (
@@ -708,6 +723,7 @@ export async function restoreBackup(
     const studio = new Database(path.join(root, "data/studio.sqlite"));
     let omittedAccounts = 0;
     try {
+      enableSecureDeletion(studio);
       normalizeMediaProcessingSnapshot(studio);
       normalizeExportFileRemovalSnapshot(studio);
       const previous = snapshotReferences(studio);
@@ -715,11 +731,13 @@ export async function restoreBackup(
         ? new Database(authFile)
         : undefined;
       try {
+        if (copiedAccounts) enableSecureDeletion(copiedAccounts);
         omittedAccounts = reconcileErasureSnapshot(
           studio,
           copiedAccounts,
           vault,
         ).omittedAccounts;
+        copiedAccounts?.exec("VACUUM");
       } finally {
         copiedAccounts?.close();
       }
@@ -780,6 +798,7 @@ export async function restoreBackup(
           path.join(root, "artifacts"),
         );
       normalizeJobHistorySnapshot(studio);
+      studio.exec("VACUUM");
     } finally {
       studio.close();
     }

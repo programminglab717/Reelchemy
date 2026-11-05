@@ -1,3 +1,4 @@
+import { enableSecureDeletion } from "./sqlite-private";
 import Database from "better-sqlite3";
 import {
   constants,
@@ -57,6 +58,7 @@ export function openAuthCleanupDatabase(vault: PrivacyVault) {
     checkFiles();
     database = new Database(filename, { fileMustExist: true });
     database.pragma("busy_timeout=5000");
+    enableSecureDeletion(database);
     checkFiles();
     assertAuthErasureSchema(database, vault);
     const opened = database,

@@ -1,3 +1,4 @@
+import { enableSecureDeletion } from "./sqlite-private";
 import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
 import { getMigrations } from "better-auth/db/migration";
@@ -84,6 +85,7 @@ function createAuth() {
     }
   }
   database.pragma("journal_mode = WAL");
+  enableSecureDeletion(database);
   database.pragma("busy_timeout = 5000");
   if (vault) {
     registerAuthErasureReader(database, vault);

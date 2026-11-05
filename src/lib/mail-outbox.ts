@@ -1,3 +1,4 @@
+import { enableSecureDeletion } from "./sqlite-private";
 import Database from "better-sqlite3";
 import {
   constants,
@@ -218,6 +219,7 @@ export function mailDirectoryTransaction<T>(
         try {
           if (!existing) chmodSync(path.join(anchor, "outbox.sqlite"), 0o600);
           database.pragma("busy_timeout=5000");
+          enableSecureDeletion(database);
           if (!existing) database.pragma("journal_mode=WAL");
           if (!existing) database.pragma("synchronous=FULL");
           if (!existing)

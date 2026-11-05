@@ -1,3 +1,4 @@
+import { enableSecureDeletion } from "./sqlite-private";
 import Database from "better-sqlite3";
 import { assertRestoreComplete } from "./restore-state";
 import { mkdirSync, lstatSync, unlinkSync } from "node:fs";
@@ -151,6 +152,7 @@ assertRestoreComplete(dataDir);
 mkdirSync(dataDir, { recursive: true });
 const db = new Database(path.join(dataDir, "studio.sqlite"));
 db.pragma("journal_mode = WAL");
+enableSecureDeletion(db);
 db.pragma("busy_timeout = 5000");
 db.exec(
   `CREATE TABLE IF NOT EXISTS projects(id TEXT PRIMARY KEY,data TEXT NOT NULL);CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY,project_id TEXT NOT NULL,status TEXT NOT NULL,data TEXT NOT NULL,timeline TEXT NOT NULL);`,
