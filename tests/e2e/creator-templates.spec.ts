@@ -345,7 +345,9 @@ test("scene notes and captions save as undoable edits while a live microphone ta
           .getByLabel(`${field} ${layer.id}`, { exact: true })
           .fill(String(value));
       await expect(saved).toHaveText("All changes saved");
-      await row.getByLabel("Motion", { exact: true }).selectOption("none");
+      await row
+        .getByRole("combobox", { name: "Motion", exact: true })
+        .selectOption("none");
       await expect(saved).toHaveText("All changes saved");
       return layer.assetId;
     };
