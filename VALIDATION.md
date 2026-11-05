@@ -1110,3 +1110,7 @@ The first frozen creator API run at `28c4c7f` passes seven of eight contracts in
 
 The corrected creator/API suite at frozen `5e9657c38be2dad625b2deb603cf490c1800ea25` passes **8/8 in 1.262 seconds**, no failures/skips (`0.58-creator-corrected.log/status`, all **485** inputs exact). It genuinely crosses the unchanged 1 MiB quota with a valid dense film, refuses atomically and preserves indexed usage/project count. Native/browser checks remain pending. Four HTTPS creator scenarios are now prepared: all three full-duration native-HD template exports plus note/caption undo and live microphone continuity. Starter caption/card sizes are adjusted against the shared caption geometry before actual visual acceptance.
 
+
+### Creator navigation and complete subtitle portability — candidate
+
+Frozen creator source `0401cd7` includes focusable desktop tool shortcuts and a mobile picker, preserving the existing edit/recording state while navigating. Subtitle imports remain bounded at 256 KiB, sufficient for all 500 maximum-length Unicode/entity-escaped cues exported by the app; a real export/import regression covers SRT and VTT plus UTF-8 byte overflow. Current-source type/lint pass (`0.58-{type,lint}-final-candidate.log`); complete fresh backend/native acceptance is running. All three full-duration native-HD starter exports and live recording-note continuity are prepared but not yet accepted. No actual user data, provider, mail delivery or deployment is involved.
