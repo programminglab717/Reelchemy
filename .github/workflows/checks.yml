@@ -10,7 +10,7 @@ concurrency:
 jobs:
   studio:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 90
     env:
       AI_PROVIDER: mock
       EMAIL_DELIVERY: file
@@ -21,10 +21,10 @@ jobs:
           node-version-file: .node-version
           cache: npm
       - run: npm ci
-      - name: Install media/browser prerequisites
+      - name: Install media/browser/backup prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg fonts-liberation
+          sudo apt-get install -y ffmpeg fonts-liberation restic util-linux
           npx playwright install --with-deps chromium
           node --input-type=module -e 'import {chromium} from "playwright-core"; console.log(`CHROMIUM_PATH=${chromium.executablePath()}`)' >> "$GITHUB_ENV"
       - run: npm run format:check
@@ -46,7 +46,7 @@ jobs:
             /tmp/reelchemy-e2e-*/services.log
   production:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -56,6 +56,16 @@ jobs:
         run: node scripts/container-build.ts --target test --tag reelchemy:checks
       - name: Build the production service image from the same source
         run: node scripts/container-build.ts --target app --tag reelchemy:runtime-checks
+      - name: Build the isolated backup operator image
+        run: node scripts/container-build.ts --target backup --tag reelchemy:backup-checks
+      - name: Encrypted repository and retention workflows without service credentials
+        run: >-
+          docker run --rm --network none --read-only
+          --cpus 2 --memory 2g --pids-limit 128
+          --cap-drop ALL --security-opt no-new-privileges
+          --tmpfs /tmp:rw,nosuid,nodev,uid=1000,gid=1000,mode=700,size=512m
+          reelchemy:backup-checks
+          node --import tsx scripts/test-unit.ts tests/encrypted-backup.test.ts
       - name: Production HTTPS, private accounts and real media workflows
         run: >-
           docker run --name reelchemy-production-checks --network none
