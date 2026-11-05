@@ -8,6 +8,7 @@ import { TypographyControls } from "./TypographyControls";
 import { LayerRotation } from "./LayerRotation";
 import { useState } from "react";
 import { duplicateLayer } from "@/lib/layer-edit";
+import { deleteSceneAndCloseGap } from "@/lib/scene-ripple";
 import {
   layerSchema,
   timelineSchema,
@@ -163,16 +164,28 @@ export function LayerEditor({
         <button
           className="subtle"
           disabled={timeline.scenes.length <= 1}
-          onClick={() =>
-            update({
-              ...timeline,
-              scenes: timeline.scenes.filter((_, i) => i !== selected),
-            })
-          }
+          aria-describedby="delete-scene-effect"
+          onClick={() => {
+            try {
+              update(deleteSceneAndCloseGap(timeline, selected));
+            } catch (problem) {
+              setError(
+                problem instanceof Error
+                  ? problem.message
+                  : "This scene could not be deleted.",
+              );
+            }
+          }}
         >
-          Delete scene
+          Delete scene and close gap
         </button>
       </div>
+      <p id="delete-scene-effect">
+        Deleting a scene closes its gap and moves later audio and captions
+        earlier. Captions across the cut are shortened; audio across it is split
+        with the existing fades shortened to fit. Undo restores the complete
+        edit.
+      </p>
       <CameraEditor
         key={`camera-${scene.id}`}
         scene={scene}

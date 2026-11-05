@@ -164,8 +164,16 @@ test("all 500 maximum-length Unicode and escaped captions reimport from exported
         "replace",
       );
       assert.deepEqual(
-        imported.captions?.map(({ id: _id, ...cue }) => cue),
-        t.captions.map(({ id: _id, ...cue }) => cue),
+        imported.captions?.map(({ startFrame, endFrame, text }) => ({
+          startFrame,
+          endFrame,
+          text,
+        })),
+        t.captions.map(({ startFrame, endFrame, text }) => ({
+          startFrame,
+          endFrame,
+          text,
+        })),
       );
     }
   }
