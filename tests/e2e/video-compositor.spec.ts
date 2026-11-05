@@ -42,7 +42,13 @@ test("native-HD footage, fixed title and caption gaps use compositing and yield 
     await page
       .getByRole("button", { name: "Start from a blank canvas" })
       .click();
+    await expect(
+      page.getByRole("heading", { name: "Project assets", exact: true }),
+    ).toHaveCount(1);
     await page.getByLabel("Upload video").setInputFiles(source);
+    await expect(
+      page.getByRole("heading", { name: "Project assets", exact: true }),
+    ).toHaveCount(1);
     await page
       .getByPlaceholder("I own this footage")
       .fill("Generated owned source fixture");
