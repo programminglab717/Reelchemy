@@ -311,7 +311,10 @@ async function restoreAndVerify(
   const capacity = await statfs(session.home, { bigint: true });
   if (
     !Number.isSafeInteger(bytes) ||
-    BigInt(bytes) + 64n * 1024n ** 2n > capacity.bavail * capacity.bsize
+    BigInt(bytes) +
+      BigInt(manifest.entries.length * 2 + 8) * capacity.bsize +
+      64n * 1024n ** 2n >
+      capacity.bavail * capacity.bsize
   )
     throw new EncryptedBackupUnavailable();
   const source = snapshot.paths[0];
@@ -389,6 +392,8 @@ export async function uploadEncryptedBackup(
     const hash = createHash("sha256")
       .update(await readFile(path.join(source, "manifest.json")))
       .digest("hex");
+    if ((await session.snapshots()).length >= 1000)
+      throw new EncryptedBackupUnavailable();
     const output = await session.run(
       [
         "backup",
