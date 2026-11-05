@@ -63,7 +63,7 @@ jobs:
           docker run --rm --network none --read-only
           --cpus 2 --memory 2g --pids-limit 128
           --cap-drop ALL --security-opt no-new-privileges
-          --tmpfs /tmp:rw,nosuid,nodev,uid=1000,gid=1000,mode=700,size=512m
+          --tmpfs /tmp:rw,exec,nosuid,nodev,uid=1000,gid=1000,mode=700,size=512m
           reelchemy:backup-checks
           node --import tsx scripts/test-unit.ts tests/encrypted-backup.test.ts
       - name: Production HTTPS, private accounts and real media workflows

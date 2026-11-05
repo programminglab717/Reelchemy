@@ -8,7 +8,7 @@ Current engineering checkpoint (0.59): five-minute/native-HD editing, private mu
 
 ## Run
 
-Requirements: Node.js 24 (see `.node-version`; minimum 22.13), npm, FFmpeg/ffprobe on PATH, Chromium and Linux `flock` for the render and ingestion workers. This cloud machine already supplies them. On Debian/Ubuntu, install system prerequisites with `sudo apt-get update && sudo apt-get install -y ffmpeg chromium util-linux`; installation may require host permission. Other platforms must provide a compatible Chromium and set `CHROMIUM_PATH`.
+Requirements: Node.js 24 (see `.node-version`; minimum 22.13), npm, FFmpeg/ffprobe on PATH, Chromium and Linux `flock` for the render and ingestion workers. The complete test suite and encrypted backup operator also require Restic 0.14 or newer. This cloud machine already supplies them. On Debian/Ubuntu, install system prerequisites with `sudo apt-get update && sudo apt-get install -y ffmpeg chromium util-linux restic`; installation may require host permission. Other platforms must provide a compatible Chromium and set `CHROMIUM_PATH`.
 
 ```sh
 cd /workspace/Reelchemy
@@ -163,7 +163,7 @@ Search projects by name and load additional pages from the sidebar or mobile pro
 
 `GET /api/health/live` reports process liveness. `GET /api/health` returns 200 only when the studio database, authentication initialization, writable storage/free-space floor and a render-worker heartbeat are healthy; otherwise it returns 503. Responses contain booleans only, without paths, credentials or project details. Heartbeats expire after 30 seconds. `REELCHEMY_MIN_FREE_BYTES` defaults to 200 MB (clamped to 50 MB–10 GB). This is an availability probe, not a render-capacity or SMTP-delivery guarantee. AI credentials are not required for readiness.
 
-The GitHub Actions workflow runs local/static/unit/build checks and isolated browser/media tests with demo AI and private synthetic mail. It is configuration until a hosted run is recorded; no remote push was performed.
+The GitHub Actions workflow runs local/static/unit/build checks and isolated browser/media tests with demo AI and private synthetic mail. Hosted results remain unverified from this environment. Source checkpoints are committed and pushed to GitHub; this is separate from production deployment.
 
 ## Backup and restore
 
