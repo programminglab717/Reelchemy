@@ -601,3 +601,53 @@ test("cancelled local checksum verification refuses without changing a completed
     await f.close();
   }
 });
+
+test("snapshot inventory and oversized restore metadata refuse before upload or restore mutation", async () => {
+  const f = await fixture();
+  try {
+    const source = await f.snapshot("bounds"),
+      marker = path.join(f.root, "unexpected-mutation"),
+      fake = path.join(f.root, "restic-bounds");
+    const manifest = {
+      format: "reelchemy-backup",
+      createdAt: new Date().toISOString(),
+      privacy: {
+        id: f.options.authorityId,
+        keyFingerprint: f.options.authorityFingerprint,
+      },
+      entries: [{ bytes: 1024 ** 4 }],
+    };
+    const body = JSON.stringify(manifest),
+      hash = createHash("sha256").update(body).digest("hex");
+    const snapshot = {
+      id: "c".repeat(64),
+      time: new Date().toISOString(),
+      hostname: `reelchemy-${f.options.authorityId}`,
+      paths: [source],
+      tags: f.tags(f.options, hash),
+    };
+    const program = (many: boolean) =>
+      `#!/usr/bin/env node\nconst fs = require('node:fs');\nif(process.argv.includes('cat')) console.log(JSON.stringify({id:${JSON.stringify(f.options.repositoryId)},version:2}));\nelse if(process.argv.includes('snapshots')) console.log(JSON.stringify(${JSON.stringify(many ? Array.from({ length: 1000 }, (_, i) => ({ ...snapshot, id: createHash("sha256").update(String(i)).digest("hex") })) : [snapshot])}));\nelse if(process.argv.includes('dump')) process.stdout.write(${JSON.stringify(body)});\nelse { fs.writeFileSync(${JSON.stringify(marker)},'unexpected'); process.exit(1); }\n`;
+    await writeFile(fake, program(true), { mode: 0o700 });
+    await assert.rejects(
+      () => uploadEncryptedBackup({ ...f.options, binary: fake }, source),
+      EncryptedBackupUnavailable,
+    );
+    assert.equal(
+      (await readdir(f.root)).includes(path.basename(marker)),
+      false,
+    );
+    await writeFile(fake, program(false), { mode: 0o700 });
+    await assert.rejects(
+      () => verifyEncryptedBackup({ ...f.options, binary: fake }, snapshot.id),
+      EncryptedBackupUnavailable,
+    );
+    assert.equal(
+      (await readdir(f.root)).includes(path.basename(marker)),
+      false,
+    );
+    assert.deepEqual((await inspectEncryptedBackups(f.options)).snapshots, []);
+  } finally {
+    await f.close();
+  }
+});
