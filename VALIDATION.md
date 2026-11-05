@@ -1216,3 +1216,28 @@ A focused release test proves escalation to SIGKILL for an owned SIGTERM-ignorin
 **Complete production HTTPS browser regression.** The same frozen source/build passes **89/89 in 41.7 minutes** (2,525.1 s wall including service startup). Playwright reports 89 expected, 0 skipped, 0 unexpected and 0 flaky; the fixture is `reelchemy-e2e-NVe1U6`, run with `REELCHEMY_CONTAINER_TESTS=1` inside this disposable cloud container rather than a Docker test image, with TLS verification enabled and the test CA confined to the fixture. This run includes cancellation releasing the worker for the next export, five-minute film/late-narration export, native-HD formats, all three full authored HD starters, mixed-media live-recording stories, accounts/privacy/deletion/storage/history/recovery and private downloads. It is the **first complete browser regression on the same source as a complete backend/native pass since 0.59**.
 
 Together these complete the 0.61 candidate's code acceptance: the policy and startup contracts, real-worker deadline enforcement and recovery, the complete backend/native suite, the production build/guards and the complete browser suite, all from one frozen source. They do **not** establish immutable images, hosted CI, constrained 2 CPU/4 GiB service capacity beyond the recorded synthetic benchmark, maker/artistic acceptance, real SMTP/off-host restore or live AI. No original database, media, backup, deployment or lifecycle lock outside disposable fixtures was touched.
+
+## Fair shared render queue — 0.62
+
+0.62 assigns each admitted export a fixed virtual finish key and claims the smallest. The queued maker sees a counts-only "N exports ahead" place. Focused unit coverage covers:
+
+- the cross-studio order C(20 s) → A(300 s) → B(300 s) → A(30 s), so one studio's follow-up stays behind its own first film, while other studios are not held behind both of its films;
+- live counts, including rendering work;
+- a retry keeping its place;
+- terminal/cancelled jobs releasing keys;
+- fixed keys not being overtaken once aged;
+- legacy unkeyed jobs keeping rowid priority.
+
+A new production browser case starts a 60-second planned film. A second export from the UI shows "Waiting in the render queue · 1 export ahead"; the job API returns `queueAhead: 1` without the other job's identifier; after cancellation of the first, the second completes and shows "Your film is ready."
+
+Frozen **`5b9b003`** (non-root UID 1000, same cloud container and method as 0.61, no resource cgroup) passes:
+
+- **550/550 complete backend/native checks** in 748.2 seconds;
+- production build/guards/type/lint/format in 72.5 seconds (BUILD_ID `NJkjEjaOMf01C0MjtxtBW`, the same ten pre-existing Turbopack tracing warnings);
+- the **complete 90/90 production HTTPS browser regression** in 41.1 minutes, with 0 skipped/unexpected/flaky cases (fixture `reelchemy-e2e-vFwVZ3`).
+
+A focused production run of both lifecycle cases plus a private, uncommitted screenshot walkthrough also passed (3/3). The walkthrough's findings are addressed in the next candidate.
+
+**Hosted CI.** The GitHub API reports `total_count: 0` workflows and 0 workflow runs for `programminglab717/Reelchemy`, although `.github/workflows/checks.yml` is committed on `work`. Hosted Actions appears disabled or never registered for the repository; a repository administrator must enable it. No hosted CI result exists.
+
+**Interrupted capacity attempt.** A constrained five-minute square native-HD motion benchmark (cgroup-v1: 2 CPU CFS quota, 4 GiB memory, 256 tasks) on accepted 0.61 source was in frame rendering at about 1.22 GB peak when the cloud container restarted. The log shows session termination before the subsequent browser crash. This is an infrastructure interruption, not a product result, and no capacity conclusion is drawn; it is to be rerun.

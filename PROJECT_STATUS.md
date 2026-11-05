@@ -4,7 +4,7 @@ Reviewed 6 November 2026 (Asia/Karachi); updated after 0.61 acceptance on 5 Nove
 
 ## Committed checkpoints
 
-- Accepted application code: **0.61.0** on `work`, accepted from frozen source `5567641` (render-budget candidate plus native-release fix and handoff documentation). The previous accepted code was `ece58be` (0.60.0).
+- Accepted application code: **0.62.0** on `work` (fair shared render queue), accepted from frozen source `5b9b003`. 0.61.0 was accepted from `5567641`; 0.60.0 was `ece58be`.
 - `codex/render-budget` (`7768981`) is superseded by `work`; its history is preserved in `work`.
 - No production deployment, original database migration/compaction, original backup removal or live AI/SMTP operation has been performed.
 - The 0.61 acceptance ran in a new cloud environment. The previous workspace's `/workspace/Reelchemy-evidence` tree and private drivers were not available; new-environment evidence logs are outside Git and are summarized in VALIDATION.md.
@@ -74,6 +74,9 @@ Reviewed 6 November 2026 (Asia/Karachi); updated after 0.61 acceptance on 5 Nove
 | Complete backend/native suite at 0.61                         | **548/548**, 735.0 seconds    | Frozen `5567641`, non-root, new 4-CPU cloud container without a resource cgroup; includes real-worker deadline/native-release checks.  |
 | Production build/guards/type/lint/format at 0.61              | Passed, 64.6 seconds          | BUILD_ID `jhCNJk17WYSUPgO7rQEn4`; ten pre-existing Turbopack tracing warnings, identical at 0.60; private-trace guard passes.          |
 | Complete production HTTPS browser regression at 0.61          | **89/89**, 41.7 minutes       | Same frozen source/build; zero skipped/unexpected/flaky. Disposable cloud container, not a Docker test image; no peak memory recorded. |
+| Complete backend/native suite at 0.62                         | **550/550**, 748.2 seconds    | Frozen `5b9b003`, same method as 0.61; adds fair-queue ordering/position contracts.                                                    |
+| Complete production HTTPS browser regression at 0.62          | **90/90**, 41.1 minutes       | Same frozen source/build (BUILD_ID `NJkjEjaOMf01C0MjtxtBW`); includes the visible queue-position case; zero skipped/flaky.             |
+| Hosted GitHub Actions                                         | **Not running**               | GitHub reports zero registered workflows and runs despite committed `checks.yml`; repository-admin action needed.                      |
 | Five-minute landscape HD footage/caption/audio measurement    | Passed in **545.831 seconds** | Synthetic 2 CPU/4 GiB case, 9,000 frames; not a general load/quality guarantee.                                                        |
 | Five-minute portrait HD procedural-motion measurement at 0.61 | Passed in **680.990 seconds** | 1080×1920, 30 fps, 9,000 frames, 15 scenes; approximately 1.26 GiB peak, no OOM/swap, within a bounded 15-minute budget.               |
 
@@ -93,7 +96,7 @@ Detailed frozen-source identifiers, resource records, failures/corrections and a
 
 - Choose/provision the production host, domain/TLS/reverse proxy, durable storage and secret management; validate the real configuration.
 - Build and exercise the actual immutable app/test/operator images. Local Docker VFS capacity has blocked that acceptance; source-mounted verification does not substitute for it.
-- Obtain actual hosted CI results. Workflow configuration and GitHub pushes are present, but Actions API reads from this environment have been forbidden.
+- Obtain actual hosted CI results. Actions reads now work, but GitHub reports **zero registered workflows and zero runs**: Actions appears disabled for the repository and needs administrator action.
 - Run staging deployment/migration/rollback and restart/crash/recovery drills on the chosen infrastructure.
 - Establish measured load/capacity targets, monitoring/alerts, supervision and incident procedures.
 - Configure actual encrypted off-host storage, verify a real off-host restore, and define/execute policies for original local snapshots, provider object versions/replicas and host snapshots.
