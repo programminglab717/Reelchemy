@@ -230,7 +230,7 @@ export function creatorTemplateTimeline(id: CreatorTemplateId): Timeline {
         fontWeight: "bold",
         animation: id === "clear-explainer" ? "none" : "rise",
       },
-      text("body", item.body, 0.08, 0.43, 0.84, 0.13, portrait ? 34 : 28),
+      text("body", item.body, 0.08, 0.43, 0.84, 0.13, portrait ? 44 : 32),
       {
         id: "progress",
         kind: "rectangle",
@@ -270,7 +270,7 @@ export function creatorTemplateTimeline(id: CreatorTemplateId): Timeline {
             y,
             width - 0.03,
             height,
-            portrait ? 28 : 24,
+            portrait ? 36 : 24,
             accent,
           ),
           fontWeight: "medium",
@@ -296,7 +296,7 @@ export function creatorTemplateTimeline(id: CreatorTemplateId): Timeline {
     exportResolution: "1080p",
     scenes,
     captionStyle: {
-      fontSize: 28,
+      fontSize: portrait ? 48 : 40,
       position: "bottom",
       backgroundOpacity: 0.87,
       margin: 3,

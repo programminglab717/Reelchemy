@@ -139,10 +139,10 @@ test("initial film admission is atomic when its first saved version exceeds the 
     film = creatorTemplateTimeline(template.id);
   const keys = Array.from({ length: 30 }, (_, frame) => ({
     frame,
-    x: 0,
-    y: 0,
-    scale: 1,
-    opacity: 1,
+    x: 0.123456789012345,
+    y: 0.123456789012345,
+    scale: 1.123456789012345,
+    opacity: 0.987654321098765,
   }));
   film.scenes = Array.from({ length: 15 }, (_, i) => ({
     ...structuredClone(film.scenes[0]),
