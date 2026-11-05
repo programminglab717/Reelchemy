@@ -1,4 +1,7 @@
 import { spawn } from "node:child_process";
+import { renderAttemptPolicy } from "../src/lib/render-attempt-policy";
+// Refuse invalid operator configuration before creating consumer state or locks.
+renderAttemptPolicy();
 import { mkdir, open } from "node:fs/promises";
 import path from "node:path";
 const directory = path.resolve(process.env.REELCHEMY_DATA_DIR || ".data");

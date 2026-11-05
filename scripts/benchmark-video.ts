@@ -1,4 +1,5 @@
 import { MAX_TIMELINE_SECONDS } from "../src/lib/timeline-limits";
+import { renderAttemptPolicy } from "../src/lib/render-attempt-policy";
 import path from "node:path";
 import { mkdir, readFile, writeFile, realpath } from "node:fs/promises";
 import { execFile } from "node:child_process";
@@ -66,7 +67,7 @@ try {
     profile,
     experimentalPipelineOnly: true,
     publicSupportedSeconds: MAX_TIMELINE_SECONDS,
-    deadlineMs: 600000,
+    deadlineMs: renderAttemptPolicy("")(Number(duration) * 30),
     outputCeilingBytes: 512 * 1024 ** 2,
   };
   failureContext.settings = settings;

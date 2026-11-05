@@ -1,6 +1,8 @@
 import { open, unlink, writeFile, rename, readFile } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { totalFrames } from "../src/lib/schema";
+import { renderAttemptPolicy } from "../src/lib/render-attempt-policy";
 import {
   artifactDir,
   dataDir,
@@ -38,6 +40,7 @@ import {
 import { processProjectDeletion } from "../src/lib/project-cleanup";
 const lock = path.join(dataDir, "worker.lock");
 async function main() {
+  const attemptBudget = renderAttemptPolicy();
   const instanceId = randomUUID();
   const cachePolicy = cacheRetentionPolicy();
   const kernelManaged = process.env.REELCHEMY_WORKER_KERNEL_LOCK === "1";
@@ -252,12 +255,7 @@ async function main() {
       maintenanceDue = true;
       const { job, timeline } = claimed;
       console.log(JSON.stringify({ event: "render.start", jobId: job.id }));
-      const deadline =
-        Date.now() +
-        Math.max(
-          60000,
-          Math.min(900000, Number(process.env.RENDER_JOB_TIMEOUT_MS) || 600000),
-        );
+      const deadline = Date.now() + attemptBudget(totalFrames(timeline));
       let meter: Awaited<ReturnType<typeof beginExportMeter>> | undefined;
       let footprint: { bytes: number; files: number } | undefined;
       let nativeClosed = false;
@@ -320,7 +318,7 @@ async function main() {
         const error = meter?.error ?? caught;
         const message =
           Date.now() > deadline
-            ? "Export exceeded its total time limit."
+            ? "Export exceeded its total time limit. Try a shorter film, lower resolution, or less continuous motion."
             : error instanceof Error
               ? error.message
               : "Render failed";
