@@ -795,7 +795,7 @@ export function Studio({
               )}
             </section>
             <p className="home-foot">
-              No templates to fit into. Just room to create.
+              Start from your own idea, a blank canvas or an editable starter.
             </p>
           </div>
         ) : (

@@ -240,7 +240,7 @@ test("scene notes and captions save as undoable edits while changing recording n
   await expect(saved).toHaveText("All changes saved");
   expect((await read()).timeline.audioTracks[0].startFrame).toBe(450);
   await page.reload();
-  await page.getByRole("button", { name: template.name, exact: false }).click();
+  await page.getByRole("button", { name: template.name, exact: true }).click();
   await page
     .getByRole("button", {
       name: `Timeline scene 2: ${project.timeline.scenes[1].title}`,
