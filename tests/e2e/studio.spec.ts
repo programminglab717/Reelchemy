@@ -416,5 +416,7 @@ test("scene-only preview and generic character/arrow/camera primitives render to
     .locator("summary")
     .filter({ hasText: /^Export activity$/ })
     .click();
-  await expect(page.getByText(/Preparing scene previews/)).toBeVisible();
+  await expect(
+    page.getByText(/Verifying encoded frames and scene previews/),
+  ).toBeVisible();
 });
