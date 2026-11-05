@@ -133,9 +133,10 @@ async function regular(file: string) {
     );
   return stat;
 }
-async function digest(file: string) {
+async function digest(file: string, signal?: AbortSignal) {
   const hash = createHash("sha256");
-  for await (const chunk of createReadStream(file)) hash.update(chunk);
+  for await (const chunk of createReadStream(file, { signal }))
+    hash.update(chunk);
   return hash.digest("hex");
 }
 function openVerified(
@@ -489,7 +490,11 @@ export async function createBackup(options: {
     throw e;
   }
 }
-export async function verifyBackup(root: string): Promise<Manifest> {
+export async function verifyBackup(
+  root: string,
+  options: { signal?: AbortSignal } = {},
+): Promise<Manifest> {
+  options.signal?.throwIfAborted();
   const directory = await lstat(root);
   if (!directory.isDirectory() || directory.isSymbolicLink())
     throw new Error("Backup must be a regular directory.");
@@ -505,6 +510,7 @@ export async function verifyBackup(root: string): Promise<Manifest> {
     !expected.has("data/studio.sqlite")
   )
     throw new Error("Duplicate or missing backup entries.");
+  options.signal?.throwIfAborted();
   const actual = await listedFiles(root);
   if (
     actual.length !== expected.size + 1 ||
@@ -512,13 +518,15 @@ export async function verifyBackup(root: string): Promise<Manifest> {
   )
     throw new Error("Backup contains unexpected or missing files.");
   for (const entry of manifest.entries) {
+    options.signal?.throwIfAborted();
     const file = path.join(root, entry.path);
     if (
       (await regular(file)).size !== entry.bytes ||
-      (await digest(file)) !== entry.sha256
+      (await digest(file, options.signal)) !== entry.sha256
     )
       throw new Error(`Backup checksum mismatch: ${entry.path}`);
   }
+  options.signal?.throwIfAborted();
   const studio = openVerified(path.join(root, "data/studio.sqlite"));
   let refs: ReturnType<typeof snapshotReferences>;
   try {

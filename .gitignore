@@ -4,6 +4,7 @@ next-env.d.ts
 *.tsbuildinfo
 .env*
 !.env.example
+!.env.backup.example
 .data/
 private-auth/
 private-privacy/

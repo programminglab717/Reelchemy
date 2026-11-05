@@ -39,13 +39,23 @@ USER node
 FROM build AS test
 USER root
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends openssl libnss3-tools \
+    && apt-get install -y --no-install-recommends openssl libnss3-tools restic \
     && rm -rf /var/lib/apt/lists/*
 USER node
 ENV REELCHEMY_CONTAINER_TESTS=1 \
     AI_PROVIDER=mock \
     EMAIL_DELIVERY=file
 CMD ["npm", "run", "test:production"]
+
+# Operator-only image: no app services or original state are mounted implicitly.
+FROM build AS backup
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends restic \
+    && rm -rf /var/lib/apt/lists/*
+USER node
+ENV NODE_ENV=production
+CMD ["node", "--import", "tsx", "scripts/encrypted-backup.ts", "inspect"]
 
 FROM build AS app
 ENV NODE_ENV=production \

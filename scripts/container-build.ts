@@ -10,11 +10,11 @@ for (let i = 0; i < flags.length; i++) {
   else if (flags[i] === "--tag" && flags[i + 1]) tag = flags[++i];
   else
     throw new Error(
-      "Usage: npm run container:build -- [--target app|test] [--tag image-name]",
+      "Usage: npm run container:build -- [--target app|test|backup] [--tag image-name]",
     );
 }
 if (
-  !["app", "test"].includes(target) ||
+  !["app", "test", "backup"].includes(target) ||
   !/^[a-z0-9][a-z0-9._:/-]{0,180}$/.test(tag)
 )
   throw new Error("Invalid container build target/tag.");

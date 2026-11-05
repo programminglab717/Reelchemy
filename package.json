@@ -1,6 +1,6 @@
 {
   "name": "reelchemy",
-  "version": "0.59.0",
+  "version": "0.60.0",
   "private": true,
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0",
@@ -36,7 +36,8 @@
     "privacy:worker": "tsx scripts/privacy-entrypoint.ts",
     "privacy:retry": "tsx scripts/privacy-retry.ts",
     "benchmark:video": "tsx scripts/benchmark-video.ts",
-    "storage:compact": "tsx scripts/database-compaction.ts"
+    "storage:compact": "tsx scripts/database-compaction.ts",
+    "backup:encrypted": "tsx scripts/encrypted-backup.ts"
   },
   "dependencies": {
     "@remotion/bundler": "4.0.539",
