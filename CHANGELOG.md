@@ -435,3 +435,9 @@ Add a selected-layer duplicate action to the canvas and advanced layer controls.
 - Add searchable/paged caption editing, scene-scoped long-film caption tracks, longer timeline zoom and correct late narration positions.
 - Fence extended current/history/brief/job data with independent archive/backup capabilities; preserve legacy and native-HD behavior. Align detailed-save, bounded reopen and compact downloadable recovery limits.
 - A constrained synthetic full-frame HD five-minute pipeline passes in 545.831 seconds with a 1.82 GiB container peak and 371.5 MiB final output. Complete current-source backend/build/browser acceptance remains pending. No deployment or live SMTP/AI verification.
+
+## 0.57.0 — 2026-11-05 candidate
+
+- Add descriptor-only database storage inspection and explicit offline compaction of current studio/account databases under both exclusive locks, preserving retained rows, schema and database inodes. Refuse missing/private-unsafe stores, busy WAL readers and insufficient capacity without initializing or migrating anything.
+- Enable connection-local secure deletion for application/private-auth/mail writers. Compact only owned inactive backup/restore copies after existing privacy reconciliation, clearing obsolete payload before publication while preserving source databases and older snapshots.
+- Twenty-one focused real SQLite/command/mail/backup checks pass, including raw-byte deleted-data checks. Complete current-source backend/build/browser acceptance remains pending. Historical/off-host backup and device-level retention remain separate gates; no actual installation is compacted.
