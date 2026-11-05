@@ -27,7 +27,7 @@ Reviewed 6 November 2026 (Asia/Karachi). This records implemented functionality 
 - Text/typography controls, supported font families, colors, media fit/crop/alignment and visual layer/camera keyframes.
 - Timeline zoom/scrub, scene reorder/duplication, splitting, media trim/move and scene-only preview.
 - Explicit scene deletion that closes the time gap, moves later audio/captions, splits retained audio source ranges and supports one-step undo.
-- Editing limits: five minutes, sixty scenes, twelve independent audio tracks and five hundred caption cues, subject to existing per-scene/media/document/output constraints.
+- Editing limits: five minutes, sixty scenes, twelve independent audio tracks and five hundred caption cues. Individual scenes remain bounded to twenty seconds; individual input video/audio files remain capped at 120 seconds, and microphone takes at sixty seconds. The five-minute limit is the assembled project duration. Document/output limits also apply.
 
 ### Media, voice and captions
 
@@ -84,7 +84,7 @@ Detailed frozen-source identifiers, resource records, failures/corrections and a
 1. **Finish 0.61 acceptance.** Run its complete backend/native regression, production build/guards and relevant real worker/browser checks. Verify explicit deadline enforcement and clean recovery into a subsequent export. Review final configuration/documentation, then integrate the candidate into accepted `work`.
 2. **Broader render capacity.** Current long-form evidence covers specific synthetic landscape-footage and portrait-motion cases. Broaden representative format/motion/mixed-media cases and measure service throughput, queue behavior and failure recovery under load. These results may require further performance fixes or clearer supported-workload guidance.
 3. **Creator acceptance and usability.** Complete real editing sessions against useful videos, review the whole exported films and fix the resulting workflow/visual/audio issues. Synthetic microphone tones and codec checks cannot establish spoken narration or artistic quality. A review pack with actual exports/notes/screenshots is available in the workspace.
-4. **Remaining advanced editing scope.** Custom uploaded brand fonts, arbitrary layer masks, animated rotation and a general linked-track ripple/grouping workflow are not implemented. Existing static rotation, system typography, scene splitting, track manipulation and synchronized scene deletion are available. Whether those advanced tools are required for the first launch needs creator/use-case feedback.
+4. **Remaining advanced editing scope.** Custom uploaded brand fonts, arbitrary layer masks, animated rotation and a general linked-track ripple/grouping workflow are not implemented. Existing static rotation, system typography, scene splitting, track manipulation and synchronized scene deletion are available. Longer continuous source imports/takes would also need additional ingestion/recording work. Whether these capabilities are required for the first launch needs creator/use-case feedback.
 5. **Final real AI integration verification.** Adapters and mocked contracts exist; actual authentication/model/endpoint behavior, plan/revision quality, latency, spending/usage and provider failures still need live checks and any resulting fixes. This stays at the end, as requested.
 
 ## Production release work still open
