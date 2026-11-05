@@ -113,3 +113,25 @@ test("large sparse exports are measured by metadata without hashing their logica
       { bytes: 2 * 1024 ** 3, files: 1 },
     );
   }));
+
+test("encoded verification files remain metered through frame promotion and failed-output cleanup", async () =>
+  fixture(async (f) => {
+    await mkdir(f.dir);
+    await writeFile(path.join(f.dir, "encoded-frame-0001.png"), "PENDING");
+    await writeFile(path.join(f.dir, "verification-tail.png"), "TAIL");
+    for (const working of [true, false])
+      assert.deepEqual(await measureExportFiles(f.root, f.jobId, { working }), {
+        bytes: 11,
+        files: 2,
+      });
+    const { inspectExportFiles, removeReviewedExportFiles } =
+      await import("../src/lib/export-file-tree");
+    const reviewed = await inspectExportFiles(f.root, {
+      jobId: f.jobId,
+      projectId: "project",
+      workspaceId: "studio",
+    });
+    assert.equal(reviewed.files.length, 2);
+    await removeReviewedExportFiles(f.root, reviewed, () => false);
+    await assert.rejects(lstat(f.dir), { code: "ENOENT" });
+  }));

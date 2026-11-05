@@ -52,7 +52,7 @@ export const exportFileIdentity = z
   .strict();
 const numbered = "(?:[1-9]|1[0-2])";
 const filename = new RegExp(
-  `^(?:video\\.mp4|muxed\\.mp4|thumbnail\\.png|report\\.json|captions\\.(?:srt|vtt)|concat-scenes\\.txt|scene-${numbered}-(?:begin\\.png|middle\\.png|end\\.png|event-[0-9]{1,3}\\.png|motion\\.mp4)|layout-${numbered}-(?:before|after)\\.png)$`,
+  `^(?:video\\.mp4|muxed\\.mp4|thumbnail\\.png|verification-tail\\.png|encoded-frame-[0-9]{4}\\.png|report\\.json|captions\\.(?:srt|vtt)|concat-scenes\\.txt|scene-${numbered}-(?:begin\\.png|middle\\.png|end\\.png|event-[0-9]{1,3}\\.png|motion\\.mp4)|layout-${numbered}-(?:before|after)\\.png)$`,
 );
 export const validExportFilename = (name: string) => filename.test(name);
 export const exportFileEntry = exportFileIdentity
