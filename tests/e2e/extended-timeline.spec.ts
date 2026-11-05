@@ -11,6 +11,7 @@ test("a five-minute film survives editing and archive transfer and exports its l
   request,
 }, testInfo) => {
   test.setTimeout(660000);
+  page.setDefaultTimeout(15000);
   const root = await mkdtemp(path.join(tmpdir(), "reelchemy-long-maker-"));
   try {
     await page.goto("/");
@@ -31,7 +32,9 @@ test("a five-minute film survives editing and archive transfer and exports its l
     await expect(
       page.getByLabel("Timeline playhead", { exact: true }),
     ).toHaveAttribute("max", "8999");
-    await page.getByRole("button", { name: /^15 · Scene 15/ }).click();
+    await page
+      .getByRole("button", { name: "Timeline scene 15: Scene 15", exact: true })
+      .click();
     await page
       .getByLabel("Scene title", { exact: true })
       .fill("The closing scene");
@@ -208,6 +211,7 @@ test("500 imported caption cues stay searchable and paged through undo, reload a
   page,
   request,
 }, testInfo) => {
+  page.setDefaultTimeout(15000);
   const created = await request.post("/api/projects", {
     data: {
       prompt: "Long caption collection",
