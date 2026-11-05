@@ -1,6 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, stat, rm, access } from "node:fs/promises";
+import {
+  mkdtemp,
+  mkdir,
+  readFile,
+  readdir,
+  stat,
+  rm,
+  access,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
@@ -238,6 +246,14 @@ test(
       assert.equal((await liveNativeRenderJobs(data)).size, 0);
       await assert.rejects(() =>
         access(path.join(artifacts, job.id, "video.mp4")),
+      );
+      // The abandoned scene's unpublished cache staging is removed too.
+      const cacheNames = await readdir(path.join(root, "cache"), {
+        recursive: true,
+      }).catch(() => [] as string[]);
+      assert(
+        !cacheNames.some((name) => path.basename(name).startsWith(".partial-")),
+        `Unpublished scene staging remains: ${cacheNames.join(", ")}`,
       );
       assert.equal(app.exportStorage(workspace).reservedBytes, 0);
       assert.equal(app.jobHistoryStorage(workspace).reservedBytes, 0);

@@ -56,8 +56,10 @@ test(
           format: "landscape" as const,
         },
         initial = app.createProject(brief, workspace);
-      const noise = await sharp(randomBytes(1280 * 720 * 3), {
-        raw: { width: 1280, height: 720, channels: 3 },
+      // Native-HD incompressible noise keeps the retained failed output above
+      // the 1 MiB ceiling regardless of encoder version, not only its peak.
+      const noise = await sharp(randomBytes(1920 * 1080 * 3), {
+        raw: { width: 1920, height: 1080, channels: 3 },
       })
         .png()
         .toBuffer();
@@ -68,6 +70,7 @@ test(
       );
       assert(app.appendOwnedAsset(initial.id, workspace, asset));
       const timeline = blankTimeline(brief);
+      timeline.exportResolution = "1080p";
       timeline.scenes[0].layers = [
         {
           ...timeline.scenes[0].layers[0],
