@@ -74,6 +74,12 @@ const ideas: { icon: IconName; tag: string; title: string; prompt: string }[] =
       prompt: "A bold, minimal launch film for a new creative notebook.",
     },
   ];
+// Shared single-worker queue: show the count ahead, never other studios' work.
+function queueMessage(ahead: number | undefined) {
+  if (ahead === undefined) return "Waiting for the render worker…";
+  if (ahead === 0) return "Next in the render queue…";
+  return `Waiting in the render queue · ${ahead} ${ahead === 1 ? "export" : "exports"} ahead`;
+}
 export function Studio({
   userId,
   userName,
@@ -1602,7 +1608,7 @@ export function Studio({
                               : job.status === "cancelled"
                                 ? "Export cancelled"
                                 : job.status === "queued"
-                                  ? "Waiting for the render worker…"
+                                  ? queueMessage(job.queueAhead)
                                   : `${job.stage || "Rendering your story"} · ${Math.round(job.progress * 100)}%`}
                       </strong>
                       {active && (

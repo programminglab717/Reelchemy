@@ -384,3 +384,15 @@ These are per-attempt deadlines, not export-time estimates or throughput guarant
 ### Attempt teardown and native release
 
 When an attempt ends through its deadline, cancellation, output ceiling or failure, Remotion can leave its image-pipe FFmpeg stitcher blocked on an abandoned input pipe after the render promise settles. The consumer now gives its own marked native processes a three-second natural-exit grace, then sends SIGTERM and, after five seconds, SIGKILL — only to same-UID **descendants of the current consumer** carrying that job/studio marker and an unchanged PID-start identity. Marked processes the consumer did not start (for example from an earlier crashed consumer) are never signalled; startup still waits and reports `PREVIOUS_NATIVE_ATTEMPT_ACTIVE` for operator review. If owned marked work survives SIGKILL, the attempt still fails closed, readiness drops and the consumer exits for review. Each `render.start` log records the captured `budgetMs`. Without this release, the new real-worker deadline test showed a deadline-expired five-minute portrait motion export leaving the stitcher alive, after which the consumer exited and all rendering stopped until operator intervention. Whether earlier user cancellations could hit the same race depends on timing/stage; the release now covers every attempt ending.
+
+## Shared render queue order (0.62 candidate)
+
+The single render consumer no longer claims strictly first-come-first-served. Each admitted export gets a fixed key: the later of its admission time and its studio's latest pending key, plus its film running time. The smallest key renders next. Consequences:
+
+- A studio's own exports keep their admission order.
+- A studio's second long film queues behind other studios' work instead of ahead of everyone.
+- Shorter films are not held behind unrelated long films.
+- Keys never change, so later arrivals eventually rank behind any waiting job and nothing starves.
+- Automatic retries keep their place. Queued jobs admitted before this release (no key) keep rowid priority.
+
+Keys live in `render_queue_keys` and are removed by triggers when a job becomes terminal or is deleted; backups/restore need no special handling (restored active jobs become failed and release their keys). The service-wide active limit (5) and per-studio limit are unchanged. A queued maker sees "Waiting in the render queue · N exports ahead", a count of rendering plus higher-ranked queued work only; no other studio's details are exposed. Shorter work admitted later can still move ahead, so the count can rise.

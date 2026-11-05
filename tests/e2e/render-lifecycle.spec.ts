@@ -68,3 +68,73 @@ test("cancelling an active frame render releases the worker for the next private
     404,
   );
 });
+
+test("a second export waits with a visible place in the shared render queue and starts once the earlier work is cancelled", async ({
+  page,
+  request,
+}) => {
+  const long = await (
+    await request.post("/api/projects", {
+      data: {
+        prompt: "Hold the shared render worker",
+        duration: 60,
+        format: "landscape",
+      },
+    })
+  ).json();
+  expect(
+    (
+      await request.post(`/api/projects/${long.id}/plan`, { data: {} })
+    ).status(),
+  ).toBe(200);
+  const admission = await request.post(`/api/projects/${long.id}/render`);
+  expect(admission.status(), await admission.text()).toBe(202);
+  const first = await admission.json();
+  await expect
+    .poll(
+      async () => {
+        const current = await (
+          await request.get(`/api/jobs/${first.id}`)
+        ).json();
+        if (["failed", "completed"].includes(current.status))
+          throw new Error(current.error || "Render ended too early.");
+        return current.status;
+      },
+      { timeout: 60000, intervals: [100, 200, 300] },
+    )
+    .toBe("rendering");
+  const waiting = await (
+    await request.post("/api/projects", {
+      data: {
+        prompt: "Queued behind another export",
+        duration: 5,
+        format: "landscape",
+        blank: true,
+      },
+    })
+  ).json();
+  try {
+    await page.goto("/");
+    await page.getByRole("button", { name: waiting.name, exact: true }).click();
+    await page.getByRole("button", { name: /Approve & export MP4/ }).click();
+    await expect(
+      page.getByText("Waiting in the render queue · 1 export ahead", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    // Counts only: the response carries no detail of the other export.
+    const jobs = await (
+      await request.get(`/api/projects/${waiting.id}/render`)
+    ).json();
+    const queued = (Array.isArray(jobs) ? jobs : (jobs.jobs ?? jobs.items))[0];
+    const view = await (await request.get(`/api/jobs/${queued.id}`)).json();
+    expect(view.status).toBe("queued");
+    expect(view.queueAhead).toBe(1);
+    expect(JSON.stringify(view)).not.toContain(first.id);
+  } finally {
+    expect((await request.delete(`/api/jobs/${first.id}`)).ok()).toBeTruthy();
+  }
+  await expect(
+    page.getByText("Your film is ready.", { exact: true }),
+  ).toBeVisible({ timeout: 120000 });
+});

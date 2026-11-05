@@ -1,13 +1,16 @@
 import { secureRoute } from "@/lib/access";
-import { getJob, updateJob } from "@/lib/db";
+import { getJob, jobQueueAhead, updateJob } from "@/lib/db";
 import { failure, localMutation } from "@/lib/http";
 type Context = { params: Promise<{ id: string }> };
 async function GETHandler(_: Request, { params }: Context) {
   try {
     const job = getJob((await params).id);
-    return job
-      ? Response.json(job)
-      : Response.json({ error: "Job not found" }, { status: 404 });
+    if (!job) return Response.json({ error: "Job not found" }, { status: 404 });
+    const queueAhead =
+      job.status === "queued" ? jobQueueAhead(job.id) : undefined;
+    return Response.json(
+      queueAhead === undefined ? job : { ...job, queueAhead },
+    );
   } catch (error) {
     return failure(error);
   }

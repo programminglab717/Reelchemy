@@ -1,4 +1,10 @@
-import { timelineSchema } from "./schema";
+import { timelineSchema, totalFrames } from "./schema";
+import {
+  migrateRenderQueue,
+  assignRenderQueueKey,
+  renderQueueOrder,
+  renderQueueAhead,
+} from "./render-queue";
 import { enableSecureDeletion } from "./sqlite-private";
 import Database from "better-sqlite3";
 import { assertRestoreComplete } from "./restore-state";
@@ -197,6 +203,7 @@ db.transaction(() => {
   migrateMediaReferences(db);
   migrateProjectDeletions(db);
   migrateExportFileRemovals(db);
+  migrateRenderQueue(db);
   migrateExportStorage(db);
   migrateJobHistoryStorage(db);
   if (
@@ -1062,6 +1069,12 @@ function enqueueJob(project: Project, workspaceId?: string) {
     JSON.stringify(job),
     JSON.stringify(project.timeline),
   );
+  assignRenderQueueKey(
+    db,
+    job.id,
+    workspaceForProject(project.id) ?? null,
+    totalFrames(project.timeline),
+  );
   reserveExportStorage(
     db,
     job.id,
@@ -1104,6 +1117,7 @@ export function getJob(id: string): RenderJob | undefined {
     ...(retired ? { retired: true } : {}),
   };
 }
+export const jobQueueAhead = (id: string) => renderQueueAhead(db, id);
 export const jobProjectId = (id: string) =>
   (
     db.prepare("SELECT project_id FROM jobs WHERE id=?").get(id) as
@@ -1236,7 +1250,7 @@ export function claimJob(): { job: RenderJob; timeline: Timeline } | null {
     .transaction(() => {
       const row = db
         .prepare(
-          `SELECT id,project_id,CASE WHEN length(CAST(data AS BLOB))<=${maximumJobDocumentBytes} THEN data END AS data,CASE WHEN length(CAST(timeline AS BLOB))<=${maximumJobTimelineBytes} THEN timeline END AS timeline FROM jobs WHERE status='queued' ORDER BY rowid LIMIT 1`,
+          `SELECT id,project_id,CASE WHEN length(CAST(data AS BLOB))<=${maximumJobDocumentBytes} THEN data END AS data,CASE WHEN length(CAST(timeline AS BLOB))<=${maximumJobTimelineBytes} THEN timeline END AS timeline FROM jobs WHERE status='queued' ORDER BY ${renderQueueOrder} LIMIT 1`,
         )
         .get() as
         | {

@@ -370,6 +370,8 @@ export type RenderJob = {
   retryCount?: number;
   stage?: string;
   events?: { at: string; stage: string; message: string }[];
+  // Read-only, never persisted: exports ahead of a queued job (counts only).
+  queueAhead?: number;
 };
 // Active exports expose only metadata needed by the workspace queue panel.
 export type ActiveStudioExport = Pick<
