@@ -270,7 +270,7 @@ export function creatorTemplateTimeline(id: CreatorTemplateId): Timeline {
             y,
             width - 0.03,
             height,
-            portrait ? 36 : 24,
+            portrait ? 48 : 24,
             accent,
           ),
           fontWeight: "medium",
@@ -296,7 +296,7 @@ export function creatorTemplateTimeline(id: CreatorTemplateId): Timeline {
     exportResolution: "1080p",
     scenes,
     captionStyle: {
-      fontSize: portrait ? 48 : 40,
+      fontSize: 32,
       position: "bottom",
       backgroundOpacity: 0.87,
       margin: 3,
