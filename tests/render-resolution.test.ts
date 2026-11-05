@@ -145,6 +145,54 @@ test(
         );
         assert.equal(full.export.fps, 30);
         assert.equal(full.export.duration, 2);
+        const sample = full.qc.samples[0];
+        const fromMovie = execFileSync(
+          "ffmpeg",
+          [
+            "-v",
+            "error",
+            "-threads",
+            "2",
+            "-filter_threads",
+            "1",
+            "-i",
+            full.export.path,
+            "-vf",
+            `select=eq(n\\,${sample.frame})`,
+            "-frames:v",
+            "1",
+            "-pix_fmt",
+            "rgb24",
+            "-f",
+            "rawvideo",
+            "pipe:1",
+          ],
+          { timeout: 15000, maxBuffer: 8 * 1024 ** 2 },
+        );
+        const fromEvidence = execFileSync(
+          "ffmpeg",
+          [
+            "-v",
+            "error",
+            "-threads",
+            "2",
+            "-i",
+            path.join(path.dirname(full.export.path), sample.file),
+            "-frames:v",
+            "1",
+            "-pix_fmt",
+            "rgb24",
+            "-f",
+            "rawvideo",
+            "pipe:1",
+          ],
+          { timeout: 15000, maxBuffer: 8 * 1024 ** 2 },
+        );
+        assert.deepEqual(
+          fromEvidence,
+          fromMovie,
+          "review evidence must be the actual encoded frame",
+        );
         assert(full.qc.audio.peakDb !== null && full.qc.audio.peakDb > -80);
         const meta = JSON.parse(
           execFileSync(

@@ -238,6 +238,7 @@ type CachedSceneOptions = {
   cancelSignal: Parameters<typeof renderMedia>[0]["cancelSignal"];
   isCancelled: () => boolean;
   onProgress: (n: number) => void;
+  finalize?: (silentVideo: string) => Promise<void>;
 };
 export async function renderCachedScenes(options: CachedSceneOptions) {
   // Linux production holds this namespace inode through native concatenation.
@@ -397,30 +398,39 @@ async function renderScenesInDirectory(
     list,
     clips.map((file) => `file '${file.replace(/'/g, "'\\''")}'`).join("\n"),
   );
-  await runCommand(
-    "ffmpeg",
-    [
-      "-v",
-      "error",
-      "-y",
-      "-protocol_whitelist",
-      "file,pipe",
-      "-f",
-      "concat",
-      "-safe",
-      "0",
-      "-i",
-      list,
-      "-map",
-      "0:v:0",
-      "-c:v",
-      "copy",
-      "-an",
-      "-movflags",
-      "+faststart",
-      outputLocation,
-    ],
-    { timeoutMs: 60000, cancelled: isCancelled },
-  );
+  const combined = options.finalize
+    ? path.join(cacheRoot, `.partial-${randomUUID()}`)
+    : undefined;
+  if (combined) await mkdir(combined);
+  try {
+    await runCommand(
+      "ffmpeg",
+      [
+        "-v",
+        "error",
+        "-y",
+        "-protocol_whitelist",
+        "file,pipe",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-i",
+        list,
+        "-map",
+        "0:v:0",
+        "-c:v",
+        "copy",
+        "-an",
+        "-movflags",
+        "+faststart",
+        combined ? path.join(combined, "video.mp4") : outputLocation,
+      ],
+      { timeoutMs: 60000, cancelled: isCancelled },
+    );
+    if (combined) await options.finalize!(path.join(combined, "video.mp4"));
+  } finally {
+    if (combined) await rm(combined, { recursive: true, force: true });
+  }
   return cache;
 }

@@ -186,7 +186,7 @@ export async function renderVideoComposite(options: {
         "-c:v",
         "libx264",
         "-preset",
-        "medium",
+        "fast",
         "-crf",
         "18",
         "-threads",

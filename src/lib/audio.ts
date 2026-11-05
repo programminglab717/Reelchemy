@@ -105,14 +105,24 @@ export async function storeAudio(
     await rm(dir, { recursive: true, force: true });
   }
 }
+export type AudioMixReport = {
+  tracks: number;
+  codec: "aac" | null;
+  peakDb: number | null;
+  duration: number | null;
+  note?: string;
+};
 export async function muxAudio(
   t: Timeline,
   videoPath: string,
   cancelled: () => boolean = () => false,
-) {
+  destination = videoPath,
+): Promise<AudioMixReport> {
   const tracks = [...(t.audioTracks || []), ...clipAudioTracks(t)];
   if (tracks.length > 32)
     throw new Error("Use at most 32 audible clips/tracks per export.");
+  if (!tracks.length && destination !== videoPath)
+    throw new Error("A separate mux destination requires audio tracks.");
   if (!tracks.length)
     return { tracks: 0, codec: null, peakDb: null, duration: null };
   const inputs: string[] = [],
@@ -142,7 +152,7 @@ export async function muxAudio(
   filters.push(
     `${tracks.map((_, i) => `[a${i}]`).join("")}amix=inputs=${tracks.length}:normalize=0,alimiter=limit=0.95:latency=1,apad,atrim=duration=${totalFrames(t) / 30}[mix]`,
   );
-  const output = path.join(path.dirname(videoPath), "muxed.mp4");
+  const output = path.join(path.dirname(destination), "muxed.mp4");
   await runCommand(
     "ffmpeg",
     [
@@ -174,13 +184,14 @@ export async function muxAudio(
     ],
     { timeoutMs: 60000, cancelled },
   );
-  await rename(output, videoPath);
-  const probe = probeMedia(videoPath),
+  await rename(output, destination);
+  const probe = probeMedia(destination),
     audio = probe.streams.find(
       (s: { codec_type: string }) => s.codec_type === "audio",
     );
   if (
     audio?.codec_name !== "aac" ||
+    !Number.isFinite(Number(audio.duration)) ||
     Math.abs(Number(audio.duration) - totalFrames(t) / 30) > 0.04
   )
     throw new Error("Audio duration/codec verification failed.");
@@ -189,7 +200,7 @@ export async function muxAudio(
     [
       "-hide_banner",
       "-i",
-      videoPath,
+      destination,
       "-af",
       "volumedetect",
       "-vn",

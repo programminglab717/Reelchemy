@@ -1,6 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, readdir } from "node:fs/promises";
+import {
+  mkdtemp,
+  readFile,
+  rm,
+  readdir,
+  mkdir,
+  access,
+} from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
@@ -35,6 +42,7 @@ test(
       const { storeImage, assetDir } = await import("../src/lib/assets");
       const { serveRenderAssets } = await import("../src/lib/render-assets");
       const { renderCachedScenes } = await import("../src/lib/render-cache");
+      const { muxAudio } = await import("../src/lib/audio");
       const source = path.join(root, "generated.mp4");
       execFileSync(
         "ffmpeg",
@@ -48,6 +56,12 @@ test(
           // half has a spatial gradient for fit/crop checks. A one-frame trim
           // error must not hide behind slowly moving test-pattern details.
           "nullsrc=size=96x64:rate=30:duration=6,geq=r='if(lt(X,W/2),mod(N*73,256),255*X/W)':g='if(lt(X,W/2),mod(N*151,256),255*Y/H)':b='if(lt(X,W/2),mod(N*197,256),255*(X+Y)/(W+H))'",
+          "-f",
+          "lavfi",
+          "-i",
+          "sine=frequency=440:sample_rate=48000:duration=6",
+          "-c:a",
+          "aac",
           "-c:v",
           "libx264",
           "-threads",
@@ -265,6 +279,61 @@ test(
                 outputLocation: path.join(root, "cached-again.mp4"),
               });
               assert.equal(replay[0].reused, true);
+              const finalDirectory = path.join(root, "finalized");
+              await mkdir(finalDirectory);
+              const destination = path.join(finalDirectory, "video.mp4");
+              const voiced = structuredClone(input);
+              voiced.scenes[0].layers[1].video!.audio = true;
+              voiced.scenes[0].layers[1].video!.volume = 0.2;
+              let finalized = false;
+              await renderCachedScenes({
+                ...cacheOptions,
+                timeline: voiced,
+                outputLocation: destination,
+                finalize: async (silent) => {
+                  assert(!silent.startsWith(finalDirectory + path.sep));
+                  await assert.rejects(() => access(destination));
+                  const raw = await readFile(silent);
+                  const audio = await muxAudio(
+                    voiced,
+                    silent,
+                    () => false,
+                    destination,
+                  );
+                  assert.equal(audio.codec, "aac");
+                  assert(audio.peakDb !== null && audio.peakDb > -80);
+                  assert.deepEqual(await readFile(silent), raw);
+                  const frameHashes = (file: string) =>
+                    execFileSync(
+                      "ffmpeg",
+                      [
+                        "-v",
+                        "error",
+                        "-threads",
+                        "2",
+                        "-i",
+                        file,
+                        "-map",
+                        "0:v:0",
+                        "-f",
+                        "framemd5",
+                        "pipe:1",
+                      ],
+                      { timeout: 15000 },
+                    );
+                  assert.deepEqual(
+                    frameHashes(destination),
+                    frameHashes(silent),
+                    "audio finalization must preserve every video frame and its timing",
+                  );
+                  finalized = true;
+                },
+              });
+              assert(finalized);
+              assert.deepEqual((await readdir(finalDirectory)).sort(), [
+                "concat-scenes.txt",
+                "video.mp4",
+              ]);
               let cancelled = false;
               await assert.rejects(
                 () =>
