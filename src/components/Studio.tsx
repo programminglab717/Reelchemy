@@ -1435,7 +1435,7 @@ export function Studio({
                   onChange={changeTimeline}
                 />
                 <MediaEditor
-                  key={project.id}
+                  key={`media-editor:${project.id}`}
                   timeline={timeline}
                   assets={project.assets || []}
                   onChange={changeTimeline}

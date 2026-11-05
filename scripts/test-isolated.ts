@@ -51,9 +51,14 @@ for (const file of [
     recursive: true,
     mode: constants.COPYFILE_FICLONE,
   });
-await cp(path.resolve("node_modules"), path.join(app, "node_modules"), {
+const dependencies = path.resolve("node_modules");
+await cp(dependencies, path.join(app, "node_modules"), {
   recursive: true,
   mode: constants.COPYFILE_FICLONE,
+  // Compiler caches are generated per source/build and can exceed the runtime
+  // dependencies. A fixture must not inherit/copy every prior renderer build.
+  filter: (source) =>
+    path.relative(dependencies, source).split(path.sep)[0] !== ".cache",
 });
 if (production) {
   await access(".next/BUILD_ID");
