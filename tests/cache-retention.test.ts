@@ -210,6 +210,39 @@ test("expired clips and interrupted partial captures are reclaimed, counting har
   assert.equal(existsSync(expired.target), false);
   assert.equal(existsSync(retained.target), true);
 });
+test("an interrupted footage-compositor capture is reclaimed, but unexpected compositor files still refuse", () => {
+  const directory = fixture(),
+    studio = randomUUID();
+  const retained = clip(directory, studio, "b".repeat(64), 100);
+  const partial = path.join(directory, studio, `.partial-${randomUUID()}`),
+    stills = path.join(partial, "composite-XyZ789");
+  mkdirSync(stills, { recursive: true });
+  writeFileSync(path.join(stills, "under.png"), Buffer.alloc(40));
+  writeFileSync(path.join(stills, "over-0000.png"), Buffer.alloc(30));
+  linkSync(
+    path.join(stills, "over-0000.png"),
+    path.join(stills, "over-0001.png"),
+  );
+  const plan = planSceneCacheRetention(policy, directory, now);
+  assert.equal(plan.report.bytes, retained.bytes + 70);
+  assert.deepEqual(
+    plan.remove.map((entry) => entry.reason),
+    ["interrupted"],
+  );
+  applySceneCacheRetention(plan);
+  assert.equal(existsSync(partial), false);
+  assert.equal(existsSync(retained.target), true);
+  const other = path.join(directory, studio, `.partial-${randomUUID()}`),
+    unexpected = path.join(other, "composite-AbC123");
+  mkdirSync(unexpected, { recursive: true });
+  writeFileSync(path.join(unexpected, "notes.txt"), "not a capture");
+  refusal(() => planSceneCacheRetention(policy, directory, now));
+  assert.equal(existsSync(path.join(unexpected, "notes.txt")), true);
+  const misplaced = path.join(directory, studio, "c".repeat(64));
+  rmSync(other, { recursive: true, force: true });
+  mkdirSync(path.join(misplaced, "composite-AbC123"), { recursive: true });
+  refusal(() => planSceneCacheRetention(policy, directory, now));
+});
 test("configured source/account/export roots and their ancestors can never be adopted as a cache", () => {
   for (const directory of [
     root,

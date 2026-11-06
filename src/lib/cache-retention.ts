@@ -211,7 +211,7 @@ function scan(fd: number): Inventory {
     name: string,
     relative: string,
     staging = false,
-    frames = false,
+    frames: RegExp | false = false,
   ): Tree {
     const directory = openDirectory(path.join(parent, name));
     try {
@@ -226,17 +226,28 @@ function scan(fd: number): Inventory {
       for (const item of names(anchor(directory))) {
         const file = path.join(anchor(directory), item);
         const stat = lstatSync(file);
-        if (
-          staging &&
-          /^static-[A-Za-z0-9]{6}$/.test(item) &&
-          stat.isDirectory()
-        ) {
+        // Interrupted staging may hold the still-scene renderer's frames or
+        // the footage compositor's under/over stills; nothing else is adopted.
+        const capture = !staging
+          ? undefined
+          : /^static-[A-Za-z0-9]{6}$/.test(item)
+            ? /^frame-\d{4}\.jpeg$/
+            : /^composite-[A-Za-z0-9]{6}$/.test(item)
+              ? /^(?:under|over-\d{4})\.png$/
+              : undefined;
+        if (capture && stat.isDirectory()) {
           result.children.push(
-            tree(anchor(directory), item, `${relative}/${item}`, false, true),
+            tree(
+              anchor(directory),
+              item,
+              `${relative}/${item}`,
+              false,
+              capture,
+            ),
           );
         } else if (
           (frames
-            ? /^frame-\d{4}\.jpeg$/.test(item)
+            ? frames.test(item)
             : ["video.mp4", "manifest.json"].includes(item)) &&
           stat.isFile()
         ) {

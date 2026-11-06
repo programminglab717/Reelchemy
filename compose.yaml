@@ -48,6 +48,13 @@ x-export-environment: &exportfiles
 x-mail-environment: &mailqueue
   REELCHEMY_MAIL_PENDING_COUNT: ${REELCHEMY_MAIL_PENDING_COUNT:-1000}
   REELCHEMY_MAIL_PENDING_BYTES: ${REELCHEMY_MAIL_PENDING_BYTES:-16777216}
+# Thread pools size themselves by the host's visible cores, not the CPU quota.
+# Small single-purpose services run several Node/esbuild processes under a
+# 64-task limit (including their tsx healthcheck), so bound those pools.
+x-small-threads: &smallthreads
+  UV_THREADPOOL_SIZE: "2"
+  GOMAXPROCS: "1"
+  NODE_OPTIONS: --v8-pool-size=2
 x-runtime: &runtime
   image: reelchemy:local
   build:
@@ -82,7 +89,7 @@ services:
     healthcheck:
       disable: true
     environment:
-      <<: [*paths, *auth, *privacy]
+      <<: [*paths, *auth, *privacy, *smallthreads]
     volumes:
       - studio-data:/app/.data
       - studio-artifacts:/app/artifacts
@@ -190,7 +197,15 @@ services:
       - studio-auth:/app/private-auth
       - *privacy-mount
     environment:
-      <<: [*privacy, *projectdata, *exportfiles, *media, *mailqueue]
+      <<:
+        [
+          *privacy,
+          *projectdata,
+          *exportfiles,
+          *media,
+          *mailqueue,
+          *smallthreads,
+        ]
       REELCHEMY_DATA_DIR: /app/.data
       REELCHEMY_AUTH_DIR: /app/private-auth
       REELCHEMY_ARTIFACT_DIR: /app/artifacts
@@ -217,7 +232,7 @@ services:
     volumes:
       - studio-auth:/app/private-auth
     environment:
-      <<: [*paths, *mailqueue]
+      <<: [*paths, *mailqueue, *smallthreads]
       EMAIL_DELIVERY: smtp
       REELCHEMY_AUTH_DIR: /app/private-auth
       SMTP_HOST: ${SMTP_HOST:?Set an SMTP host}
