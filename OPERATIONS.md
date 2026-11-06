@@ -415,3 +415,13 @@ Thread pools in Chromium and FFmpeg scale with **visible** CPU cores, not the co
 ### Small-service thread bounds (0.65)
 
 `compose.yaml` sets `UV_THREADPOOL_SIZE=2`, `GOMAXPROCS=1` and `NODE_OPTIONS=--v8-pool-size=2` for `migrate`, `privacy` and `mail` (each limited to 64 tasks). Without them, the privacy worker plus its tsx healthcheck reached 70 tasks on a 4-core host and crashed; with them it peaks at 54. Hosts with many more cores should re-run `npm run test:runtime` and watch container `pids.events`. If a render crash ever leaves cache maintenance blocked (`cache.prune.blocked`), inspect the scene-cache volume before removing anything. 0.65 recognises the compositor's interrupted staging automatically.
+
+### Upgrade and rollback drill (0.66)
+
+Before a release, build the candidate and keep the previous app image, then run:
+
+```sh
+node scripts/check-runtime.ts --image reelchemy:candidate --upgrade-from reelchemy:previous
+```
+
+It uses a disposable Compose project and synthetic data only. It follows the documented order: stop every writer, run the one-shot migration, then start the other image's services on the same volumes. Exports from either version must remain decodable and new exports must complete after both the upgrade and the rollback. Migrations are additive, so rolling back runs the older code over the newer schema. Verified for 0.61 ⇄ 0.66, which crosses the 0.62 queue-key table. A rollback across a future destructive migration would need its own plan and a pre-upgrade backup. Always take and verify a coordinated backup before upgrading real data.

@@ -502,3 +502,10 @@ Add a selected-layer duplicate action to the canvas and advanced layer controls.
 - Bound libuv, V8-platform and Go (esbuild) thread pools for the migrate, privacy and mail services. Pools follow the host's visible cores, and on a 4-core host the privacy service and its tsx healthcheck reached 70 tasks under a 64-task limit and crashed with `errno=11`. With the bounds, the measured peak is 54.
 - Record the first immutable app/test image acceptance in this environment. Images are built from the unmodified Dockerfile on a sandbox-only proxy-CA base image (overlayfs storage).
 - Accepted from `33fa994`: 552/552 backend/native checks in source mode; the restricted Compose runtime check passes three times on the app image; the complete 90/90 production browser suite passes inside the immutable test image; the backup image builds and refuses without configuration.
+
+## 0.66.0 — 2026-11-06
+
+- Keep private account cleanup healthy before the first account message is queued. The cleanup batch queried the mail outbox whenever the mail directory existed, but that directory can exist without an outbox (mail-worker lock/heartbeat files, isolation files). Every batch then failed and the privacy service stayed unhealthy, leaving erasures unprocessed, until someone signed up. It now checks for the outbox itself and never creates one.
+- Add an upgrade/rollback drill: `node scripts/check-runtime.ts --image <candidate> --upgrade-from <previous>`. It seeds data and an export on the previous image, models queued account mail, stops writers, migrates and switches to the candidate, verifies the earlier export and a new one, then rolls back over the same volumes and verifies both earlier exports and another new export.
+- The runtime check now also requires private-cleanup health at the end; previously it checked only at startup, which let the defect above pass silently.
+- Accepted from `74b29e2`: 553/553 backend/native checks; the restricted runtime check and the 0.61 ⇄ 0.66 upgrade/rollback drill pass on the app image; the complete 90/90 production browser suite passes inside the test image.

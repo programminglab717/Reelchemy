@@ -4,7 +4,7 @@ Reviewed 6 November 2026 (Asia/Karachi); updated after 0.61 acceptance on 5 Nove
 
 ## Committed checkpoints
 
-- Accepted application code: **0.65.0** on `work` (crash-in-compositor recovery, small-service thread bounds; first immutable-image acceptance), accepted from `33fa994`. 0.64.0 (bounded render task count, mail setup retry) was `a3941f4`. 0.63.0 (creator-first layout) was `7eed554`; 0.62.0 (fair shared render queue) was `5b9b003`; 0.61.0 was `5567641`; 0.60.0 was `ece58be`.
+- Accepted application code: **0.66.0** on `work` (account-cleanup readiness fix, upgrade/rollback drill), accepted from `74b29e2`. 0.65.0 (crash-in-compositor recovery, small-service thread bounds; first immutable-image acceptance) was `33fa994`. 0.64.0 (bounded render task count, mail setup retry) was `a3941f4`. 0.63.0 (creator-first layout) was `7eed554`; 0.62.0 (fair shared render queue) was `5b9b003`; 0.61.0 was `5567641`; 0.60.0 was `ece58be`.
 - `codex/render-budget` (`7768981`) is superseded by `work`; its history is preserved in `work`.
 - No production deployment, original database migration/compaction, original backup removal or live AI/SMTP operation has been performed.
 - The 0.61 acceptance ran in a new cloud environment. The previous workspace's `/workspace/Reelchemy-evidence` tree and private drivers were not available; new-environment evidence logs are outside Git and are summarized in VALIDATION.md.
@@ -80,6 +80,7 @@ Reviewed 6 November 2026 (Asia/Karachi); updated after 0.61 acceptance on 5 Nove
 | Complete backend/native + browser at 0.64                     | **551/551**, **90/90**                        | Frozen `a3941f4`.                                                                                                                      |
 | Constrained five-minute native-HD capacity (2 CPU/4 GiB/256)  | Square/landscape motion and full-footage pass | 678 s / 738 s / 673 s; full-footage failed on the task limit before 0.64 (now peak 230 tasks). See OPERATIONS.md.                      |
 | Immutable app/test/backup images at 0.65                      | Runtime check ×3, **90/90** in image          | Unmodified Dockerfile on a sandbox proxy-CA base (acceptance builds, not release images); overlayfs Docker in the cloud container.     |
+| Upgrade/rollback drill 0.61 ⇄ 0.66 (images)                   | **Passed**                                    | Synthetic Compose project on one host: stop writers, migrate, switch images both ways, exports stay decodable, new exports complete.   |
 | Hosted GitHub Actions                                         | **Not running**                               | GitHub reports zero registered workflows and runs despite committed `checks.yml`; repository-admin action needed.                      |
 | Five-minute landscape HD footage/caption/audio measurement    | Passed in **545.831 seconds**                 | Synthetic 2 CPU/4 GiB case, 9,000 frames; not a general load/quality guarantee.                                                        |
 | Five-minute portrait HD procedural-motion measurement at 0.61 | Passed in **680.990 seconds**                 | 1080×1920, 30 fps, 9,000 frames, 15 scenes; approximately 1.26 GiB peak, no OOM/swap, within a bounded 15-minute budget.               |
@@ -101,7 +102,7 @@ Detailed frozen-source identifiers, resource records, failures/corrections and a
 - Choose/provision the production host, domain/TLS/reverse proxy, durable storage and secret management; validate the real configuration.
 - Immutable app/test/backup images are now built from the unmodified Dockerfile and pass the restricted runtime check and the complete in-image browser suite (0.65). They use a sandbox-only proxy-CA base, so release images must still be built by the chosen CI/registry from the official base.
 - Obtain actual hosted CI results. Actions reads now work, but GitHub reports **zero registered workflows and zero runs**: Actions appears disabled for the repository and needs administrator action.
-- Run staging deployment/migration/rollback and restart/crash/recovery drills on the chosen infrastructure.
+- Run staging deployment/migration/rollback and restart/crash/recovery drills on the chosen infrastructure. A local image upgrade/rollback drill (0.61 ⇄ 0.66) and in-flight crash recovery already pass in a disposable single-host Compose project.
 - Establish measured load/capacity targets, monitoring/alerts, supervision and incident procedures.
 - Configure actual encrypted off-host storage, verify a real off-host restore, and define/execute policies for original local snapshots, provider object versions/replicas and host snapshots.
 - Verify actual SMTP delivery/recovery with an explicitly configured test recipient/service; no real email has been sent.

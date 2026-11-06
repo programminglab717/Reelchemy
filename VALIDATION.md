@@ -1324,3 +1324,26 @@ The resulting images therefore trust the sandbox proxy CA and are **acceptance b
 - **Backup image** `reelchemy:backup-065`: builds; contains Restic 0.14.0 and Node 24.19.0 and runs as `node`. With no repository configuration, its default `inspect` command refuses without initializing data.
 
 This is the first **immutable-image** acceptance of the app, test and backup targets since the earlier VFS block, with the sandbox-CA caveat above. Hosted CI, a registry, staging/deploy/rollback, monitoring, real SMTP/off-host restore and live AI remain open.
+
+## Upgrade/rollback drill and account-cleanup readiness — 0.66
+
+The new `check-runtime.ts --upgrade-from` drill first failed while switching from 0.61 to the candidate: private cleanup never became healthy again. A live replay of the privacy worker's batch inside the candidate container raised `MailUnavailable` from `pendingAccountMailPreparations`. The private mail directory existed (holding only the harness's `isolation-canary.json`), but `outbox.sqlite` did not. The cleanup batch treated "mail directory exists" as "outbox exists", so every batch failed. In production, starting the SMTP mail worker (lock/heartbeat files) before anyone signs up would have left account cleanup unhealthy and erasures unprocessed. Logs from the ordinary runtime check show it hit this silently mid-run: it verified privacy health only at startup. 0.66 checks for the outbox file and adds a regression test that fails on the old code and passes on the new.
+
+The drill models an installation with queued account mail; no mail worker runs. It removes the harness's isolation canary first, because a real outbox correctly refuses unexpected files.
+
+Final 0.66 (`74b29e2`):
+
+- **Source mode:** **553/553 complete backend/native checks** in 654.9 seconds.
+- **App image** `reelchemy:local-066` (`sha256:35d29b9c…`): the ordinary restricted runtime check passes in 52.4 seconds, now including the end-of-run private-cleanup health requirement. The **upgrade/rollback drill from `reelchemy:previous-061`** (`sha256:5ce64f49…`, accepted 0.61 source `e9a34ba`) passes in 70.8 seconds:
+  - seed and export on 0.61;
+  - queue synthetic mail;
+  - stop all writers, run the 0.66 migration and recreate services on the 0.66 image (image IDs verified);
+  - the 0.61 export stays decodable and a new 0.66 export completes;
+  - stop writers again, run the 0.61 migration idempotently over 0.66 data (including the 0.62 queue-key table) and recreate services on 0.61;
+  - both earlier exports stay decodable and another export completes.
+
+  Disposable projects and volumes are removed afterwards.
+
+- **Test image** `reelchemy:verification-066` (`sha256:a7f5493c…`, BUILD_ID `Bk9bCNukaywKTtu9j4Ln5`): **90/90 production HTTPS browser cases in 39.7 minutes** inside the image (`--network none`, 4 CPU/6 GiB/512 tasks), 0 skipped/unexpected/flaky.
+
+The images carry the sandbox proxy-CA caveat recorded for 0.65. The drill uses synthetic data in a single host's Compose project; it is not a hosted staging deployment, and real data upgrades still require a coordinated, verified backup first.
