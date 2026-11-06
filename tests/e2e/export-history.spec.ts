@@ -87,8 +87,9 @@ test("compact export pages reach an older real MP4, recover read failures and pr
     await page.route(
       `**/api/projects/${project.id}/render?**`,
       async (route) => {
+        // Keep failing until the user retries: development mode can mount the
+        // history twice and would otherwise hide the first failed read.
         if (failPage) {
-          failPage = false;
           return route.fulfill({
             status: 503,
             json: { error: "Synthetic unavailable history" },
@@ -109,6 +110,7 @@ test("compact export pages reach an older real MP4, recover read failures and pr
     await expect(
       history.getByRole("alert", { name: "Export history error", exact: true }),
     ).toContainText("Could not load export history");
+    failPage = false;
     await history
       .getByRole("button", { name: "Refresh export history", exact: true })
       .click();

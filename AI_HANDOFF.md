@@ -6,14 +6,14 @@ Read `AGENTS.md`, `PROJECT_STATUS.md`, `VALIDATION.md`, `PRODUCTION_PLAN.md`, `O
 
 ## Git state
 
-- `origin/work` contains the accepted **0.66** application (accepted source `74b29e2`; 0.65 `33fa994`; 0.64 `a3941f4`; 0.63 `7eed554`; 0.62 `5b9b003`; 0.61 `5567641`), status report and this handoff. It includes the former `codex/render-budget` candidate history, which is now superseded.
+- `origin/work` contains the **0.69** application (own AI keys, Cloudflare Tunnel deployment helper, five-minute sources, animated rotation, masks, brand fonts, scene-length ripple); its verification is in VALIDATION.md. The last fully accepted release was **0.66** (accepted source `74b29e2`; 0.65 `33fa994`; 0.64 `a3941f4`; 0.63 `7eed554`; 0.62 `5b9b003`; 0.61 `5567641`), status report and this handoff. It includes the former `codex/render-budget` candidate history, which is now superseded.
 - Do not assume `main` is current. Fetch and inspect remote branches before work. Keep new candidates separate from accepted code until their acceptance checks pass. Do not force-push or rewrite existing history.
 
 ## User instructions
 
 Continue autonomously through milestones until the coding is complete or genuine user input is required. Do not stop after every milestone or repeatedly ask permission to continue. Give meaningful progress updates. Preserve original databases, media, backups and permanent lifecycle lock inodes; use isolated fixtures for migrations, deletion, compaction and restore tests. Do not deploy or operate on an actual installation without authorization.
 
-Keep live AI verification until the very end; the user will supply the key later. Mocked providers, synthetic accounts/mail and real local Chromium/FFmpeg tests should support independent progress now. Actual SMTP/cloud service tests require appropriate configuration and authorization. Do not claim production readiness from offline tests alone.
+Keep live AI verification until the very end. The owner will test with their own key, entered in Account settings → AI director (encrypted per studio, deletable); never ask for the key in chat or put it in files or environment variables. Mocked providers, synthetic accounts/mail and real local Chromium/FFmpeg tests should support independent progress now. Actual SMTP/cloud service tests require appropriate configuration and authorization. Do not claim production readiness from offline tests alone.
 
 ## Implemented baseline and evidence
 
@@ -34,7 +34,9 @@ The duration-based attempt budget is accepted. New real-worker coverage (`tests/
 
 ## Immediate next work
 
-1. Accepted: fair shared render queue (0.62) and creator-first layout from a screenshot walkthrough (0.63). Hosted Actions shows zero registered workflows; a repository admin must enable Actions.
+0. 0.67–0.69: hosted Actions is enabled and runs `checks.yml` on every push to `work` (it cancels the previous run on the same branch). The owner plans to deploy on their office Ubuntu server behind a Cloudflare Tunnel with `deploy/reelchemy.sh` (DEPLOYMENT.md) once authorized, then add SMTP details (`--smtp-*`) when provided. Planned commercial model: studios bring their own Anthropic/OpenAI/Gemini key and/or use the platform key with metered usage (`REELCHEMY_PLATFORM_AI`, `ai:entitlement`, `ai:usage`); pricing is undecided.
+
+1. Accepted: fair shared render queue (0.62) and creator-first layout from a screenshot walkthrough (0.63).
 2. Done in 0.64: constrained five-minute capacity for square/landscape motion and full-footage under 2 CPU/4 GiB/256 tasks (cgroup-v1 runner), including a task-limit fix. Next capacity steps: concurrent throughput and many-core hosts.
 3. Done in 0.65: immutable app/test/backup images pass the restricted runtime check and the in-image 90-case browser suite. In this cloud environment, start `dockerd --data-root /home/dockerdata`, build the sandbox base from upstream node plus `/root/.ccr/ca-bundle.crt` with HTTPS Debian sources, and pass `--build-arg NODE_VERSION=24.19.0-ccrproxy`; never ship those images.
 4. Done in 0.66: `check-runtime.ts --upgrade-from <previous>` upgrade/rollback drill (0.61 ⇄ 0.66 passes) and an account-cleanup readiness fix.

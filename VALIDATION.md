@@ -1347,3 +1347,63 @@ Final 0.66 (`74b29e2`):
 - **Test image** `reelchemy:verification-066` (`sha256:a7f5493c…`, BUILD_ID `Bk9bCNukaywKTtu9j4Ln5`): **90/90 production HTTPS browser cases in 39.7 minutes** inside the image (`--network none`, 4 CPU/6 GiB/512 tasks), 0 skipped/unexpected/flaky.
 
 The images carry the sandbox proxy-CA caveat recorded for 0.65. The drill uses synthetic data in a single host's Compose project; it is not a hosted staging deployment, and real data upgrades still require a coordinated, verified backup first.
+
+## Hosted CI, own AI keys, deployment, long media, motion and brand fonts — 0.67–0.69
+
+**Hosted GitHub Actions.** The owner enabled Actions on 6 November.
+
+- **Run #1** (`1a91253`): 535/553 backend checks failed. One unrelated same-user runner process had an unreadable `/proc/<pid>/environ` (EACCES), and render recovery treated it as a possible leftover renderer, so every worker refused to start. Inside the image, the production job passed 90/90 browser cases. The restricted runtime check then failed: Chromium's crash reporter aborted with "--database is required" on the read-only root filesystem.
+- **Run #2** (`001ba55`): the recovery fix (unreadable processes are ignored unless they are named like a browser, FFmpeg, Remotion, Node or shell process) let `npm test`, the build and the typecheck pass on the hosted runner. This run predates the crash-directory fix and was superseded by later pushes.
+
+**Crash-report directory (0.68).** The render browser launcher and the layout check pass `--crash-dumps-dir` under the private temporary directory, and services set `XDG_CONFIG_HOME`/`XDG_CACHE_HOME` to `/tmp`.
+
+**Deployment helper (0.67, re-verified at 0.69).** `deploy/reelchemy.sh` was exercised end to end with Docker in the sandbox, using synthetic accounts and a placeholder hostname:
+
+- install, verified account creation and tunnel-style sign-in (origin equal to the public URL);
+- closed sign-up refused;
+- an AI key saved (only the last four characters returned) and used for planning;
+- a foreign origin refused;
+- coordinated backup with restart, and update.
+
+At 0.69 a fresh install from the committed source reached readiness, then:
+
+- a WOFF2 font uploaded through the read-only ingest container;
+- the font applied to the title;
+- an export completed in the read-only render container (the report keeps the `fontAssetId`).
+
+The disposable deployment and its privacy volume were removed afterwards. These are sandbox images built on the proxy-CA base, not the owner's server.
+
+**Brand fonts (0.69).** Evidence:
+
+- Unit checks cover container validation (real WOFF2; synthetic TTF/OTF/WOFF; PNG, collection, truncated, out-of-range and inconsistent files refused), byte-for-byte storage, text-only references, QC, scene-cache invalidation, archive round trip and refusals, the export asset server's verified content type, and library filtering.
+- The real ingest worker stores a font and refuses a disguised PNG.
+- A native export draws the same narrow letters measurably wider in the uploaded monospaced face than in the fallback. A mutation without the font fails the check (163 vs 163 px).
+- A font with a valid table directory but garbage tables is refused by the layout check with a clear message instead of exporting the fallback.
+- The browser workflow covers refusing a disguised upload, preview, applying the font to the scene, checking the loaded face in the player, and a real export.
+
+**Scene-length ripple (0.69).** Unit checks cover lengthening (later items move, items already playing across the boundary stay) and shortening (trailing frames close like a cut, with audio split at exact source offsets).
+
+**Results.**
+
+- Complete backend/native suite on frozen `f0c2151` (non-root, Node 24): **573/573** in 720.6 seconds. `425b1f3` adds the two ripple unit checks, which pass in focused runs.
+- Focused browser checks on frozen copies: brand font **1/1**, typography **2/2**, media library **3/3**.
+- An earlier frozen run of `36d4b9e` found one stale expectation (keyframe motion now reports `rotation: 0`); fixed in `8186209`.
+- `media-processing-http`'s storage-cap case fails when run as root from the working checkout, with or without these changes. It passes in the non-root frozen suite.
+- **Hosted run #4** (`425b1f3`). Production job **passed** end to end:
+  - test, service and backup images built from the unmodified Dockerfile on GitHub's runner;
+  - encrypted repository and retention workflows;
+  - the complete production HTTPS browser suite inside the test image, including the new brand-font workflow;
+  - read-only services with a real export and forced container-crash recovery. This is the check that failed on run #1, which confirms the crash-directory fix.
+
+  Studio job: format, lint, the complete backend suite, the production build with its guards, and the typecheck passed. Its additional full browser rerun in development mode was cancelled at the 90-minute job limit after 86 cases. In that rerun:
+  - the four native-HD starter exports ran about nine minutes each and failed on the hosted runner, although they pass in the production job and locally (about 3 minutes each);
+  - `studio.spec.ts:372` failed there and passes locally;
+  - `export-history.spec.ts` failed.
+
+  The studio job now runs a fast source-mode smoke subset; the complete browser regression runs once, against the production build in the image.
+
+- **Complete development-mode browser suite on frozen `f0c2151`:** 90/92 in 49.2 minutes.
+  - `export-history.spec.ts` failed identically on the accepted 0.66 source. Development mode mounts the history twice, so the single injected read failure was hidden by the second read. The test now keeps failing reads until it retries.
+  - `private-downloads.spec.ts` hit a one-off `ECONNRESET` from the development server.
+
+  Both pass on rerun (2/2).
