@@ -1407,3 +1407,8 @@ The disposable deployment and its privacy volume were removed afterwards. These 
   - `private-downloads.spec.ts` hit a one-off `ECONNRESET` from the development server.
 
   Both pass on rerun (2/2).
+
+- **Hosted run #5** (`b0e2445`): **success, both jobs green**, the first fully green hosted run.
+  - Production job: the complete in-image production HTTPS browser suite again, plus the read-only services check with a real export and forced crash recovery.
+  - Studio job: format, lint, the complete backend suite, build and guards, typecheck, `npm audit` and the source-mode smoke (11 cases, also 11/11 locally in 2.3 minutes).
+  - The prerequisite install (apt and the Playwright browser download) stalled for 40 minutes on this runner, so that step now has a 10-minute limit.

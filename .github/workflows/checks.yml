@@ -22,6 +22,9 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Install media/browser/backup prerequisites
+        # A stalled package mirror once held this step for 40 minutes; fail
+        # fast instead of consuming the whole job budget.
+        timeout-minutes: 10
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-liberation restic util-linux
