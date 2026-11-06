@@ -595,7 +595,8 @@ try {
       "tsx",
       "--input-type=module",
       "--eval",
-      'const { enqueueMail } = await import("./src/lib/mail-outbox.ts"); enqueueMail({ to: "upgrade-drill@example.test", subject: "Verify", text: "Synthetic upgrade drill message" });',
+      // The isolation probes' canary is not mail; a real outbox refuses it.
+      'const { rmSync } = await import("node:fs"); rmSync("/app/private-auth/mail/isolation-canary.json", { force: true }); const { enqueueMail } = await import("./src/lib/mail-outbox.ts"); enqueueMail({ to: "upgrade-drill@example.test", subject: "Verify", text: "Synthetic upgrade drill message" });',
     ]);
     await switchTo(image);
     await decoded(seed.jobId);
@@ -711,7 +712,7 @@ try {
     console.log(
       "Permanent cleanup removed private media/exports, reclaimed quota, preserved shared footage and completed a later export with account storage still isolated.",
     );
-  } else {
+  } else if (benchmark) {
     await run([
       "cp",
       `${render}:/app/artifacts/${seed.jobId}`,
