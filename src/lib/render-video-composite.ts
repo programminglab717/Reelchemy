@@ -168,10 +168,16 @@ export async function renderVideoComposite(options: {
         "30",
         "-i",
         under,
+        // Input options apply per input: bound each decoder's threads too, or
+        // H.264 frame threading scales with the host's visible cores.
+        "-threads",
+        "2",
         "-protocol_whitelist",
         "http,tcp",
         "-i",
         source,
+        "-threads",
+        "1",
         "-framerate",
         "30",
         "-i",

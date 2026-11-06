@@ -36,4 +36,7 @@ case "$profile" in
     ;;
   *) exit 64 ;;
 esac
-exec "$executable" "$@"
+# Rapid still captures close pages faster than Chromium retires their renderer
+# processes. Cap renderers so closed pages' processes are reused instead of
+# accumulating threads past the render service's task limit.
+exec "$executable" --renderer-process-limit=4 "$@"

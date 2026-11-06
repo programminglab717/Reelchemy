@@ -197,3 +197,43 @@ test("a replaced configuration directory cannot redirect reads or remove another
     await rm(fixture, { recursive: true });
   }
 });
+test("the immutable launcher caps renderer processes and strips its private control argument before executing the browser", async () => {
+  const work = await mkdtemp(path.join(tmpdir(), "reelchemy-launcher-args-")),
+    record = path.join(work, "argv"),
+    fake = path.join(work, "fake-browser.sh");
+  await writeFile(
+    fake,
+    `#!/bin/sh\nfor a in "$@"; do printf '%s\\n' "$a"; done > ${JSON.stringify(record)}\n`,
+    { mode: 0o700 },
+  );
+  const launch = await prepareRenderBrowser(fake);
+  const profile = await mkdtemp(
+    path.join(tmpdir(), "puppeteer_dev_chrome_profile-"),
+  );
+  try {
+    const { spawnSync } = await import("node:child_process");
+    const result = spawnSync(
+      launch.executable,
+      [
+        `--user-agent="${launch.userAgent}"`,
+        `--user-data-dir=${profile}`,
+        "--headless",
+        "about:blank",
+      ],
+      { encoding: "utf8", timeout: 10000 },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    const argv = (await readFile(record, "utf8")).trim().split("\n");
+    assert.equal(argv[0], "--renderer-process-limit=4");
+    assert.deepEqual(argv.slice(1), [
+      `--user-data-dir=${profile}`,
+      "--headless",
+      "about:blank",
+    ]);
+    assert(!argv.some((value) => value.includes("ReelchemyRenderAttempt")));
+  } finally {
+    await launch.close();
+    await rm(profile, { recursive: true, force: true });
+    await rm(work, { recursive: true, force: true });
+  }
+});

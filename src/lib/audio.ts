@@ -142,7 +142,9 @@ export async function muxAudio(
       Math.floor(Number(probe.format.duration) * 30) + 1
     )
       throw new Error("Audio trim exceeds the source duration.");
-    inputs.push("-i", input);
+    // One decoder thread per audio input; thread counts otherwise scale with
+    // the host's visible cores for every track while the browser is open.
+    inputs.push("-threads", "1", "-i", input);
     const seconds = track.durationFrames / 30,
       fade = track.fadeFrames / 30;
     filters.push(
@@ -159,6 +161,8 @@ export async function muxAudio(
       "-v",
       "error",
       "-y",
+      "-filter_complex_threads",
+      "1",
       "-protocol_whitelist",
       "file,pipe",
       "-i",
