@@ -15,7 +15,7 @@ This guide sets up a private test installation on a single Ubuntu server reached
 ```bash
 git clone https://github.com/programminglab717/Reelchemy.git
 cd Reelchemy
-git checkout work
+git checkout main
 ```
 
 ## 2. Install and start

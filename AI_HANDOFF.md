@@ -7,7 +7,7 @@ Read `AGENTS.md`, `PROJECT_STATUS.md`, `VALIDATION.md`, `PRODUCTION_PLAN.md`, `O
 ## Git state
 
 - `origin/work` contains the **0.69** application (own AI keys, Cloudflare Tunnel deployment helper, five-minute sources, animated rotation, masks, brand fonts, scene-length ripple); its verification is in VALIDATION.md. The last fully accepted release was **0.66** (accepted source `74b29e2`; 0.65 `33fa994`; 0.64 `a3941f4`; 0.63 `7eed554`; 0.62 `5b9b003`; 0.61 `5567641`), status report and this handoff. It includes the former `codex/render-budget` candidate history, which is now superseded.
-- Do not assume `main` is current. Fetch and inspect remote branches before work. Keep new candidates separate from accepted code until their acceptance checks pass. Do not force-push or rewrite existing history.
+- `main` mirrors `work` as of 0.70 (created 6 November from `work`); develop on `work` and fast-forward `main` when releasing. `codex/mail-reliability` is an older 0.51 copy with unrelated history, fully superseded by `work`; do not merge it. Fetch and inspect remote branches before work. Keep new candidates separate from accepted code until their acceptance checks pass. Do not force-push or rewrite existing history.
 
 ## User instructions
 
