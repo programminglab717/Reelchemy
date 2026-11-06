@@ -1,5 +1,6 @@
 import type Database from "better-sqlite3";
 import { lstatSync } from "node:fs";
+import path from "node:path";
 import { accountErasures } from "./db";
 import { mailDir } from "./mail";
 import {
@@ -27,9 +28,12 @@ export function processAccountErasureBatch(
   afterSequence = 0,
 ) {
   assertAuthErasureSchema(authDatabase, vault);
+  // The mail directory can exist before any message is queued (worker lock,
+  // heartbeat or isolation files); only an existing outbox can hold
+  // preparations. Never create one from the cleanup consumer.
   let mailboxExists = false;
   try {
-    lstatSync(mailDir());
+    lstatSync(path.join(mailDir(), "outbox.sqlite"));
     mailboxExists = true;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;

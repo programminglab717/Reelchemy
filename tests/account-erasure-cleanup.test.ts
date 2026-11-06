@@ -1,6 +1,7 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, rm, readFile, stat, access } from "node:fs/promises";
+import { rmSync } from "node:fs";
 import { randomBytes, createHash, randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -140,6 +141,20 @@ async function render(project: Parameters<typeof app.createJob>[0]) {
   }, "Synthetic MP4 did not finish.");
   return { id: job.id, file: path.join(app.artifactDir, job.id, "video.mp4") };
 }
+test("a mail directory without an outbox does not block account cleanup or create the outbox", async () => {
+  const { mkdirSync, writeFileSync, existsSync } = await import("node:fs");
+  const mail = path.join(root, "auth", "mail");
+  // The mail worker's lock/heartbeat files can create this directory before
+  // the first account message is queued.
+  mkdirSync(mail, { recursive: true, mode: 0o700 });
+  writeFileSync(path.join(mail, "heartbeat.json"), "{}", { mode: 0o600 });
+  assert.equal(existsSync(path.join(mail, "outbox.sqlite")), false);
+  const batch = processAccountErasureBatch(adb, vault, 0);
+  assert.equal(batch.blocked, 0);
+  assert.equal(existsSync(path.join(mail, "outbox.sqlite")), false);
+  rmSync(path.join(mail, "heartbeat.json"));
+});
+
 test(
   "private account cleanup waits for real render-file cleanup and captured mail before credentials/journal completion, preserving another studio and shared spending",
   { timeout: 120000 },

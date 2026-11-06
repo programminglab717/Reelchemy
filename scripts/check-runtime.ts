@@ -10,21 +10,30 @@ import assert from "node:assert/strict";
 const args = process.argv.slice(2);
 let image = "reelchemy:local",
   benchmark: "square-minute" | "static-minute" | undefined,
+  upgradeFrom: string | undefined,
   selectedImage = false;
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--image" && args[i + 1] && !selectedImage) {
     image = args[++i];
     selectedImage = true;
-  } else if (args[i] === "--benchmark-square-minute" && !benchmark)
+  } else if (args[i] === "--upgrade-from" && args[i + 1] && !upgradeFrom)
+    upgradeFrom = args[++i];
+  else if (args[i] === "--benchmark-square-minute" && !benchmark)
     benchmark = "square-minute";
   else if (args[i] === "--benchmark-static-minute" && !benchmark)
     benchmark = "static-minute";
   else
     throw new Error(
-      "Usage: node scripts/check-runtime.ts [--image reelchemy:local] [--benchmark-square-minute | --benchmark-static-minute]",
+      "Usage: node scripts/check-runtime.ts [--image reelchemy:local] [--benchmark-square-minute | --benchmark-static-minute | --upgrade-from reelchemy:previous]",
     );
 }
-if (!/^[a-z0-9][a-z0-9._:/-]{0,180}$/.test(image))
+if (
+  !/^[a-z0-9][a-z0-9._:/-]{0,180}$/.test(image) ||
+  (upgradeFrom !== undefined &&
+    (!/^[a-z0-9][a-z0-9._:/-]{0,180}$/.test(upgradeFrom) ||
+      upgradeFrom === image ||
+      benchmark))
+)
   throw new Error("Invalid test image.");
 const directory = await mkdtemp(path.join(tmpdir(), "reelchemy-runtime-"));
 const project = `reelchemy-check-${randomBytes(6).toString("hex")}`;
@@ -77,25 +86,29 @@ const environment = {
   REELCHEMY_PROJECT_MESSAGES: "10000",
 };
 const override = path.join(directory, "compose.check.json");
-await writeFile(
-  override,
-  JSON.stringify({
-    services: Object.fromEntries(
-      ["migrate", "web", "render", "ingest", "privacy"].map((service) => [
-        service,
-        {
-          image,
-          environment: {
-            NODE_ENV: "production",
-            REELCHEMY_CONTAINER_TESTS: "0",
+// An upgrade drill starts every service on the previous image, then switches
+// the same volumes to the candidate and back again.
+const writeOverride = (image: string) =>
+  writeFile(
+    override,
+    JSON.stringify({
+      services: Object.fromEntries(
+        ["migrate", "web", "render", "ingest", "privacy"].map((service) => [
+          service,
+          {
+            image,
+            environment: {
+              NODE_ENV: "production",
+              REELCHEMY_CONTAINER_TESTS: "0",
+            },
+            ...(service === "web" ? { command: ["npm", "run", "start"] } : {}),
           },
-          ...(service === "web" ? { command: ["npm", "run", "start"] } : {}),
-        },
-      ]),
-    ),
-  }),
-  { mode: 0o600 },
-);
+        ]),
+      ),
+    }),
+    { mode: 0o600 },
+  );
+await writeOverride(upgradeFrom ?? image);
 const compose = [
   "compose",
   "-p",
@@ -492,7 +505,107 @@ try {
   console.log(
     `Network-isolated worker encoded and fully decoded ${benchmark === "static-minute" ? "static title cards" : "real footage"}, captions and AAC audio.`,
   );
-  if (!benchmark) {
+  if (upgradeFrom) {
+    const services = ["web", "render", "ingest", "privacy"];
+    const switchTo = async (target: string) => {
+      // Stop every writer before the one-shot migration, as in OPERATIONS.md.
+      await run([...compose, "stop", ...services]);
+      await writeOverride(target);
+      await run([
+        ...compose,
+        "run",
+        "--rm",
+        "--no-deps",
+        "--pull",
+        "never",
+        "migrate",
+      ]);
+      await run([
+        ...compose,
+        "up",
+        "-d",
+        "--no-build",
+        "--no-deps",
+        "--pull",
+        "never",
+        "--force-recreate",
+        ...services,
+      ]);
+      web = (await run([...compose, "ps", "-q", "web"])).output.trim();
+      render = (await run([...compose, "ps", "-q", "render"])).output.trim();
+      ingest = (await run([...compose, "ps", "-q", "ingest"])).output.trim();
+      privacy = (await run([...compose, "ps", "-q", "privacy"])).output.trim();
+      const expected = (
+        await run(["image", "inspect", "--format", "{{.Id}}", target])
+      ).output.trim();
+      for (const id of [web, render, ingest, privacy])
+        assert.equal(
+          (await run(["inspect", "--format", "{{.Image}}", id])).output.trim(),
+          expected,
+        );
+      await waitFor(
+        async () =>
+          (
+            await run(
+              [
+                "exec",
+                privacy,
+                "node",
+                "--import",
+                "tsx",
+                "scripts/check-privacy.ts",
+              ],
+              true,
+            )
+          ).code === 0,
+        "Private cleanup did not become healthy after the image switch.",
+      );
+      await waitFor(async () => {
+        try {
+          const response = await fetch(`http://127.0.0.1:${port}/api/health`, {
+            signal: AbortSignal.timeout(5000),
+          });
+          return response.status === 200;
+        } catch {
+          return false;
+        }
+      }, "Services did not reach readiness after the image switch.");
+      assert.equal(
+        (await fetch(`http://127.0.0.1:${port}/api/projects`)).status,
+        401,
+      );
+    };
+    const decoded = async (jobId: string) => {
+      assert.equal(
+        (await execute("job", { RUNTIME_CHECK_JOB_ID: jobId })).status,
+        "completed",
+      );
+      assert.equal(
+        (await execute("decode", { RUNTIME_CHECK_JOB_ID: jobId })).decoded,
+        true,
+      );
+    };
+    await switchTo(image);
+    await decoded(seed.jobId);
+    const upgraded = await execute("retry", {
+      RUNTIME_CHECK_PROJECT_ID: seed.projectId,
+    });
+    await completed(upgraded.jobId);
+    console.log(
+      "Upgrade: writers stopped, candidate migration ran, the previous export stayed decodable and a new export completed.",
+    );
+    await switchTo(upgradeFrom);
+    await decoded(seed.jobId);
+    await decoded(upgraded.jobId);
+    const rolledBack = await execute("retry", {
+      RUNTIME_CHECK_PROJECT_ID: seed.projectId,
+    });
+    await completed(rolledBack.jobId);
+    console.log(
+      "Rollback: the previous image migrated idempotently over the candidate's data, both earlier exports stayed decodable and another export completed.",
+    );
+  }
+  if (!benchmark && !upgradeFrom) {
     const before = await execute("heartbeat");
     const restartsBefore = Number(
       (
@@ -619,6 +732,25 @@ try {
       `Cold-cache ${benchmark === "static-minute" ? "static title-card" : "mixed-media"} square minute completed under the standard 2 CPU / 4 GiB / 256 PID render budget.`,
     );
   }
+  // Private cleanup must still be healthy after accounts, mail isolation
+  // probes and exports, not only at startup.
+  await waitFor(
+    async () =>
+      (
+        await run(
+          [
+            "exec",
+            privacy,
+            "node",
+            "--import",
+            "tsx",
+            "scripts/check-privacy.ts",
+          ],
+          true,
+        )
+      ).code === 0,
+    "Private cleanup was not healthy at the end of the runtime check.",
+  );
   const imageId = (
     await run(["image", "inspect", "--format", "{{.Id}}", image])
   ).output.trim();
@@ -629,6 +761,7 @@ try {
         passed: true,
         image,
         imageId,
+        ...(upgradeFrom ? { upgradeFrom } : {}),
         at: new Date().toISOString(),
         wallSeconds: (Date.now() - began) / 1000,
         ...(benchmark
