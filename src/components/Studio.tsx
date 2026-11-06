@@ -1561,12 +1561,6 @@ export function Studio({
                     <Icon name="arrow-up-right" size={18} />
                   </button>
                 </section>
-                <ExportHistory
-                  refreshKey={exportActivityRevision}
-                  projectId={project.id}
-                  current={job}
-                  onSelect={setJob}
-                />
                 {job && (
                   <section className="job-panel" aria-live="polite">
                     <div className="job-heading">
@@ -1683,6 +1677,12 @@ export function Studio({
                     )}
                   </section>
                 )}
+                <ExportHistory
+                  refreshKey={exportActivityRevision}
+                  projectId={project.id}
+                  current={job}
+                  onSelect={setJob}
+                />
               </fieldset>
             )}
           </div>

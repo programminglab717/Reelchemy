@@ -2442,9 +2442,13 @@ main.account-page {
 }
 /* Account-wide storage and records follow the creative work. */
 .studio-records {
-  margin: 48px 0 0;
+  margin: 48px clamp(16px, 4vw, 48px) 0;
   padding-top: 24px;
   border-top: 1px solid var(--line);
+}
+.studio-records > .export-storage {
+  margin-left: 0;
+  margin-right: 0;
 }
 .studio-records > h2 {
   margin: 0 0 14px;
