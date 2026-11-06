@@ -62,11 +62,19 @@ read_password() {
   [ "$first" = "$second" ] || die "The entries did not match."
   printf '%s' "$first"
 }
+services() {
+  local list=(web render ingest privacy)
+  if [ "$(get EMAIL_DELIVERY_ENABLED)" = "true" ]; then list+=(mail); fi
+  printf '%s\n' "${list[@]}"
+}
+stop_writers() {
+  local list; mapfile -t list < <(services)
+  compose stop "${list[@]}"
+}
 start_services() {
   compose run --rm --no-deps migrate
-  local services=(web render ingest privacy)
-  if [ "$(get EMAIL_DELIVERY_ENABLED)" = "true" ]; then services+=(mail); fi
-  compose up -d --no-build --remove-orphans "${services[@]}"
+  local list; mapfile -t list < <(services)
+  compose up -d --no-build --remove-orphans "${list[@]}"
   wait_healthy
 }
 
@@ -120,15 +128,15 @@ cmd_install() {
       die "Privacy volume $volume exists but its ID is not recorded in $ENV_FILE. Restore the recorded REELCHEMY_PRIVACY_ID and REELCHEMY_PRIVACY_KEY_FINGERPRINT; never re-initialize it."
     fi
     docker volume create --label reelchemy.privacy-authority=true "$volume" >/dev/null
-    # Temporary syntactically valid pins only let Compose parse for the init.
-    set_var REELCHEMY_PRIVACY_ID 00000000-0000-4000-8000-000000000000
-    set_var REELCHEMY_PRIVACY_KEY_FINGERPRINT "$(printf '0%.0s' $(seq 1 64))"
-    local result
-    result=$(compose run --rm --no-deps migrate node --import tsx scripts/privacy-vault.ts init --directory /app/private-privacy)
-    local id fingerprint
-    id=$(printf '%s' "$result" | grep -o '"id":"[a-f0-9-]*"' | head -1 | cut -d'"' -f4)
-    fingerprint=$(printf '%s' "$result" | grep -o '"keyFingerprint":"[a-f0-9]*"' | head -1 | cut -d'"' -f4)
-    [ -n "$id" ] && [ -n "$fingerprint" ] || die "Privacy authority initialization failed."
+    # Temporary syntactically valid pins only let Compose parse for the init;
+    # they are passed to this one command and never stored.
+    local result="" id="" fingerprint=""
+    result=$(REELCHEMY_PRIVACY_ID=00000000-0000-4000-8000-000000000000 \
+      REELCHEMY_PRIVACY_KEY_FINGERPRINT="$(printf '0%.0s' $(seq 1 64))" \
+      compose run --rm --no-deps migrate node --import tsx scripts/privacy-vault.ts init --directory /app/private-privacy 2>/dev/null) || true
+    id=$(printf '%s' "$result" | grep -oE '"id": *"[a-f0-9-]{36}"' | head -1 | grep -oE '[a-f0-9-]{36}' || true)
+    fingerprint=$(printf '%s' "$result" | grep -oE '"keyFingerprint": *"[a-f0-9]{64}"' | head -1 | grep -oE '[a-f0-9]{64}' || true)
+    [ -n "$id" ] && [ -n "$fingerprint" ] || die "Privacy authority initialization did not report its identity. If volume $volume now contains vault.json, record its id and keyFingerprint as REELCHEMY_PRIVACY_ID and REELCHEMY_PRIVACY_KEY_FINGERPRINT in $ENV_FILE; never re-initialize it."
     set_var REELCHEMY_PRIVACY_ID "$id"
     set_var REELCHEMY_PRIVACY_KEY_FINGERPRINT "$fingerprint"
     echo "Initialized the independent privacy authority ($volume). Back up $ENV_FILE securely."
@@ -146,7 +154,7 @@ cmd_update() {
   [ -f "$ENV_FILE" ] || die "Run install first."
   build
   echo "Stopping writers for the migration…"
-  compose stop web render ingest privacy mail 2>/dev/null || true
+  stop_writers
   start_services
 }
 cmd_account() {
@@ -165,7 +173,7 @@ cmd_backup() {
   mkdir -p "$target"; chown 1000:1000 "$target" 2>/dev/null || true
   local name; name="reelchemy-$(date -u +%Y%m%dT%H%M%SZ)"
   echo "Stopping writers for a coordinated snapshot…"
-  compose stop web render ingest privacy mail 2>/dev/null || true
+  stop_writers
   local status=0
   compose run --rm --no-deps -v "$target:/backups" migrate npm run --silent backup -- create "/backups/$name" || status=$?
   start_services

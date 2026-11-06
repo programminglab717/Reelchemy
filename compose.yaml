@@ -147,7 +147,10 @@ services:
       REELCHEMY_ACTIVE_EXPORTS_PER_STUDIO: ${REELCHEMY_ACTIVE_EXPORTS_PER_STUDIO:-2}
   ingest:
     <<: *runtime
-    command: [npm, run, ingest:worker]
+    # Run entrypoints directly: npm exits on SIGTERM before the consumer can
+    # release its diagnostics, so the container would be torn down mid-cleanup.
+    command: [node, --import, tsx, scripts/ingest-entrypoint.ts]
+    stop_grace_period: 30s
     cpus: 2
     mem_limit: 2g
     pids_limit: 256
@@ -166,7 +169,8 @@ services:
       RAYON_NUM_THREADS: "2"
   render:
     <<: *runtime
-    command: [npm, run, worker]
+    command: [node, --import, tsx, scripts/worker-entrypoint.ts]
+    stop_grace_period: 30s
     cpus: 2
     mem_limit: 4g
     pids_limit: 256
@@ -188,7 +192,7 @@ services:
       REELCHEMY_SCENE_CACHE_DAYS: ${REELCHEMY_SCENE_CACHE_DAYS:-7}
   privacy:
     <<: *runtime
-    command: [npm, run, privacy:worker]
+    command: [node, --import, tsx, scripts/privacy-entrypoint.ts]
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -223,7 +227,7 @@ services:
   mail:
     <<: *runtime
     profiles: [smtp]
-    command: [npm, run, mail:worker]
+    command: [node, --import, tsx, scripts/mail-entrypoint.ts]
     cpus: 0.5
     mem_limit: 256m
     pids_limit: 64
