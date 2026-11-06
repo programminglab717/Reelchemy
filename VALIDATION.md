@@ -1412,3 +1412,31 @@ The disposable deployment and its privacy volume were removed afterwards. These 
   - Production job: the complete in-image production HTTPS browser suite again, plus the read-only services check with a real export and forced crash recovery.
   - Studio job: format, lint, the complete backend suite, build and guards, typecheck, `npm audit` and the source-mode smoke (11 cases, also 11/11 locally in 2.3 minutes).
   - The prerequisite install (apt and the Playwright browser download) stalled for 40 minutes on this runner, so that step now has a 10-minute limit.
+
+## Resumable large uploads and stored-media limits — 0.70
+
+The owner hosts the studio on their own server behind a Cloudflare Tunnel. Cloudflare refuses request bodies over 100 MB on Free and Pro plans, tunnels included; responses are not limited. Large files are therefore uploaded in verified 32 MB pieces.
+
+Writing the change exposed three limits left over from earlier, smaller media:
+
+- exports refused any stored asset over 25 MB, so a long clip or a five-minute narration could not render;
+- archives refused assets over 25 MB and re-imported audio through a 25 MB bound;
+- archives were capped at 50 MB.
+
+Results:
+
+- **Complete backend/native suite on frozen `83bbba7`** (non-root, Node 24): **582/582** in 737 seconds. The first run (`5cdad1d`) had 5 failures, all tests asserting the old limits (25/50/95 MB, the 1 GB pool default); the tests were updated.
+  - New checks cover the session store: ordered pieces, recognised retries, damaged-piece refusal, crash truncation, studio/pool limits, idle and orphan cleanup, single adoption, and erasure.
+  - End to end through the real routes and worker: a 44 MB WAV uploads in pieces, survives a lost piece reply and a closed page, resumes, and is processed once.
+  - Exports serve a 58 MB narration and refuse files over 200 MB.
+  - Worst-case 1080p noise normalizes under the 5 Mb/s cap.
+- **Focused development-mode browser checks** on the same frozen copy: **11/11**. They cover the new chunked-upload spec (a 44 MB WAV sent from the page in two pieces), media processing, footage, storage, archive history, narration and brand fonts.
+- **Deployment helper on Docker** (sandbox images; synthetic account):
+  - a fresh install applied the 10 GB / 20 GB storage defaults;
+  - a 301.7 MB 60-second 1080p H.264 file uploaded in 10 pieces through the read-only containers;
+  - it was processed in 81 seconds to a 39.0 MB 1080p30 asset (1800 frames);
+  - a film using it exported successfully (above the old 25 MB export bound);
+  - web and ingest used about 154 and 198 MiB afterwards (2 GiB limits);
+  - staging and queued-input directories were empty afterwards.
+
+  The deployment was removed.
