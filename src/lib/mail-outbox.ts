@@ -198,48 +198,82 @@ export function mailDirectoryTransaction<T>(
 ): T {
   try {
     mailPolicy();
-    return withPrivateDirectory(
-      authStorageDirectory(),
-      "mail",
-      (anchor) => {
-        for (const name of [
-          "outbox.sqlite",
-          "outbox.sqlite-wal",
-          "outbox.sqlite-shm",
-        ]) {
-          try {
-            regular(path.join(anchor, name));
-          } catch (error) {
-            if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-          }
-        }
-        const database = new Database(path.join(anchor, "outbox.sqlite"), {
-          fileMustExist: existing,
+    // Concurrent first use can see SQLITE_BUSY from connection setup (journal
+    // mode/schema statements) outside the busy-timeout write transaction.
+    // Retry only failures before the operation began; work inside the
+    // immediate transaction is never repeated.
+    for (let attempt = 0; ; attempt++) {
+      let started = false;
+      try {
+        return mailDirectoryAttempt(operation, existing, () => {
+          started = true;
         });
-        try {
-          if (!existing) chmodSync(path.join(anchor, "outbox.sqlite"), 0o600);
-          database.pragma("busy_timeout=5000");
-          enableSecureDeletion(database);
-          if (!existing) database.pragma("journal_mode=WAL");
-          if (!existing) database.pragma("synchronous=FULL");
-          if (!existing)
-            database.exec(
-              "CREATE TABLE IF NOT EXISTS mail_counters(id INTEGER PRIMARY KEY CHECK(id=1),discarded INTEGER NOT NULL DEFAULT 0); INSERT OR IGNORE INTO mail_counters(id) VALUES(1)",
-            );
-          if (!existing) migrateMailSuppressions(database);
-          return database
-            .transaction(() => operation(anchor, database))
-            .immediate();
-        } finally {
-          database.close();
-        }
-      },
-      !existing,
-    );
+      } catch (error) {
+        if (
+          started ||
+          attempt >= 5 ||
+          (error as { code?: string }).code !== "SQLITE_BUSY"
+        )
+          throw error;
+        Atomics.wait(
+          new Int32Array(new SharedArrayBuffer(4)),
+          0,
+          0,
+          20 + Math.floor(Math.random() * 40) * (attempt + 1),
+        );
+      }
+    }
   } catch (error) {
     if (error instanceof MailCapacity) throw error;
     throw new MailUnavailable();
   }
+}
+function mailDirectoryAttempt<T>(
+  operation: (anchor: string, db: Database.Database) => T,
+  existing: boolean,
+  begin: () => void,
+): T {
+  return withPrivateDirectory(
+    authStorageDirectory(),
+    "mail",
+    (anchor) => {
+      for (const name of [
+        "outbox.sqlite",
+        "outbox.sqlite-wal",
+        "outbox.sqlite-shm",
+      ]) {
+        try {
+          regular(path.join(anchor, name));
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        }
+      }
+      const database = new Database(path.join(anchor, "outbox.sqlite"), {
+        fileMustExist: existing,
+      });
+      try {
+        if (!existing) chmodSync(path.join(anchor, "outbox.sqlite"), 0o600);
+        database.pragma("busy_timeout=5000");
+        enableSecureDeletion(database);
+        if (!existing) database.pragma("journal_mode=WAL");
+        if (!existing) database.pragma("synchronous=FULL");
+        if (!existing)
+          database.exec(
+            "CREATE TABLE IF NOT EXISTS mail_counters(id INTEGER PRIMARY KEY CHECK(id=1),discarded INTEGER NOT NULL DEFAULT 0); INSERT OR IGNORE INTO mail_counters(id) VALUES(1)",
+          );
+        if (!existing) migrateMailSuppressions(database);
+        return database
+          .transaction(() => {
+            begin();
+            return operation(anchor, database);
+          })
+          .immediate();
+      } finally {
+        database.close();
+      }
+    },
+    !existing,
+  );
 }
 const locked = mailDirectoryTransaction;
 function entries(anchor: string, cleanTemporary = true): Entry[] {
