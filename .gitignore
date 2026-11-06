@@ -13,3 +13,6 @@ test-results/
 playwright-report/
 
 .next-*/
+
+# Server deployment secrets (deploy/reelchemy.sh)
+.deploy/

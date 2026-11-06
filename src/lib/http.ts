@@ -246,10 +246,29 @@ export function failure(error: unknown) {
   const message = error instanceof Error ? error.message : "Request failed";
   return Response.json({ error: message }, { status: 400 });
 }
+// Writes must come from this site. Behind a tunnel or reverse proxy the Host
+// header can be the internal address, so the configured public origin
+// (BETTER_AUTH_URL) is also accepted.
 export function localMutation(req: Request) {
   const origin = req.headers.get("origin");
-  if (origin && new URL(origin).host !== req.headers.get("host"))
+  if (!origin) return;
+  let parsed: URL;
+  try {
+    parsed = new URL(origin);
+  } catch {
     throw new Error("Cross-origin writes are not allowed.");
+  }
+  if (parsed.host === req.headers.get("host")) return;
+  let configured: string | undefined;
+  try {
+    configured = process.env.BETTER_AUTH_URL
+      ? new URL(process.env.BETTER_AUTH_URL).origin
+      : undefined;
+  } catch {
+    configured = undefined;
+  }
+  if (configured && parsed.origin === configured) return;
+  throw new Error("Cross-origin writes are not allowed.");
 }
 export async function readLimitedBody(
   req: Request,

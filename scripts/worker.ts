@@ -40,6 +40,25 @@ import {
 } from "../src/lib/render-attempt-processes";
 import { processProjectDeletion } from "../src/lib/project-cleanup";
 const lock = path.join(dataDir, "worker.lock");
+// Releasing an attempt's orphaned FFmpeg stitcher can leave a native
+// library's pending write to that pipe failing with EPIPE after the attempt
+// has settled. Such a broken pipe concerns already-ended work; log it instead
+// of crashing the consumer. Every other unexpected error still terminates.
+function brokenPipe(error: unknown) {
+  const value = error as NodeJS.ErrnoException | undefined;
+  return value?.code === "EPIPE" && value.syscall === "write";
+}
+for (const event of ["uncaughtException", "unhandledRejection"] as const)
+  process.on(event, (error: unknown) => {
+    if (brokenPipe(error)) {
+      console.error(JSON.stringify({ event: "render.native.pipe-closed" }));
+      return;
+    }
+    console.error(
+      error instanceof Error ? (error.stack ?? error.message) : error,
+    );
+    process.exit(1);
+  });
 async function main() {
   const attemptBudget = renderAttemptPolicy();
   const instanceId = randomUUID();
