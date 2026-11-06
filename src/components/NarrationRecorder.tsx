@@ -1,4 +1,5 @@
 "use client";
+import { MAX_SOURCE_SECONDS } from "@/lib/timeline-limits";
 import { useMediaSubmission } from "./useMediaSubmission";
 import { useEffect, useRef, useState } from "react";
 import { encodeRecording } from "@/lib/recording";
@@ -142,7 +143,7 @@ export function NarrationRecorder({
       const node = new AudioWorkletNode(context, "narration-capture", {
         processorOptions: {
           maxFrames: Math.min(
-            context.sampleRate * 60,
+            context.sampleRate * MAX_SOURCE_SECONDS,
             Math.floor((10 * 1024 * 1024 - 44) / 2),
           ),
         },
@@ -227,7 +228,7 @@ export function NarrationRecorder({
     <section className="narration-recorder" aria-label="Record narration">
       <h3>Record narration</h3>
       <p>
-        Record up to 60 seconds with your microphone. Preview the take before
+        Record up to 5 minutes with your microphone. Preview the take before
         saving it to project assets, then add it to the timeline. Playback
         pauses when recording begins; use headphones to avoid feedback.
       </p>

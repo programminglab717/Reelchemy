@@ -6,6 +6,7 @@ import {
   MAX_AUDIO_TRACKS,
   MAX_CAPTIONS,
   MAX_EDITABLE_TIMELINE_BYTES,
+  MAX_SOURCE_FRAMES,
 } from "./timeline-limits";
 export const FPS = 30;
 export const formats = {
@@ -69,7 +70,11 @@ export const layerSchema = z.object({
   video: z
     .object({
       startFrame: z.number().int().min(0).max(599),
-      offsetFrames: z.number().int().min(0).max(3599),
+      offsetFrames: z
+        .number()
+        .int()
+        .min(0)
+        .max(MAX_SOURCE_FRAMES - 1),
       durationFrames: z.number().int().min(1).max(600),
       volume: z.number().min(0).max(1).default(1),
       audio: z.boolean().default(false),
@@ -105,7 +110,12 @@ export const audioTrackSchema = z.object({
     .int()
     .min(0)
     .max(MAX_TIMELINE_FRAMES - 1),
-  offsetFrames: z.number().int().min(0).max(3599).default(0),
+  offsetFrames: z
+    .number()
+    .int()
+    .min(0)
+    .max(MAX_SOURCE_FRAMES - 1)
+    .default(0),
   durationFrames: z.number().int().min(1).max(MAX_TIMELINE_FRAMES),
   volume: z.number().min(0).max(1).default(0.8),
   fadeFrames: z.number().int().min(0).max(150).default(6),

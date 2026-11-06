@@ -1,4 +1,5 @@
 "use client";
+import { MAX_SOURCE_FRAMES } from "@/lib/timeline-limits";
 import { MAX_AUDIO_TRACKS, MAX_CAPTIONS } from "@/lib/timeline-limits";
 import { useState } from "react";
 import { CaptionTools } from "./CaptionTools";
@@ -105,7 +106,7 @@ export function MediaEditor({
                     field === "volume"
                       ? 1
                       : field === "offsetFrames"
-                        ? 3599
+                        ? MAX_SOURCE_FRAMES - 1
                         : field === "fadeFrames"
                           ? 150
                           : field === "startFrame"

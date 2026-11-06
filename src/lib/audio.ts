@@ -1,3 +1,4 @@
+import { MAX_SOURCE_SECONDS, MAX_MEDIA_UPLOAD_BYTES } from "./timeline-limits";
 import { clipAudioTracks } from "./clip-audio";
 import { runCommand } from "./process";
 import { execFileSync } from "node:child_process";
@@ -35,12 +36,12 @@ export async function storeAudio(
   bytes: Buffer,
   name: string,
   license: string,
-  maxBytes = 10 * 1024 * 1024,
+  maxBytes = MAX_MEDIA_UPLOAD_BYTES.audio,
   options: MediaNormalizationOptions = {},
 ): Promise<Asset> {
   const id = normalizationId(options);
   if (bytes.length > maxBytes)
-    throw new Error("Audio files must be 10 MB or smaller.");
+    throw new Error("Audio files must be 64 MB or smaller.");
   const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-audio-"));
   try {
     const input = path.join(dir, "input");
@@ -55,10 +56,10 @@ export async function storeAudio(
       ) ||
       !Number.isFinite(duration) ||
       duration <= 0 ||
-      duration > 120
+      duration > MAX_SOURCE_SECONDS
     )
       throw new Error(
-        "Use a WAV, MP3, Ogg, FLAC, or AAC audio-only file up to 120 seconds.",
+        "Use a WAV, MP3, Ogg, FLAC, or AAC audio-only file up to 5 minutes.",
       );
     const output = path.join(dir, "normalized.wav");
     await runCommand(
@@ -83,7 +84,7 @@ export async function storeAudio(
         "pcm_s16le",
         output,
       ],
-      { timeoutMs: 30000, cancelled: options.cancelled },
+      { timeoutMs: 180000, cancelled: options.cancelled },
     );
     const normalized = probeMedia(output);
     const normalizedBytes = await readFile(output);

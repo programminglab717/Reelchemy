@@ -151,7 +151,7 @@ test("silent portrait WebM is accepted and long input is rejected before normali
       "-f",
       "lavfi",
       "-i",
-      "color=black:size=16x16:rate=1:duration=121",
+      "color=black:size=16x16:rate=1:duration=301",
       "-c:v",
       "libx264",
       "-threads",
@@ -161,8 +161,32 @@ test("silent portrait WebM is accepted and long input is rejected before normali
     const bytes = await readFile(long);
     await assert.rejects(
       () => storeVideo(bytes, "long.mp4", "Owned"),
-      /120 seconds/,
+      /5 minutes/,
     );
+    // A continuous source longer than the former 120-second limit is kept
+    // whole, with its exact frame count, so one take can span a long film.
+    const longer = path.join(dir, "longer.mp4");
+    execFileSync("ffmpeg", [
+      "-v",
+      "error",
+      "-f",
+      "lavfi",
+      "-i",
+      "color=black:size=16x16:rate=30:duration=150",
+      "-c:v",
+      "libx264",
+      "-threads",
+      "1",
+      "-preset",
+      "ultrafast",
+      longer,
+    ]);
+    const kept = await storeVideo(
+      await readFile(longer),
+      "longer.mp4",
+      "Owned",
+    );
+    assert.equal(kept.durationFrames, 4500);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -284,8 +308,8 @@ test("real footage is normalized, bounded, resolved locally and round trips with
     assert.throws(() => validateProjectAssets(p, invalid), /belong/);
     await assert.rejects(
       () =>
-        storeVideo(Buffer.alloc(25 * 1024 * 1024 + 1), "large.mp4", "Owned"),
-      /25 MB/,
+        storeVideo(Buffer.alloc(95 * 1024 * 1024 + 1), "large.mp4", "Owned"),
+      /95 MB/,
     );
     await assert.rejects(() =>
       storeVideo(Buffer.from("not video"), "fake.mp4", "Owned"),

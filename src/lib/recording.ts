@@ -1,3 +1,4 @@
+import { MAX_SOURCE_SECONDS } from "./timeline-limits";
 // PCM WAV keeps recordings interoperable without depending on browser-specific
 // MediaRecorder containers or missing duration metadata in streamed WebM files.
 export function encodeRecording(chunks: Float32Array[], sampleRate: number) {
@@ -7,10 +8,10 @@ export function encodeRecording(chunks: Float32Array[], sampleRate: number) {
     sampleRate < 8000 ||
     sampleRate > 96000 ||
     frames < sampleRate / 10 ||
-    frames > sampleRate * 60 ||
-    frames * 2 + 44 > 10 * 1024 * 1024
+    frames > sampleRate * MAX_SOURCE_SECONDS ||
+    frames * 2 + 44 > 60 * 1024 * 1024
   )
-    throw new Error("Record between 0.1 and 60 seconds, up to 10 MB.");
+    throw new Error("Record between 0.1 seconds and 5 minutes, up to 60 MB.");
   const bytes = new ArrayBuffer(44 + frames * 2),
     view = new DataView(bytes);
   const text = (offset: number, value: string) =>

@@ -95,7 +95,7 @@ test("the operator report reads a consistent service/studio snapshot, deduplicat
   assert.equal(report.normalizedMedia.files, 1);
   assert.equal(report.normalizedMedia.bytes, 65536);
   assert.equal(report.mediaInputs.activeRequests, 1);
-  assert.equal(report.mediaInputs.reservedBytes, 26 * 1024 ** 2);
+  assert.equal(report.mediaInputs.reservedBytes, 96 * 1024 ** 2);
   const own = run(data, "--workspace", workspace);
   assert.equal(own.status, 0, own.stderr);
   const studio = JSON.parse(own.stdout);

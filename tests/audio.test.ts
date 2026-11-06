@@ -122,3 +122,79 @@ test("real audio upload, delayed trim/mix, AAC duration and fade mathematics", a
     storeAudio(Buffer.from("<html>invalid</html>"), "invalid.mp3", "Test"),
   );
 });
+test("a narration file longer than two minutes is kept whole and can be mixed from a late source offset", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-long-audio-"));
+  const source = path.join(dir, "narration.mp3");
+  // 240 s: silence, then a 1 kHz tone from 200 s.
+  execFileSync("ffmpeg", [
+    "-v",
+    "error",
+    "-f",
+    "lavfi",
+    "-i",
+    "aevalsrc=if(gte(t\\,200)\\,0.5*sin(2*PI*1000*t)\\,0):s=16000:d=240",
+    "-ac",
+    "1",
+    "-b:a",
+    "32k",
+    source,
+  ]);
+  const asset = await storeAudio(
+    await readFile(source),
+    "narration.mp3",
+    "Generated test narration",
+  );
+  assert(Math.abs(asset.durationFrames! - 7200) <= 2);
+  const tooLong = path.join(dir, "too-long.mp3");
+  execFileSync("ffmpeg", [
+    "-v",
+    "error",
+    "-f",
+    "lavfi",
+    "-i",
+    "anullsrc=r=8000:cl=mono",
+    "-t",
+    "301",
+    "-b:a",
+    "16k",
+    tooLong,
+  ]);
+  await assert.rejects(
+    storeAudio(await readFile(tooLong), "too-long.mp3", "Generated"),
+    /5 minutes/,
+  );
+  const video = path.join(dir, "video.mp4");
+  execFileSync("ffmpeg", [
+    "-v",
+    "error",
+    "-f",
+    "lavfi",
+    "-i",
+    "color=c=black:s=320x180:r=30:d=5",
+    "-c:v",
+    "libx264",
+    "-threads",
+    "1",
+    "-pix_fmt",
+    "yuv420p",
+    video,
+  ]);
+  const timeline = timelineSchema.parse({
+    ...mockPlan({ prompt: "Late narration", duration: 5, format: "landscape" }),
+    audioTracks: [
+      {
+        id: "late",
+        assetId: asset.id,
+        startFrame: 0,
+        offsetFrames: 6030,
+        durationFrames: 150,
+        volume: 1,
+        fadeFrames: 0,
+      },
+    ],
+  });
+  const report = await muxAudio(timeline, video);
+  assert.equal(report.codec, "aac");
+  // The mixed window starts at 201 s of the source, inside the tone.
+  assert(report.peakDb !== null && report.peakDb > -12, `${report.peakDb}`);
+});

@@ -85,7 +85,7 @@ test("media policy rejects malformed and contradictory operator limits", () => {
   const defaults = mediaProcessingPolicy({});
   assert.equal(defaults.inputs, 4);
   assert.equal(defaults.perStudioInputs, 1);
-  assert.equal(defaults.rawBytes, 256 * 1024 * 1024);
+  assert.equal(defaults.rawBytes, 1024 * 1024 * 1024);
   for (const value of [
     "0",
     "-1",
@@ -147,7 +147,7 @@ test("receiving requests occupy studio/global slots before any body or decode", 
 
 test("a terminal receipt holds raw capacity until physical cleanup acknowledgment", () => {
   const f = fixture(":memory:", {
-    REELCHEMY_MEDIA_RAW_BYTES: String(50 * 1024 * 1024),
+    REELCHEMY_MEDIA_RAW_BYTES: String(256 * 1024 * 1024),
   });
   try {
     const first = f.reserve(0, "import");

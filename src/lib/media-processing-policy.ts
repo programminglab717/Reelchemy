@@ -1,8 +1,8 @@
 import { LimitConfigurationError } from "./limits-policy";
 
 export const MEDIA_INPUT_BYTES = {
-  upload: 26 * 1024 * 1024,
-  import: 50 * 1024 * 1024,
+  upload: 96 * 1024 * 1024,
+  import: 250 * 1024 * 1024,
   waveform: 0,
 } as const;
 export type MediaOperation = keyof typeof MEDIA_INPUT_BYTES;
@@ -48,12 +48,14 @@ export function mediaProcessingPolicy(
     analysesPerHour: integer("REELCHEMY_WAVEFORMS_PER_HOUR", 120, 1, 1000),
     rawBytes: integer(
       "REELCHEMY_MEDIA_RAW_BYTES",
-      256 * 1024 * 1024,
-      50 * 1024 * 1024,
       1024 ** 3,
+      // At least one project import (the largest single reservation).
+      256 * 1024 * 1024,
+      4 * 1024 ** 3,
     ),
-    receiveMs: 90000,
-    receiveCleanupMs: 180000,
+    // Large uploads over ordinary connections (and tunnels) need minutes.
+    receiveMs: 600000,
+    receiveCleanupMs: 720000,
     processingMs: 600000,
     retryAfter: 5,
     receiptMs: 7 * 86400000,

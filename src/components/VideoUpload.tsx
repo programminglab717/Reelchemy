@@ -1,4 +1,8 @@
 "use client";
+import {
+  MAX_MEDIA_UPLOAD_BYTES,
+  mediaUploadLimitText,
+} from "@/lib/timeline-limits";
 import { useMediaSubmission } from "./useMediaSubmission";
 import { useState } from "react";
 import type { AssetUpdate } from "@/lib/project-assets";
@@ -23,8 +27,13 @@ export function VideoUpload({
           const body = new FormData(form);
           body.set("kind", "video");
           const file = body.get("file");
-          if (!(file instanceof File) || file.size > 25 * 1024 * 1024)
-            throw new Error("Choose a video up to 25 MB.");
+          if (
+            !(file instanceof File) ||
+            file.size > MAX_MEDIA_UPLOAD_BYTES.video
+          )
+            throw new Error(
+              `Choose a video up to ${mediaUploadLimitText("video")}.`,
+            );
           const data = await upload.submit(body);
           onProject(data);
           form.reset();
@@ -63,7 +72,7 @@ export function VideoUpload({
         </button>
       </div>
       <p>
-        Up to 25 MB / 120 seconds. Clips are checked and converted to 30 fps
+        Up to 95 MB / 5 minutes. Clips are checked and converted to 30 fps
         H.264; source audio is retained. Preparing a clip may take up to two
         minutes.
       </p>

@@ -1,3 +1,4 @@
+import { MAX_SOURCE_FRAMES } from "./timeline-limits";
 import type Database from "better-sqlite3";
 import { z } from "zod";
 import type { Asset } from "./schema";
@@ -16,7 +17,7 @@ export const libraryAssetSchema = z.object({
   license: z.string().min(1).max(500),
   mime: z.enum(["image/png", "audio/wav", "video/mp4"]),
   bytes: z.number().int().min(1).optional(),
-  durationFrames: z.number().int().min(0).max(3600).optional(),
+  durationFrames: z.number().int().min(0).max(MAX_SOURCE_FRAMES).optional(),
   width: z.number().int().min(1).max(16000000).optional(),
   height: z.number().int().min(1).max(16000000).optional(),
   hasAudio: z.boolean().optional(),

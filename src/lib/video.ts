@@ -1,3 +1,8 @@
+import {
+  MAX_SOURCE_SECONDS,
+  MAX_SOURCE_FRAMES,
+  MAX_MEDIA_UPLOAD_BYTES,
+} from "./timeline-limits";
 import { mkdtemp, writeFile, readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
@@ -10,7 +15,7 @@ import {
   writeNormalizedMedia,
   type MediaNormalizationOptions,
 } from "./media-normalization";
-export const MAX_VIDEO_BYTES = 25 * 1024 * 1024;
+export const MAX_VIDEO_BYTES = MAX_MEDIA_UPLOAD_BYTES.video;
 export async function storeVideo(
   bytes: Buffer,
   name: string,
@@ -19,7 +24,7 @@ export async function storeVideo(
 ): Promise<Asset> {
   const id = normalizationId(options);
   if (bytes.length > MAX_VIDEO_BYTES)
-    throw new Error("Video files must be 25 MB or smaller.");
+    throw new Error("Video files must be 95 MB or smaller.");
   const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-video-"));
   try {
     const input = path.join(dir, "input"),
@@ -45,7 +50,7 @@ export async function storeVideo(
       video.disposition?.attached_pic ||
       !Number.isFinite(duration) ||
       duration <= 0 ||
-      duration > 120 ||
+      duration > MAX_SOURCE_SECONDS ||
       !Number.isFinite(fps) ||
       fps <= 0 ||
       fps > 120 ||
@@ -54,7 +59,7 @@ export async function storeVideo(
       video.height < 2
     )
       throw new Error(
-        "Use an MP4, MOV or WebM clip up to 120 seconds, 8.3 megapixels and 120 fps (H.264, HEVC, VP8, VP9 or AV1).",
+        "Use an MP4, MOV or WebM clip up to 5 minutes, 8.3 megapixels and 120 fps (H.264, HEVC, VP8, VP9 or AV1).",
       );
     const hasAudio = meta.streams.some(
       (s: { codec_type: string }) => s.codec_type === "audio",
@@ -101,19 +106,19 @@ export async function storeVideo(
         "-b:a",
         "128k",
         "-t",
-        "120",
+        String(MAX_SOURCE_SECONDS),
         "-fs",
         String(MAX_VIDEO_BYTES + 1024 * 1024),
         "-movflags",
         "+faststart",
         output,
       ],
-      { timeoutMs: 120000, cancelled: options.cancelled },
+      { timeoutMs: 540000, cancelled: options.cancelled },
     );
     const outputBytes = (await stat(output)).size;
     if (outputBytes > MAX_VIDEO_BYTES)
       throw new Error(
-        "Normalized video exceeds 25 MB. Trim or compress the clip first.",
+        "Normalized video exceeds 95 MB. Trim or compress the clip first.",
       );
     const clean = probeMedia(output),
       v = clean.streams.find(
@@ -125,7 +130,7 @@ export async function storeVideo(
       v?.r_frame_rate !== "30/1" ||
       !Number.isInteger(frames) ||
       frames < 1 ||
-      frames > 3600 ||
+      frames > MAX_SOURCE_FRAMES ||
       Math.abs(frames / 30 - duration) > 0.1
     )
       throw new Error(
@@ -147,7 +152,7 @@ export async function storeVideo(
         "null",
         "-",
       ],
-      { timeoutMs: 120000, cancelled: options.cancelled },
+      { timeoutMs: 540000, cancelled: options.cancelled },
     );
     writeNormalizedMedia(id, await readFile(output), options);
     return {

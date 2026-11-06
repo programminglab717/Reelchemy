@@ -1,3 +1,7 @@
+import {
+  MAX_MEDIA_UPLOAD_BYTES,
+  mediaUploadLimitText,
+} from "./timeline-limits";
 import { randomUUID, createHash } from "node:crypto";
 import { mediaUploadName } from "./media-upload-intent";
 import { z, ZodError } from "zod";
@@ -255,11 +259,9 @@ export async function receiveMediaRequest(
       const file = form.get("file");
       if (!(file instanceof File))
         throw new RequestBodyError("Select a media file.");
-      if (!file.size || file.size > (kind === "video" ? 25 : 10) * 1024 * 1024)
+      if (!file.size || file.size > MAX_MEDIA_UPLOAD_BYTES[kind])
         throw new RequestBodyError(
-          kind === "video"
-            ? "Videos must be 25 MB or smaller."
-            : "Image and audio files must be 10 MB or smaller.",
+          `${kind === "image" ? "Images" : kind === "audio" ? "Audio files" : "Videos"} must be ${mediaUploadLimitText(kind)} or smaller.`,
         );
       const license = z
         .string()

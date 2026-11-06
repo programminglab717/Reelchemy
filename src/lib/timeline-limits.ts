@@ -1,5 +1,18 @@
 export const MAX_TIMELINE_SECONDS = 300;
 export const MAX_TIMELINE_FRAMES = MAX_TIMELINE_SECONDS * 30;
+// Individual uploaded footage/audio files and microphone takes may be as long
+// as the longest film, so a whole narration can be one continuous source.
+export const MAX_SOURCE_SECONDS = 300;
+export const MAX_SOURCE_FRAMES = MAX_SOURCE_SECONDS * 30;
+// Upload size limits shared by browser checks and server admission.
+export const MAX_MEDIA_UPLOAD_BYTES = {
+  image: 10 * 1024 * 1024,
+  audio: 64 * 1024 * 1024,
+  // Stays under Cloudflare's 100 MB request-body limit with form overhead.
+  video: 95 * 1024 * 1024,
+} as const;
+export const mediaUploadLimitText = (kind: "image" | "audio" | "video") =>
+  `${MAX_MEDIA_UPLOAD_BYTES[kind] / 1024 / 1024} MB`;
 export const MAX_SCENES = 60;
 export const MAX_AUDIO_TRACKS = 12;
 export const MAX_CAPTIONS = 500;
@@ -37,6 +50,16 @@ export function usesExtendedTimeline(value: unknown): boolean {
         Number(track?.startFrame) > 1799 ||
         Number(track?.durationFrames) > 1800,
     ) ||
-    captions.some((caption) => Number(caption?.endFrame) > 1800)
+    captions.some((caption) => Number(caption?.endFrame) > 1800) ||
+    // Sources longer than the former 120-second file limit (0.68+).
+    tracks.some((track) => Number(track?.offsetFrames) > 3599) ||
+    scenes.some(
+      (scene) =>
+        Array.isArray(scene?.layers) &&
+        scene.layers.some(
+          (layer: { video?: { offsetFrames?: unknown } } | null) =>
+            Number(layer?.video?.offsetFrames) > 3599,
+        ),
+    )
   );
 }

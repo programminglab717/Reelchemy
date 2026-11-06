@@ -1,4 +1,8 @@
-import { MAX_TIMELINE_SECONDS, usesExtendedTimeline } from "./timeline-limits";
+import {
+  MAX_TIMELINE_SECONDS,
+  MAX_SOURCE_FRAMES,
+  usesExtendedTimeline,
+} from "./timeline-limits";
 import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
 import {
   constants,
@@ -27,9 +31,11 @@ import {
   type Timeline,
   type Asset,
 } from "./schema";
-const MAX_TOTAL = 150 * 1024 * 1024;
+const MAX_TOTAL = 250 * 1024 * 1024;
 const MAX_MANIFEST = 10 * 1024 * 1024;
-const MAX_ASSET = 25 * 1024 * 1024;
+// A five-minute normalized stereo WAV is about 58 MB; videos are capped at
+// 100 MB. Import admission (250 MB) matches the export total.
+const MAX_ASSET = 110 * 1024 * 1024;
 const MAX_REVISIONS = 10000;
 const MAX_MESSAGES = 10000;
 const portableProject = z.object({
@@ -60,7 +66,12 @@ const portableProject = z.object({
         width: z.number().int().min(1).max(16000000).optional(),
         height: z.number().int().min(1).max(16000000).optional(),
         hasAudio: z.boolean().optional(),
-        durationFrames: z.number().int().min(0).max(3600).optional(),
+        durationFrames: z
+          .number()
+          .int()
+          .min(0)
+          .max(MAX_SOURCE_FRAMES)
+          .optional(),
         createdAt: z.string().datetime(),
       }),
     )
@@ -185,10 +196,10 @@ function readArchivedAsset(anchor: string, id: string, remaining: number) {
     const before = fstatSync(fd, { bigint: true });
     if (!before.isFile() || before.size < 1 || before.size > MAX_ASSET)
       throw new Error(
-        "Portable assets must be regular files of 25 MB or smaller.",
+        "Portable assets must be regular files of 110 MB or smaller.",
       );
     if (before.size > remaining)
-      throw new Error("Project exceeds the 150 MB portable export limit.");
+      throw new Error("Project exceeds the 250 MB portable export limit.");
     const bytes = Buffer.alloc(Number(before.size));
     let offset = 0;
     while (offset < bytes.length) {

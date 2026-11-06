@@ -22,7 +22,12 @@ test("microphone PCM becomes a bounded mono WAV with finite clamped samples", ()
     [-32768, -32768, 0, 16384, 32767, 32767, 0],
   );
   assert.throws(() => encodeRecording([], 48000));
-  assert.throws(() => encodeRecording([new Float32Array(48000 * 61)], 48000));
+  // Takes may be as long as a five-minute film, but no longer.
+  assert.equal(
+    encodeRecording([new Float32Array(8000 * 240)], 8000).byteLength,
+    44 + 8000 * 240 * 2,
+  );
+  assert.throws(() => encodeRecording([new Float32Array(8000 * 301)], 8000));
   assert.throws(() => encodeRecording([samples], 192000));
 });
 test("waveform range/gain preserves source timing, peaks and quiet inputs", () => {

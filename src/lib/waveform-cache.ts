@@ -1,3 +1,4 @@
+import { MAX_SOURCE_FRAMES } from "./timeline-limits";
 import {
   constants,
   openSync,
@@ -17,7 +18,7 @@ import type { Waveform } from "./waveform-math";
 const waveformSchema = z
   .object({
     fps: z.literal(30),
-    peaks: z.array(z.number().min(0).max(1)).min(1).max(3600),
+    peaks: z.array(z.number().min(0).max(1)).min(1).max(MAX_SOURCE_FRAMES),
   })
   .strict();
 function directory<T>(

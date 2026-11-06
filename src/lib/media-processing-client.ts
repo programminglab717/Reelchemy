@@ -1,3 +1,7 @@
+import {
+  MAX_MEDIA_UPLOAD_BYTES,
+  mediaUploadLimitText,
+} from "./timeline-limits";
 import type { AccountFetch } from "./account-fetch";
 import type { MediaInput, MediaReceipt } from "./media-processing-store";
 import type { Project } from "./schema";
@@ -41,11 +45,10 @@ async function intent(body: FormData | File): Promise<MediaInput> {
       throw new Error(
         "Describe your source or usage rights in 3–500 characters.",
       );
-    if (!file.size || file.size > (kind === "video" ? 25 : 10) * 1024 * 1024)
+    const mediaKind = kind as "image" | "audio" | "video";
+    if (!file.size || file.size > MAX_MEDIA_UPLOAD_BYTES[mediaKind])
       throw new Error(
-        kind === "video"
-          ? "Choose a video up to 25 MB."
-          : "Choose an image or audio file up to 10 MB.",
+        `Choose ${mediaKind === "image" ? "an image" : `a ${mediaKind} file`} up to ${mediaUploadLimitText(mediaKind)}.`,
       );
     return {
       operation: "upload",

@@ -249,7 +249,7 @@ test("archive reads reject symlinks, missing files, directories, FIFOs and overs
   await refused(source);
   unlinkSync(file);
   const fd = openSync(file, "w");
-  ftruncateSync(fd, 25 * 1024 * 1024 + 1);
+  ftruncateSync(fd, 110 * 1024 * 1024 + 1);
   closeSync(fd);
   await refused(source);
   unlinkSync(file);
