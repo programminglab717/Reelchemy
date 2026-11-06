@@ -23,8 +23,8 @@ export async function generatePlan(
   context?: { current: Timeline; instruction: string },
   assets: readonly Asset[] = [],
   accounting?: ProviderAccounting,
+  config: ReturnType<typeof providerConfiguration> = providerConfiguration(),
 ): Promise<{ timeline: Timeline; provider: string }> {
-  const config = providerConfiguration();
   const { provider } = config;
   if (provider === "mock")
     return { timeline: mockPlan(brief), provider: "mock" };
@@ -59,7 +59,15 @@ export async function generatePlan(
     }
     if (!res.ok) {
       void res.body?.cancel().catch(() => {});
-      throw new ProviderError("unavailable");
+      throw new ProviderError(
+        res.status === 401 || res.status === 403
+          ? "authentication"
+          : res.status === 404
+            ? "model"
+            : res.status === 429
+              ? "provider-rate"
+              : "unavailable",
+      );
     }
     data = await readProviderResponse(res, signal);
     // Usage is billable even when the generated timeline subsequently fails
@@ -154,12 +162,13 @@ export async function reviseScene(
   instruction: string,
   assets: readonly Asset[] = [],
   accounting?: ProviderAccounting,
+  config: ReturnType<typeof providerConfiguration> = providerConfiguration(),
 ) {
   const index = current.scenes.findIndex((s) => s.id === sceneId);
   if (index < 0) throw new Error("Scene not found.");
   const source = current.scenes[index];
   let replacement: Scene;
-  if ((process.env.AI_PROVIDER || "mock") === "mock") {
+  if (config.provider === "mock") {
     replacement = structuredClone(source);
     replacement.intent = instruction;
     replacement.layers = replacement.layers.map((l) =>
@@ -180,6 +189,7 @@ export async function reviseScene(
       },
       assets,
       accounting,
+      config,
     );
     if (result.timeline.scenes.length !== 1)
       throw new ProviderError("response");

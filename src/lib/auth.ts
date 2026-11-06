@@ -58,8 +58,38 @@ function signingSecret(dir: string) {
     return readFileSync(file, "utf8");
   }
 }
+// Server-side secret for deriving private data keys (e.g. studio AI keys).
+// Never sent to browsers or other services.
+export function authSigningSecret() {
+  return signingSecret(authStorageDirectory());
+}
+// Behind a reverse proxy or tunnel every request arrives from the proxy.
+// Operators may name ONE trusted header that carries the original client
+// address; the web port must only be reachable through that proxy.
+const clientIpHeaders = ["cf-connecting-ip", "x-real-ip", "x-forwarded-for"];
+export function clientIpHeaderSetting(
+  value = process.env.REELCHEMY_CLIENT_IP_HEADER,
+) {
+  const header = value?.trim().toLowerCase();
+  if (!header) return undefined;
+  if (!clientIpHeaders.includes(header))
+    throw new Error(
+      "REELCHEMY_CLIENT_IP_HEADER must be cf-connecting-ip, x-real-ip or x-forwarded-for.",
+    );
+  return header;
+}
+export function publicSignupSetting(
+  value = process.env.REELCHEMY_PUBLIC_SIGNUP,
+) {
+  const setting = value?.trim().toLowerCase();
+  if (!setting || setting === "true") return true;
+  if (setting === "false") return false;
+  throw new Error("REELCHEMY_PUBLIC_SIGNUP must be true or false.");
+}
 function createAuth() {
   mailConfig();
+  const clientIpHeader = clientIpHeaderSetting(),
+    publicSignup = publicSignupSetting();
   const baseURL = process.env.BETTER_AUTH_URL || "http://127.0.0.1:3001";
   if (process.env.NODE_ENV === "production" && !baseURL.startsWith("https://"))
     throw new Error(
@@ -106,6 +136,7 @@ function createAuth() {
     logger: { disabled: true },
     emailAndPassword: {
       enabled: true,
+      disableSignUp: !publicSignup,
       requireEmailVerification: true,
       minPasswordLength: 12,
       maxPasswordLength: 128,
@@ -151,6 +182,9 @@ function createAuth() {
       },
     },
     advanced: {
+      ...(clientIpHeader
+        ? { ipAddress: { ipAddressHeaders: [clientIpHeader] } }
+        : {}),
       defaultCookieAttributes: {
         httpOnly: true,
         sameSite: "lax",

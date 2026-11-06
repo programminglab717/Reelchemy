@@ -41,6 +41,24 @@ const failures = {
     message:
       "The AI director could not complete this request. Try again later or continue editing manually.",
   },
+  authentication: {
+    status: 502,
+    code: "AI_KEY_REJECTED",
+    message:
+      "The AI provider rejected the saved key. Check your AI provider key in Account settings or continue editing manually.",
+  },
+  model: {
+    status: 502,
+    code: "AI_MODEL_UNAVAILABLE",
+    message:
+      "The AI provider did not recognise the model or endpoint. Check your AI provider settings or continue editing manually.",
+  },
+  "provider-rate": {
+    status: 429,
+    code: "AI_PROVIDER_RATE_LIMITED",
+    message:
+      "The AI provider is limiting requests for this key. Try again shortly or continue editing manually.",
+  },
   timeout: {
     status: 504,
     code: "AI_TIMEOUT",

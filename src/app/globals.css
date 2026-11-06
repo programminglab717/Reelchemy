@@ -2487,3 +2487,58 @@ main.account-page {
     color: var(--muted);
   }
 }
+/* Studio AI provider key (Account settings). */
+.ai-provider-settings {
+  margin: 28px 0;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+.ai-provider-settings h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+.ai-provider-settings p {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.ai-provider-settings form {
+  display: grid;
+  gap: 14px;
+  margin: 16px 0 0;
+}
+.ai-provider-settings fieldset {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+}
+.ai-provider-settings legend {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 0 4px;
+}
+.ai-provider-settings select,
+.ai-provider-settings input:not([type="checkbox"]) {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+  font-size: 15px;
+}
+.ai-provider-settings input[readonly] {
+  color: var(--muted);
+  background: #f7f9f5;
+}
+.ai-provider-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+}
+.ai-key-privacy {
+  color: var(--muted);
+}

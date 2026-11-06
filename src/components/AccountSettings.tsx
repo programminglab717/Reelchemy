@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useCallback, useState } from "react";
 import { useAccountFetch } from "./AccountBoundary";
 import { DeletionProgress, downloadDeletionReceipt } from "./DeletionProgress";
+import { AiProviderSettings } from "./AiProviderSettings";
 import {
   createDeletionReceipt,
   deletionStatusSchema,
@@ -70,6 +71,7 @@ export function AccountSettings({
             </nav>
             <h1>Account settings</h1>
             <p>Signed in as {email}</p>
+            <AiProviderSettings />
             <section
               className="account-delete-warning"
               aria-label="Permanent account deletion"

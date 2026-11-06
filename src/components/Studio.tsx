@@ -125,6 +125,24 @@ export function Studio({
   const [projectQuery, setProjectQuery] = useState("");
   const [listedQuery, setListedQuery] = useState<string | null>(null);
   const [projectCount, setProjectCount] = useState(0);
+  const [directorSource, setDirectorSource] = useState<
+    "own" | "platform" | "demo" | null
+  >(null);
+  useEffect(() => {
+    let live = true;
+    accountFetch("/api/workspace/ai-provider", {
+      signal: AbortSignal.timeout(10000),
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((value) => {
+        if (live && value && typeof value.access === "string")
+          setDirectorSource(value.access);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [accountFetch]);
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [listRefresh, setListRefresh] = useState(0);
@@ -640,9 +658,20 @@ export function Studio({
             >
               Start from a blank canvas
             </button>
-            <div className="composer-note">
-              <Icon name="sparkle" size={12} /> Demo director · Procedural
-              animation · You approve before export
+            <div className="composer-note" aria-label="Director in use">
+              <Icon name="sparkle" size={12} />{" "}
+              {directorSource === "own"
+                ? "AI director · your own key"
+                : directorSource === "platform"
+                  ? "AI director"
+                  : "Demo director"}{" "}
+              · Procedural animation · You approve before export
+              {directorSource === "demo" && (
+                <>
+                  {" · "}
+                  <Link href="/account">Add your AI key</Link>
+                </>
+              )}
             </div>
             <section
               className="starter-templates"

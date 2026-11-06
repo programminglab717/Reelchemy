@@ -13,6 +13,9 @@ import {
   type ProviderPrices,
 } from "./provider-usage";
 
+// "platform": the operator's configured key and allowances; "own": a studio's
+// saved key, limited by that studio's own daily cap only.
+export type ProviderAccess = "platform" | "own";
 export type ProviderAccounting = {
   begin(input: {
     provider: "anthropic" | "compatible";
@@ -36,6 +39,15 @@ export class ProviderUsageStore {
       );
       CREATE INDEX IF NOT EXISTS provider_usage_workspace ON provider_usage(workspace_id,created_at);
       CREATE INDEX IF NOT EXISTS provider_usage_state ON provider_usage(state,created_at);`);
+      // Additive: earlier rows were all operator (platform) usage.
+      if (
+        !(db.pragma("table_info(provider_usage)") as { name: string }[]).some(
+          (column) => column.name === "access",
+        )
+      )
+        db.exec(
+          "ALTER TABLE provider_usage ADD COLUMN access TEXT NOT NULL DEFAULT 'platform' CHECK(access IN ('platform','own'))",
+        );
     }).immediate();
   }
   reserve(
@@ -47,6 +59,7 @@ export class ProviderUsageStore {
     },
     policy: ProviderBudgetPolicy,
     now = Date.now(),
+    access: ProviderAccess = "platform",
   ) {
     const amount = providerReservationCost(input.payloadBytes, policy);
     if (!workspaceId || !input.model || input.model.length > 200)
@@ -66,13 +79,14 @@ export class ProviderUsageStore {
           .run(now, now - PROVIDER_LEASE_MS);
         const rows = this.db
           .prepare(
-            `SELECT workspace_id,
+            `SELECT workspace_id,access,
         COALESCE(SUM(CASE WHEN state='settled' THEN cost_micro_usd ELSE reserved_micro_usd END),0) AS amount,
         SUM(CASE WHEN state='reserved' THEN 1 ELSE 0 END) AS active
-        FROM provider_usage WHERE created_at>? OR state<>'settled' GROUP BY workspace_id`,
+        FROM provider_usage WHERE created_at>? OR state<>'settled' GROUP BY workspace_id,access`,
           )
           .all(now - PROVIDER_BUDGET_WINDOW_MS) as {
           workspace_id: string;
+          access: ProviderAccess;
           amount: number;
           active: number;
         }[];
@@ -80,19 +94,21 @@ export class ProviderUsageStore {
           studio = 0,
           active = 0,
           studioActive = 0;
+        // Spending allowances are per access source; concurrency protects the
+        // server across every source.
         for (const row of rows) {
-          global += row.amount;
+          if (row.access === "platform") global += row.amount;
           active += row.active;
           if (row.workspace_id === workspaceId) {
-            studio = row.amount;
-            studioActive = row.active;
+            if (row.access === access) studio += row.amount;
+            studioActive += row.active;
           }
         }
         if (![global, studio, active, studioActive].every(Number.isSafeInteger))
           throw new ProviderError("budget-configuration");
         if (studio + amount > policy.studioMicroUsd)
           throw new ProviderError("studio-budget", 300);
-        if (global + amount > policy.globalMicroUsd)
+        if (access === "platform" && global + amount > policy.globalMicroUsd)
           throw new ProviderError("global-budget", 300);
         if (
           active >= policy.globalConcurrency ||
@@ -102,8 +118,8 @@ export class ProviderUsageStore {
         const id = randomUUID();
         this.db
           .prepare(
-            `INSERT INTO provider_usage(id,workspace_id,provider,model_hash,created_at,state,reserved_micro_usd,prices)
-        VALUES(?,?,?,?,?,'reserved',?,?)`,
+            `INSERT INTO provider_usage(id,workspace_id,provider,model_hash,created_at,state,reserved_micro_usd,prices,access)
+        VALUES(?,?,?,?,?,'reserved',?,?,?)`,
           )
           .run(
             id,
@@ -113,6 +129,7 @@ export class ProviderUsageStore {
             now,
             amount,
             JSON.stringify(policy.prices),
+            access,
           );
         return id;
       })
@@ -176,12 +193,13 @@ export class ProviderUsageStore {
   accounting(
     workspaceId: string,
     policy: ProviderBudgetPolicy,
+    access: ProviderAccess = "platform",
   ): ProviderAccounting {
     return {
       begin: (input) => {
         let id: string;
         try {
-          id = this.reserve(workspaceId, input, policy);
+          id = this.reserve(workspaceId, input, policy, Date.now(), access);
         } catch (error) {
           if (error instanceof ProviderError) throw error;
           throw new ProviderError("budget-configuration");
@@ -237,10 +255,39 @@ export function providerUsageSummary(
     WHERE state<>'settled' AND created_at<=?${filter} ORDER BY created_at,id LIMIT 20`,
     )
     .all(now - PROVIDER_LEASE_MS, ...args);
+  const sources = Object.fromEntries(
+    (["platform", "own"] as const).map((access) => [
+      access,
+      db
+        .prepare(
+          `SELECT count(*) AS requests,
+        COALESCE(SUM(CASE WHEN state='settled' THEN cost_micro_usd ELSE reserved_micro_usd END),0) AS chargedMicroUsd,
+        COALESCE(SUM(CASE WHEN state<>'settled' THEN reserved_micro_usd ELSE 0 END),0) AS heldMicroUsd,
+        COALESCE(SUM(input_tokens),0) AS inputTokens,
+        COALESCE(SUM(output_tokens),0) AS outputTokens,
+        COALESCE(SUM(cache_read_tokens),0) AS cacheReadTokens,
+        COALESCE(SUM(cache_write_tokens),0) AS cacheWriteTokens
+        FROM provider_usage WHERE access=? AND (created_at>? OR state<>'settled')${filter}`,
+        )
+        .get(access, now - PROVIDER_BUDGET_WINDOW_MS, ...args),
+    ]),
+  ) as Record<
+    ProviderAccess,
+    {
+      requests: number;
+      chargedMicroUsd: number;
+      heldMicroUsd: number;
+      inputTokens: number;
+      outputTokens: number;
+      cacheReadTokens: number;
+      cacheWriteTokens: number;
+    }
+  >;
   return {
     windowStart: new Date(now - PROVIDER_BUDGET_WINDOW_MS).toISOString(),
     asOf: new Date(now).toISOString(),
     totals,
+    sources,
     uncertain,
   };
 }

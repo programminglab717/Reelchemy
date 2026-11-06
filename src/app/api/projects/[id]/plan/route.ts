@@ -5,9 +5,11 @@ import {
   reviseOwnedProject,
   providerUsage,
   ownedPlanningStorageAvailable,
+  studioAiCredentials,
+  studioAiEntitlements,
 } from "@/lib/db";
-import { providerConfiguration } from "@/lib/provider-config";
-import { providerBudgetPolicy } from "@/lib/provider-budget-policy";
+import { authSigningSecret } from "@/lib/auth";
+import { resolveStudioAi } from "@/lib/studio-ai-access";
 import { totalFrames } from "@/lib/schema";
 import { generatePlan, reviseScene } from "@/lib/provider";
 import { failure, body, localMutation } from "@/lib/http";
@@ -43,11 +45,25 @@ async function POSTHandler(
       )
     )
       return Response.json({ error: "Project not found" }, { status: 404 });
-    const configuration = providerConfiguration();
+    // The studio's own saved key, an entitled platform key, or the demo
+    // director — resolved per request so a deleted key stops immediately.
+    const studioAi = resolveStudioAi(
+      access.workspace.id,
+      { credentials: studioAiCredentials, entitlements: studioAiEntitlements },
+      authSigningSecret,
+    );
+    const configuration =
+      studioAi.access === "demo"
+        ? ({ provider: "mock" } as const)
+        : studioAi.configuration;
     const accounting =
-      configuration.provider === "mock"
+      studioAi.access === "demo"
         ? undefined
-        : providerUsage.accounting(access.workspace.id, providerBudgetPolicy());
+        : providerUsage.accounting(
+            access.workspace.id,
+            studioAi.policy,
+            studioAi.access,
+          );
     const { timeline, provider } = sceneId
       ? {
           timeline: await reviseScene(
@@ -56,8 +72,9 @@ async function POSTHandler(
             revision!,
             p.assets,
             accounting,
+            configuration,
           ),
-          provider: process.env.AI_PROVIDER || "mock",
+          provider: configuration.provider,
         }
       : await generatePlan(
           revision && p.timeline
@@ -74,6 +91,7 @@ async function POSTHandler(
             : undefined,
           p.assets,
           accounting,
+          configuration,
         );
     p.messages.push({
       role: "assistant",

@@ -111,7 +111,13 @@ import { withPrivateDirectory } from "./private-directory";
 import { removeCachedWaveform } from "./waveform-cache";
 import { ownedMediaCatalogue } from "./media-catalogue";
 import { ownedEditorProject, ownedConversationPage } from "./editor-project";
-import { ProviderUsageStore } from "./provider-usage-store";
+import {
+  ProviderUsageStore,
+  providerUsageSummary,
+  type ProviderAccess,
+} from "./provider-usage-store";
+import { StudioAiCredentialStore } from "./studio-ai-credentials";
+import { StudioAiEntitlementStore } from "./studio-ai-access";
 import {
   migrateAccountErasures,
   beginStudioErasure,
@@ -217,6 +223,10 @@ db.transaction(() => {
 }).immediate();
 export const mediaProcessing = new MediaProcessingStore(db);
 export const providerUsage = new ProviderUsageStore(db);
+export const studioAiCredentials = new StudioAiCredentialStore(db);
+export const studioAiEntitlements = new StudioAiEntitlementStore(db);
+export const studioAiUsage = (workspaceId: string, access: ProviderAccess) =>
+  providerUsageSummary(db, workspaceId).sources[access];
 migrateAccountErasures(db);
 export const accountErasures = {
   resolve(vault: PrivacyVault, requestId: string, workspaceId: string) {

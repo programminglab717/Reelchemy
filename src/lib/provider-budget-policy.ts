@@ -14,8 +14,12 @@ export type ProviderBudgetPolicy = {
   payloadBytes: number;
   ledgerRequests: number;
 };
+// `overrides` supplies a studio's own-key prices and daily cap (or a platform
+// entitlement's allowance) while server concurrency/payload/ledger limits stay
+// operator-controlled.
 export function providerBudgetPolicy(
   env: Record<string, string | undefined> = process.env,
+  overrides: { prices?: ProviderPrices; studioMicroUsd?: number } = {},
 ): ProviderBudgetPolicy {
   function usd(name: string, fallback?: string) {
     const raw = env[name] || fallback;
@@ -43,25 +47,36 @@ export function providerBudgetPolicy(
       throw new ProviderError("budget-configuration");
     return value;
   }
-  const input = usd("REELCHEMY_AI_INPUT_USD_PER_MILLION");
-  const prices: ProviderPrices = {
-    input,
-    output: usd("REELCHEMY_AI_OUTPUT_USD_PER_MILLION"),
-    cacheRead: usd(
-      "REELCHEMY_AI_CACHE_READ_USD_PER_MILLION",
-      String(input / 1_000_000),
-    ),
-    cacheWrite: usd(
-      "REELCHEMY_AI_CACHE_WRITE_USD_PER_MILLION",
-      String((input * 2) / 1_000_000),
-    ),
+  const operatorPrices = (): ProviderPrices => {
+    const input = usd("REELCHEMY_AI_INPUT_USD_PER_MILLION");
+    return {
+      input,
+      output: usd("REELCHEMY_AI_OUTPUT_USD_PER_MILLION"),
+      cacheRead: usd(
+        "REELCHEMY_AI_CACHE_READ_USD_PER_MILLION",
+        String(input / 1_000_000),
+      ),
+      cacheWrite: usd(
+        "REELCHEMY_AI_CACHE_WRITE_USD_PER_MILLION",
+        String((input * 2) / 1_000_000),
+      ),
+    };
   };
+  const prices = overrides.prices ?? operatorPrices();
+  if (
+    overrides.studioMicroUsd !== undefined &&
+    (!Number.isSafeInteger(overrides.studioMicroUsd) ||
+      overrides.studioMicroUsd <= 0 ||
+      overrides.studioMicroUsd > 1_000_000_000_000)
+  )
+    throw new ProviderError("budget-configuration");
   if (prices.input === 0 || prices.output === 0)
     throw new ProviderError("budget-configuration");
   return {
     prices,
     globalMicroUsd: usd("REELCHEMY_AI_GLOBAL_USD_PER_DAY", "20"),
-    studioMicroUsd: usd("REELCHEMY_AI_STUDIO_USD_PER_DAY", "2"),
+    studioMicroUsd:
+      overrides.studioMicroUsd ?? usd("REELCHEMY_AI_STUDIO_USD_PER_DAY", "2"),
     globalConcurrency: integer("REELCHEMY_AI_CONCURRENT_CALLS", 2, 1, 32),
     studioConcurrency: integer("REELCHEMY_AI_CALLS_PER_STUDIO", 1, 1, 4),
     payloadBytes: integer(

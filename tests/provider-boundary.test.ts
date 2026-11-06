@@ -113,21 +113,51 @@ test("provider transport, envelopes and timeline errors cross only the fixed saf
     await safeError(() => generatePlan(brief), "AI_CONFIGURATION", 503);
     assert.equal(requests, 1, "configuration rejected before network work");
     process.env.AI_API_KEY = secret;
-    for (const upstream of [
-      async () => {
-        throw new Error(`Private transport detail ${secret}`);
-      },
-      async () => new Response(secret, { status: 401 }),
-      async () => new Response(secret, { status: 429 }),
-      async () => new Response(secret, { status: 503 }),
-      async () =>
-        new Response(secret, {
-          status: 302,
-          headers: { location: `https://other.test/${secret}` },
-        }),
-    ]) {
-      globalThis.fetch = upstream;
-      await safeError(() => generatePlan(brief), "AI_UNAVAILABLE", 502);
+    for (const [upstream, code, status] of [
+      [
+        async () => {
+          throw new Error(`Private transport detail ${secret}`);
+        },
+        "AI_UNAVAILABLE",
+        502,
+      ],
+      [
+        async () => new Response(secret, { status: 401 }),
+        "AI_KEY_REJECTED",
+        502,
+      ],
+      [
+        async () => new Response(secret, { status: 403 }),
+        "AI_KEY_REJECTED",
+        502,
+      ],
+      [
+        async () => new Response(secret, { status: 404 }),
+        "AI_MODEL_UNAVAILABLE",
+        502,
+      ],
+      [
+        async () => new Response(secret, { status: 429 }),
+        "AI_PROVIDER_RATE_LIMITED",
+        429,
+      ],
+      [
+        async () => new Response(secret, { status: 503 }),
+        "AI_UNAVAILABLE",
+        502,
+      ],
+      [
+        async () =>
+          new Response(secret, {
+            status: 302,
+            headers: { location: `https://other.test/${secret}` },
+          }),
+        "AI_UNAVAILABLE",
+        502,
+      ],
+    ] as const) {
+      globalThis.fetch = upstream as typeof fetch;
+      await safeError(() => generatePlan(brief), code, status);
     }
     for (const upstream of [
       () => new Response(`bad json ${secret}`),

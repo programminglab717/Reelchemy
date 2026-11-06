@@ -121,6 +121,11 @@ services:
           *exportfiles,
           *mailqueue,
         ]
+      # Studios can save their own encrypted AI key in Account settings.
+      # Operator AI_* settings below are the optional "platform" AI.
+      REELCHEMY_PLATFORM_AI: ${REELCHEMY_PLATFORM_AI:-all}
+      REELCHEMY_PUBLIC_SIGNUP: ${REELCHEMY_PUBLIC_SIGNUP:-true}
+      REELCHEMY_CLIENT_IP_HEADER: ${REELCHEMY_CLIENT_IP_HEADER:-}
       AI_PROVIDER: ${AI_PROVIDER:-mock}
       AI_BASE_URL: ${AI_BASE_URL:-}
       AI_MODEL: ${AI_MODEL:-}
