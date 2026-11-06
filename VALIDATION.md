@@ -1298,3 +1298,29 @@ Frozen **`a3941f4`** (0.64; non-root, same method) passes:
 - the **complete 90/90 production HTTPS browser regression** in 40.2 minutes, with 0 skipped/unexpected/flaky (fixture `reelchemy-e2e-VHUvfQ`).
 
 A constrained five-minute landscape motion rerun on the same source passes in **738.0 seconds** (+10.1 s prep), with peak **1,436,823,552 bytes**, peak 192 tasks and no limit events (753.6 s on 0.63), so the renderer cap does not slow motion rendering. A prior intermediate formatting failure (`VALIDATION.md` table) was corrected before this run.
+
+## Immutable image acceptance and crash-in-compositor recovery — 0.65
+
+**Environment.** Docker Engine 29.9.2 runs in this cloud container with **overlayfs** storage. The previous workspace was blocked by VFS capacity; this environment is not. The agent proxy supports only HTTPS `CONNECT` and blocked `deb.debian.org`, so the user approved a personal "Reelchemy" cloud environment that allows `deb.debian.org`. Images are built from the repository's **unmodified Dockerfile** with:
+
+- `--network host` and proxy build arguments;
+- the proxy CA passed only through the Dockerfile's existing optional `build_ca` npm secret;
+- `--build-arg NODE_VERSION=24.19.0-ccrproxy`, which selects a sandbox-only local base: upstream `node:24.19.0-bookworm-slim` plus the session proxy CA and HTTPS Debian sources.
+
+The resulting images therefore trust the sandbox proxy CA and are **acceptance builds, not release images**. Release images must still be built by the chosen CI/registry from the official base.
+
+**Findings from the restricted Compose runtime check** (`scripts/check-runtime.ts`, unmodified, on app image `reelchemy:local-064`, `sha256:760d3e9d…`):
+
+1. **Privacy service crash.** The privacy service died with Go `runtime: failed to create new OS thread … errno=11` from esbuild under `tsx`. Measured with the limit temporarily lifted in a scratch copy: privacy peaked at **70 tasks** against its `pids_limit: 64` (including its tsx healthcheck), migration at 45, ingest at 69 and render at 171. Node's libuv/V8 pools and Go's scheduler size themselves by the host's 4 visible cores, not the 0.5-CPU quota.
+2. **Rendering stopped after a crash in the compositor.** After the harness killed the worker during footage compositing, the restarted worker logged `cache.prune.blocked SCENE_CACHE_UNAVAILABLE` every 5 seconds and never claimed the retry. A live `maintainSceneCache()` call inside the container raised `CacheRetentionUnavailable` from `planSceneCacheRetention`. The cache held `.partial-…/composite-7I6YW8`: retention adopted the still renderer's `static-XXXXXX` staging but not the compositor's. Every later export would have been blocked until manual cleanup.
+
+**0.65 (`33fa994`).** Compose bounds `UV_THREADPOOL_SIZE=2`, `GOMAXPROCS=1` and `NODE_OPTIONS=--v8-pool-size=2` for migrate/privacy/mail. Cache retention adopts only `composite-[A-Za-z0-9]{6}` holding `under.png`/`over-NNNN.png` as interrupted staging. A new unit case covers reclaiming the compositor staging (counting hard links once) and still refusing an unexpected file or a compositor folder inside a published entry.
+
+**Results on `33fa994`:**
+
+- **Source mode:** **552/552 complete backend/native checks** in 656.2 seconds (non-root, frozen archive).
+- **App image** `reelchemy:local-065` (`sha256:6bf35892…`, 3.05 GB, built in 1 min 31 s on cached layers; the first cold build took 3 min 6 s): the unmodified restricted runtime check **passes three consecutive times in about 47 seconds each**. It covers migrations, private routes/health, render/ingest credential and filesystem isolation, read-only/non-root/capability/network restrictions, a network-isolated real footage/captions/AAC export with full decode, duplicate-worker refusal, a forced in-flight crash with exactly one Docker restart and one retry while the earlier export stays decodable, and permanent cleanup with a later export. Clean cgroup sampling of the final run shows peaks of privacy **54/64**, migration 30/64, web 51/256, ingest 69/256 and render 185/256, with **zero task-limit events**. One stale project from a failed debugging run inflated an intermediate sample; it was identified and removed (only disposable synthetic containers and volumes created in this session).
+- **Test image** `reelchemy:verification-065` (`sha256:20f44830…`, BUILD_ID `kkpmR7xzsSHaMM09E1dZh`), run as documented (`--network none --cpus 4 --memory 6g --pids-limit 512 --shm-size 512m`): **90/90 production HTTPS browser cases in 40.4 minutes**, 0 skipped/unexpected/flaky, container exit 0. Evidence was copied out with secrets excluded by the harness.
+- **Backup image** `reelchemy:backup-065`: builds; contains Restic 0.14.0 and Node 24.19.0 and runs as `node`. With no repository configuration, its default `inspect` command refuses without initializing data.
+
+This is the first **immutable-image** acceptance of the app, test and backup targets since the earlier VFS block, with the sandbox-CA caveat above. Hosted CI, a registry, staging/deploy/rollback, monitoring, real SMTP/off-host restore and live AI remain open.

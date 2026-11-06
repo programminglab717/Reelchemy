@@ -495,3 +495,10 @@ Add a selected-layer duplicate action to the canvas and advanced layer controls.
 - Record constrained 2 CPU / 4 GiB / 256-task five-minute native-HD measurements for square motion, landscape motion and full-footage mixed media.
 - Retry mail-outbox connection setup on `SQLITE_BUSY` before the write transaction begins. Concurrent first use could hit `SQLITE_BUSY` in journal-mode/schema setup outside the busy timeout, so a valid message was refused as unavailable. The failure was found as a one-off full-suite failure and reproduced in 4 of 15 loaded runs, then 0 of 20 after the fix. Work inside the immediate transaction is never repeated.
 - Accepted from frozen `a3941f4`: 551/551 backend/native checks, production build/guards and the complete 90/90 production HTTPS browser regression. Landscape motion runs at 738.0 s under the cap, with no slowdown.
+
+## 0.65.0 — 2026-11-06
+
+- Recover rendering after a crash during footage compositing. The restricted Compose runtime check kills the render worker mid-export; when that landed in the footage compositor, cache maintenance refused the interrupted staging's `composite-XXXXXX` stills forever. The restarted worker then never became ready and all rendering stopped until operator cleanup. Only that directory with `under.png`/`over-NNNN.png` stills is now adopted as interrupted staging; anything else still refuses.
+- Bound libuv, V8-platform and Go (esbuild) thread pools for the migrate, privacy and mail services. Pools follow the host's visible cores, and on a 4-core host the privacy service and its tsx healthcheck reached 70 tasks under a 64-task limit and crashed with `errno=11`. With the bounds, the measured peak is 54.
+- Record the first immutable app/test image acceptance in this environment. Images are built from the unmodified Dockerfile on a sandbox-only proxy-CA base image (overlayfs storage).
+- Accepted from `33fa994`: 552/552 backend/native checks in source mode; the restricted Compose runtime check passes three times on the app image; the complete 90/90 production browser suite passes inside the immutable test image; the backup image builds and refuses without configuration.
