@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useAccountFetch } from "./AccountBoundary";
 import type { AssetUpdate } from "@/lib/project-assets";
+import { isFontMime } from "@/lib/schema";
+import { FontPreview } from "./FontPreview";
 import type {
   LibraryItem,
   LibraryPage,
@@ -205,6 +207,7 @@ export function StudioMediaLibrary({
                 <option value="image">Images</option>
                 <option value="video">Video</option>
                 <option value="audio">Audio</option>
+                <option value="font">Fonts</option>
               </select>
             </label>
             <button
@@ -250,6 +253,12 @@ export function StudioMediaLibrary({
                             width={160}
                             height={90}
                             loading="lazy"
+                          />
+                        ) : isFontMime(asset.mime) ? (
+                          <FontPreview
+                            id={asset.id}
+                            src={src}
+                            name={asset.name}
                           />
                         ) : asset.mime === "video/mp4" ? (
                           <video

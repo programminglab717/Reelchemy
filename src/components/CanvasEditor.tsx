@@ -15,11 +15,13 @@ export function CanvasEditor({
   selected,
   assetSources,
   onChange,
+  fonts = [],
 }: {
   timeline: Timeline;
   selected: number;
   assetSources: Record<string, string>;
   onChange: (t: Timeline) => void;
+  fonts?: { id: string; name: string }[];
 }) {
   const scene = timeline.scenes[selected];
   const [selectedId, setSelectedId] = useState(scene.layers[0]?.id);
@@ -290,6 +292,7 @@ export function CanvasEditor({
                     layer={layer}
                     label={`Canvas ${layer.id}`}
                     onChange={update}
+                    fonts={fonts}
                   />
                 </fieldset>
               )}

@@ -1,6 +1,7 @@
 import {
   MAX_TIMELINE_SECONDS,
   MAX_SOURCE_FRAMES,
+  MAX_MEDIA_UPLOAD_BYTES,
   usesExtendedTimeline,
 } from "./timeline-limits";
 import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
@@ -25,7 +26,10 @@ import {
 } from "./assets";
 import { storeAudio } from "./audio";
 import { storeVideo } from "./video";
+import { storeFont } from "./fonts";
 import {
+  assetMimes,
+  isFontMime,
   timelineSchema,
   type Project,
   type Timeline,
@@ -54,7 +58,7 @@ const portableProject = z.object({
         name: z.string().max(100),
         source: z.string().max(500),
         license: z.string().min(1).max(500),
-        mime: z.enum(["image/png", "audio/wav", "video/mp4"]),
+        mime: z.enum(assetMimes),
         bytes: z
           .number()
           .int()
@@ -149,8 +153,8 @@ const envelopeSchema = z.discriminatedUnion("version", [
       ),
     project: portableProject,
   }),
-  // Animated (keyframe/camera) rotation and layer masks. Older readers would
-  // silently drop these unknown fields, so this version makes them refuse.
+  // Animated (keyframe/camera) rotation, layer masks and uploaded fonts. Older
+  // readers would silently drop these, so this version makes them refuse.
   z.object({
     format: z.literal("reelchemy"),
     version: z.literal(5),
@@ -163,19 +167,31 @@ const envelopeSchema = z.discriminatedUnion("version", [
           "layer-rotation-v1",
           "keyframe-rotation-v1",
           "layer-mask-v1",
+          "custom-font-v1",
         ]),
       )
       .min(1)
-      .max(6)
+      .max(7)
       .refine(
         (features) =>
           (features.includes("keyframe-rotation-v1") ||
-            features.includes("layer-mask-v1")) &&
+            features.includes("layer-mask-v1") ||
+            features.includes("custom-font-v1")) &&
           new Set(features).size === features.length,
       ),
     project: portableProject,
   }),
 ]);
+function hasCustomFont(
+  project: Pick<Project, "timeline" | "revisions" | "assets">,
+) {
+  return (
+    !!project.assets?.some((a) => isFontMime(a.mime)) ||
+    [project.timeline, ...project.revisions.map((r) => r.timeline)].some((t) =>
+      t?.scenes.some((s) => s.layers.some((l) => !!l.fontAssetId)),
+    )
+  );
+}
 function hasLayerMask(project: Pick<Project, "timeline" | "revisions">) {
   return [project.timeline, ...project.revisions.map((r) => r.timeline)].some(
     (t) => t?.scenes.some((s) => s.layers.some((l) => !!l.mask)),
@@ -292,11 +308,12 @@ export async function exportArchive(project: Project) {
   const extended = hasExtendedTimeline(input);
   const keyframeRotation = hasKeyframeRotation(input);
   const layerMask = hasLayerMask(input);
+  const customFont = hasCustomFont(input);
   const manifest = strToU8(
     JSON.stringify({
       format: "reelchemy",
       version:
-        keyframeRotation || layerMask
+        keyframeRotation || layerMask || customFont
           ? 5
           : nativeHd || extended
             ? 4
@@ -310,7 +327,8 @@ export async function exportArchive(project: Project) {
       largeHistory ||
       needsRotation ||
       keyframeRotation ||
-      layerMask
+      layerMask ||
+      customFont
         ? {
             requiredFeatures: [
               ...(nativeHd ? ["native-hd-v1"] : []),
@@ -319,6 +337,7 @@ export async function exportArchive(project: Project) {
               ...(needsRotation ? ["layer-rotation-v1"] : []),
               ...(keyframeRotation ? ["keyframe-rotation-v1"] : []),
               ...(layerMask ? ["layer-mask-v1"] : []),
+              ...(customFont ? ["custom-font-v1"] : []),
             ],
           }
         : {}),
@@ -399,11 +418,13 @@ export async function importArchive(
   const envelope = envelopeSchema.parse(raw);
   const input = envelope.project;
   if (
-    (hasKeyframeRotation(input) || hasLayerMask(input)) !==
+    (hasKeyframeRotation(input) ||
+      hasLayerMask(input) ||
+      hasCustomFont(input)) !==
     (envelope.version === 5)
   )
     throw new Error(
-      "Animated rotation or layer masks require the matching archive feature version.",
+      "Animated rotation, layer masks or uploaded fonts require the matching archive feature version.",
     );
   if (
     envelope.version !== 5 &&
@@ -427,6 +448,7 @@ export async function importArchive(
         : []),
       ...(hasKeyframeRotation(input) ? ["keyframe-rotation-v1"] : []),
       ...(hasLayerMask(input) ? ["layer-mask-v1"] : []),
+      ...(hasCustomFont(input) ? ["custom-font-v1"] : []),
     ];
     if (
       required.length !== envelope.requiredFeatures.length ||
@@ -470,13 +492,21 @@ export async function importArchive(
               a.license,
               normalization,
             )
-          : await (a.mime === "audio/wav" ? storeAudio : storeImage)(
-              Buffer.from(source),
-              a.name,
-              a.license,
-              25 * 1024 * 1024,
-              normalization,
-            );
+          : isFontMime(a.mime)
+            ? await storeFont(
+                Buffer.from(source),
+                a.name,
+                a.license,
+                MAX_MEDIA_UPLOAD_BYTES.font,
+                normalization,
+              )
+            : await (a.mime === "audio/wav" ? storeAudio : storeImage)(
+                Buffer.from(source),
+                a.name,
+                a.license,
+                25 * 1024 * 1024,
+                normalization,
+              );
       assets.push(asset);
       mapping.set(a.id, asset.id);
     }
@@ -493,6 +523,15 @@ export async function importArchive(
             )
               throw new Error("Invalid image reference in archived timeline.");
             layer.assetId = id;
+          }
+      for (const s of result.scenes)
+        for (const layer of s.layers)
+          if (layer.fontAssetId) {
+            const id = mapping.get(layer.fontAssetId);
+            const mime = assets.find((a) => a.id === id)?.mime;
+            if (!id || !mime || !isFontMime(mime))
+              throw new Error("Invalid font reference in archived timeline.");
+            layer.fontAssetId = id;
           }
       for (const track of result.audioTracks || []) {
         const id = mapping.get(track.assetId),

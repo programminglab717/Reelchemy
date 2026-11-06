@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
+import { mediaKinds } from "./timeline-limits";
 import {
   mediaStorageLimit,
   validatedSharedMediaBytes,
@@ -22,7 +23,7 @@ const inputSchema = z.discriminatedUnion("operation", [
     .object({
       operation: z.literal("upload"),
       name: z.string().min(1).max(100),
-      kind: z.enum(["image", "audio", "video"]),
+      kind: z.enum(mediaKinds),
       license: z.string().trim().min(3).max(500),
       bytes: z.number().int().min(1).max(MEDIA_INPUT_BYTES.upload),
       sha256: hash,

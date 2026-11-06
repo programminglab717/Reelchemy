@@ -65,7 +65,12 @@ async function renderResolved(
     );
   await mkdir(outputDir, { recursive: true });
   onStage("Checking layout");
-  const layout = await checkLayout(timeline, outputDir, isCancelled);
+  const layout = await checkLayout(
+    timeline,
+    outputDir,
+    isCancelled,
+    assetSources,
+  );
   timeline = layout.timeline;
   if (layout.after.length) {
     await writeFile(

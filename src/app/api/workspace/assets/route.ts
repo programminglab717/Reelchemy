@@ -8,7 +8,7 @@ function GETHandler(req: Request, _context: unknown, access: Access) {
   const parsed = z
     .object({
       query: z.string().trim().max(100),
-      kind: z.enum(["all", "image", "audio", "video"]),
+      kind: z.enum(["all", "image", "audio", "video", "font"]),
       offset: z.coerce.number().int().min(0).max(100000),
       limit: z.coerce.number().int().min(1).max(50),
       targetProjectId: libraryProjectId.optional(),

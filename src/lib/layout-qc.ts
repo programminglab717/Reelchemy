@@ -5,7 +5,7 @@ import { chromium } from "playwright-core";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { videoDimensions, type Timeline, type QCIssue } from "./schema";
-import { textStyle } from "./text-style";
+import { textStyle, fontFaceFamily } from "./text-style";
 import { CaptionOverlay } from "../video/CaptionOverlay";
 import { CommandCancelledError, CommandTimeoutError } from "./process";
 export class RenderQCError extends Error {
@@ -19,6 +19,7 @@ export async function checkLayout(
   input: Timeline,
   outputDir: string,
   cancelled: () => boolean = () => false,
+  assetSources: Record<string, string> = {},
 ) {
   if (cancelled()) throw new CommandCancelledError();
   const deadline = Date.now() + 60000;
@@ -51,7 +52,20 @@ export async function checkLayout(
     const page = await browser.newPage({ viewport: videoDimensions(timeline) });
     page.setDefaultTimeout(15000);
     page.setDefaultNavigationTimeout(15000);
-    await page.route("**/*", (r) => r.abort());
+    // Only this attempt's private font URLs may load; everything else stays
+    // blocked so measured text cannot depend on outside resources.
+    const fontUrls = new Set(
+      timeline.scenes.flatMap((scene) =>
+        scene.layers.flatMap((l) =>
+          l.fontAssetId && assetSources[l.fontAssetId]
+            ? [assetSources[l.fontAssetId]]
+            : [],
+        ),
+      ),
+    );
+    await page.route("**/*", (r) =>
+      fontUrls.has(r.request().url()) ? r.continue() : r.abort(),
+    );
     for (const [i, scene] of timeline.scenes.entries()) {
       if (cancelled()) throw new Error("Render cancelled.");
       for (let pass = 0; pass <= 2; pass++) {
@@ -97,6 +111,58 @@ export async function checkLayout(
             ),
           ),
         );
+        const fonts = [
+          ...new Set(
+            scene.layers.flatMap((l) =>
+              l.kind === "text" && !l.hidden && l.fontAssetId
+                ? [l.fontAssetId]
+                : [],
+            ),
+          ),
+        ];
+        const unavailable = fonts.filter((id) => !assetSources[id]);
+        const failed = await page.evaluate(
+          async (faces) => {
+            const failures: string[] = [];
+            for (const [id, family, src] of faces) {
+              const present = [...document.fonts].some(
+                (f) =>
+                  f.family.replace(/^"|"$/g, "") === family &&
+                  f.status === "loaded",
+              );
+              if (present) continue;
+              try {
+                const face = new FontFace(
+                  family,
+                  `url(${JSON.stringify(src)})`,
+                );
+                document.fonts.add(await face.load());
+              } catch {
+                failures.push(id);
+              }
+            }
+            return failures;
+          },
+          fonts
+            .filter((id) => assetSources[id])
+            .map(
+              (id) =>
+                [id, fontFaceFamily(id), assetSources[id]] as [
+                  string,
+                  string,
+                  string,
+                ],
+            ),
+        );
+        if (unavailable.length || failed.length)
+          throw new RenderQCError(
+            [...unavailable, ...failed].map((id) => ({
+              sceneId: scene.id,
+              code: "missing-asset",
+              severity: "error",
+              message: `The uploaded font ${id} could not be loaded in scene ${scene.title}. Upload a valid font file or choose another font.`,
+            })),
+          );
         const metrics = await page
           .locator("[data-layer-id]")
           .evaluateAll((nodes) =>

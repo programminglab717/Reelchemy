@@ -10,8 +10,11 @@ export const MAX_MEDIA_UPLOAD_BYTES = {
   audio: 64 * 1024 * 1024,
   // Stays under Cloudflare's 100 MB request-body limit with form overhead.
   video: 95 * 1024 * 1024,
+  font: 5 * 1024 * 1024,
 } as const;
-export const mediaUploadLimitText = (kind: "image" | "audio" | "video") =>
+export const mediaKinds = ["image", "audio", "video", "font"] as const;
+export type MediaKind = (typeof mediaKinds)[number];
+export const mediaUploadLimitText = (kind: MediaKind) =>
   `${MAX_MEDIA_UPLOAD_BYTES[kind] / 1024 / 1024} MB`;
 export const MAX_SCENES = 60;
 export const MAX_AUDIO_TRACKS = 12;

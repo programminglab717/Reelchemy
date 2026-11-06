@@ -1,6 +1,8 @@
 import {
   MAX_MEDIA_UPLOAD_BYTES,
   mediaUploadLimitText,
+  mediaKinds,
+  type MediaKind,
 } from "./timeline-limits";
 import type { AccountFetch } from "./account-fetch";
 import type { MediaInput, MediaReceipt } from "./media-processing-store";
@@ -34,10 +36,10 @@ async function intent(body: FormData | File): Promise<MediaInput> {
     const kind = body.get("kind") || "image",
       file = body.get("file");
     if (
-      !["image", "audio", "video"].includes(String(kind)) ||
+      !(mediaKinds as readonly string[]).includes(String(kind)) ||
       !(file instanceof File)
     )
-      throw new Error("Choose an image, audio or video file.");
+      throw new Error("Choose an image, audio, video or font file.");
     const license = String(body.get("license") || "")
       .replace(/\r\n?|\n/g, "\r\n")
       .trim();
@@ -45,15 +47,15 @@ async function intent(body: FormData | File): Promise<MediaInput> {
       throw new Error(
         "Describe your source or usage rights in 3–500 characters.",
       );
-    const mediaKind = kind as "image" | "audio" | "video";
+    const mediaKind = kind as MediaKind;
     if (!file.size || file.size > MAX_MEDIA_UPLOAD_BYTES[mediaKind])
       throw new Error(
         `Choose ${mediaKind === "image" ? "an image" : `a ${mediaKind} file`} up to ${mediaUploadLimitText(mediaKind)}.`,
       );
     return {
       operation: "upload",
-      name: mediaUploadName(file.name, kind as "image" | "audio" | "video"),
-      kind: kind as "image" | "audio" | "video",
+      name: mediaUploadName(file.name, mediaKind),
+      kind: mediaKind,
       license,
       bytes: file.size,
       sha256: await digest(new Uint8Array(await file.arrayBuffer())),

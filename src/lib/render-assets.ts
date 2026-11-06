@@ -6,6 +6,7 @@ import path from "node:path";
 import { randomBytes, createHash } from "node:crypto";
 import { assetDir } from "./assets";
 import { validAssetId } from "./project-assets";
+import { sniffFontMime } from "./fonts";
 import { byteRange } from "./media-range";
 import { CommandCancelledError } from "./process";
 import type { Timeline } from "./schema";
@@ -36,6 +37,10 @@ export async function serveRenderAssets(
         );
   for (const track of timeline.audioTracks || [])
     allow(track.assetId, "audio/wav");
+  // A font's served type comes from its verified signature when opened.
+  for (const scene of timeline.scenes)
+    for (const layer of scene.layers)
+      if (layer.fontAssetId) allow(layer.fontAssetId, "font");
   const fingerprints: Record<string, string> = {};
   const sources: Record<string, string> = {};
   const files = new Map<
@@ -73,6 +78,13 @@ export async function serveRenderAssets(
       )
         throw new Error("Render assets must be bounded regular media files.");
       files.get(id)!.size = metadata.size;
+      if (mime === "font") {
+        const head = Buffer.alloc(Math.min(64, metadata.size));
+        await handle.read(head, 0, head.length, 0);
+        const sniffed = sniffFontMime(head);
+        if (!sniffed) throw new Error("Render font is not a font file.");
+        files.get(id)!.mime = sniffed;
+      }
       const hash = createHash("sha256");
       const buffer = Buffer.allocUnsafe(64 * 1024);
       let position = 0;

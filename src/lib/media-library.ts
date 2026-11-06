@@ -1,7 +1,7 @@
 import { MAX_SOURCE_FRAMES } from "./timeline-limits";
 import type Database from "better-sqlite3";
 import { z } from "zod";
-import type { Asset } from "./schema";
+import { assetMimes, fontMimes, type Asset } from "./schema";
 export const libraryProjectId = z
   .string()
   .min(1)
@@ -15,7 +15,7 @@ export const libraryAssetSchema = z.object({
   name: z.string().max(100),
   source: z.string().max(500),
   license: z.string().min(1).max(500),
-  mime: z.enum(["image/png", "audio/wav", "video/mp4"]),
+  mime: z.enum(assetMimes),
   bytes: z.number().int().min(1).optional(),
   durationFrames: z.number().int().min(0).max(MAX_SOURCE_FRAMES).optional(),
   width: z.number().int().min(1).max(16000000).optional(),
@@ -34,7 +34,7 @@ export type LibraryPage = {
 };
 export type LibraryQuery = {
   query: string;
-  kind: "all" | "image" | "audio" | "video";
+  kind: "all" | "image" | "audio" | "video" | "font";
   offset: number;
   limit: number;
   targetProjectId?: string;
@@ -57,14 +57,17 @@ export function listLibraryMedia(
     WHERE p.workspace_id=? AND p.trashed_at IS NULL
       AND NOT EXISTS(SELECT 1 FROM project_deletions d WHERE d.project_id=p.id)
       AND a.type='object' AND json_type(CASE WHEN a.type='object' THEN a.value ELSE '{}' END,'$.id')='text'
-      AND json_extract(CASE WHEN a.type='object' THEN a.value ELSE '{}' END,'$.mime') IN ('image/png','audio/wav','video/mp4')${where}
+      AND json_extract(CASE WHEN a.type='object' THEN a.value ELSE '{}' END,'$.mime') IN (${assetMimes.map((m) => `'${m}'`).join(",")})${where}
   )`;
   let filter = "position=1";
   if (options.query) {
     filter += " AND json_extract(asset,'$.name') LIKE ? ESCAPE '\\'";
     values.push(`%${options.query.replace(/[\\%_]/g, "\\$&")}%`);
   }
-  if (options.kind !== "all") {
+  if (options.kind === "font") {
+    filter += ` AND json_extract(asset,'$.mime') IN (${fontMimes.map(() => "?").join(",")})`;
+    values.push(...fontMimes);
+  } else if (options.kind !== "all") {
     filter += " AND json_extract(asset,'$.mime')=?";
     values.push(
       { image: "image/png", audio: "audio/wav", video: "video/mp4" }[

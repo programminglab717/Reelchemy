@@ -1,6 +1,7 @@
 import { secureRoute } from "@/lib/access";
 import { getProject } from "@/lib/db";
 import { assetDir, validAssetId } from "@/lib/assets";
+import { assetMimes } from "@/lib/schema";
 import {
   privateFileMissing,
   privateFileResponse,
@@ -16,7 +17,7 @@ async function GETHandler(
   if (
     !validAssetId(assetId) ||
     !asset ||
-    !["image/png", "audio/wav", "video/mp4"].includes(asset.mime)
+    !(assetMimes as readonly string[]).includes(asset.mime)
   )
     return privateFileMissing();
   return privateFileResponse(req, assetDir, [assetId], asset.mime);

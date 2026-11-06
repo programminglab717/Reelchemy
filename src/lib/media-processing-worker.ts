@@ -14,6 +14,8 @@ import type { MediaTask, MediaFailure } from "./media-processing-store";
 import { storeImage } from "./assets";
 import { storeAudio } from "./audio";
 import { storeVideo } from "./video";
+import { storeFont } from "./fonts";
+import { MAX_MEDIA_UPLOAD_BYTES } from "./timeline-limits";
 import { importArchive } from "./archive";
 import { readWaveform } from "./waveform";
 import { cacheWaveform } from "./waveform-cache";
@@ -69,13 +71,21 @@ export async function processMediaTask(
       const asset =
         input.kind === "video"
           ? await storeVideo(bytes, input.name, input.license, options)
-          : await (input.kind === "audio" ? storeAudio : storeImage)(
-              bytes,
-              input.name,
-              input.license,
-              10 * 1024 * 1024,
-              options,
-            );
+          : input.kind === "font"
+            ? await storeFont(
+                bytes,
+                input.name,
+                input.license,
+                MAX_MEDIA_UPLOAD_BYTES.font,
+                options,
+              )
+            : await (input.kind === "audio" ? storeAudio : storeImage)(
+                bytes,
+                input.name,
+                input.license,
+                10 * 1024 * 1024,
+                options,
+              );
       await waveform(asset, cancelled);
       mediaProcessing.finish(task, () => {
         if (

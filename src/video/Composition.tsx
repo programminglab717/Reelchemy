@@ -1,5 +1,6 @@
 import { SoundAndCaptions } from "./SoundAndCaptions";
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { loadFontFace } from "./font-faces";
 import { textStyle } from "../lib/text-style";
 import { mediaStyle } from "../lib/media-style";
 import type { VideoCompositePass } from "../lib/video-composite-plan";
@@ -9,6 +10,8 @@ import {
   useCurrentFrame,
   OffthreadVideo,
   Img,
+  delayRender,
+  continueRender,
 } from "remotion";
 import {
   layerMotion,
@@ -18,6 +21,36 @@ import {
   type Timeline,
   type Scene,
 } from "../lib/schema";
+// Holds the first frame until the scene's uploaded fonts are ready. Export
+// layout checks already refused fonts Chromium cannot load, so a failure here
+// (e.g. an interrupted preview request) falls back instead of hanging.
+function useSceneFonts(scene: Scene, assetSources: Record<string, string>) {
+  const sources = [
+    ...new Set(
+      scene.layers.flatMap((l) =>
+        l.kind === "text" && l.fontAssetId && assetSources[l.fontAssetId]
+          ? [l.fontAssetId]
+          : [],
+      ),
+    ),
+  ].map((id) => [id, assetSources[id]] as const);
+  const key = JSON.stringify(sources);
+  const [handle] = useState(() =>
+    sources.length ? delayRender("Loading uploaded fonts") : null,
+  );
+  const released = useRef(false);
+  useEffect(() => {
+    const entries = JSON.parse(key) as [string, string][];
+    void Promise.allSettled(
+      entries.map(([id, src]) => loadFontFace(id, src)),
+    ).then(() => {
+      if (handle !== null && !released.current) {
+        released.current = true;
+        continueRender(handle);
+      }
+    });
+  }, [key, handle]);
+}
 function SceneView({
   scene,
   format,
@@ -33,6 +66,7 @@ function SceneView({
   layoutOnly?: boolean;
   compositePass?: VideoCompositePass;
 }) {
+  useSceneFonts(scene, assetSources);
   const currentFrame = useCurrentFrame();
   const frame = layoutOnly ? 0 : currentFrame;
   const motionFrame = frame + (scene.motionOffsetFrames || 0);

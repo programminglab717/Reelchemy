@@ -1,6 +1,7 @@
 import {
   MAX_MEDIA_UPLOAD_BYTES,
   mediaUploadLimitText,
+  mediaKinds,
 } from "./timeline-limits";
 import { randomUUID, createHash } from "node:crypto";
 import { mediaUploadName } from "./media-upload-intent";
@@ -253,15 +254,13 @@ export async function receiveMediaRequest(
     let bytes: Uint8Array, metadata: MediaInput;
     if (operation === "upload") {
       const form = await multipart(req, MEDIA_INPUT_BYTES.upload, options);
-      const kind = z
-        .enum(["image", "audio", "video"])
-        .parse(form.get("kind") || "image");
+      const kind = z.enum(mediaKinds).parse(form.get("kind") || "image");
       const file = form.get("file");
       if (!(file instanceof File))
         throw new RequestBodyError("Select a media file.");
       if (!file.size || file.size > MAX_MEDIA_UPLOAD_BYTES[kind])
         throw new RequestBodyError(
-          `${kind === "image" ? "Images" : kind === "audio" ? "Audio files" : "Videos"} must be ${mediaUploadLimitText(kind)} or smaller.`,
+          `${{ image: "Images", audio: "Audio files", video: "Videos", font: "Fonts" }[kind]} must be ${mediaUploadLimitText(kind)} or smaller.`,
         );
       const license = z
         .string()

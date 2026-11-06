@@ -5,11 +5,14 @@ export function TypographyControls({
   label,
   onChange,
   editContent = true,
+  fonts = [],
 }: {
   layer: Layer;
   label: string;
   onChange: (layer: Layer) => void;
   editContent?: boolean;
+  // Fonts uploaded to this project.
+  fonts?: { id: string; name: string }[];
 }) {
   return (
     <div
@@ -63,6 +66,32 @@ export function TypographyControls({
           <option value="mono">Monospace</option>
         </select>
       </label>
+      {(fonts.length > 0 || layer.fontAssetId) && (
+        <label>
+          Brand font
+          <select
+            aria-label={`${label} brand font`}
+            value={layer.fontAssetId || ""}
+            onChange={(e) =>
+              onChange({
+                ...layer,
+                fontAssetId: e.target.value || undefined,
+              })
+            }
+          >
+            <option value="">None (use the font above)</option>
+            {fonts.map((font) => (
+              <option key={font.id} value={font.id}>
+                {font.name}
+              </option>
+            ))}
+            {layer.fontAssetId &&
+              !fonts.some((font) => font.id === layer.fontAssetId) && (
+                <option value={layer.fontAssetId}>Missing font</option>
+              )}
+          </select>
+        </label>
+      )}
       <label>
         Weight
         <select

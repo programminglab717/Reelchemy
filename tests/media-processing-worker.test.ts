@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import { test, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -115,7 +116,7 @@ async function image(width = 64, height = 32) {
 function enqueue(
   projectId: string | null,
   bytes: Uint8Array,
-  details: { kind: "image" | "audio" | "video"; name: string } | null,
+  details: { kind: "image" | "audio" | "video" | "font"; name: string } | null,
 ) {
   const input: MediaInput = details
     ? {
@@ -203,6 +204,31 @@ test("real private image ingestion uses its worker, retains exact rights and exc
   assert.equal((await stat(lifecycle)).ino, inode);
 });
 
+test("brand fonts are ingested byte-for-byte and disguised files are refused", async () => {
+  const p = project();
+  const font = await readFile(
+    path.join(
+      path.dirname(createRequire(import.meta.url).resolve("next/package.json")),
+      "dist/next-devtools/server/font/geist-mono-latin.woff2",
+    ),
+  );
+  const id = enqueue(p.id, font, { kind: "font", name: "Geist Mono.woff2" });
+  await start();
+  await completed(id);
+  const asset = app.getProject(p.id)!.assets![0];
+  assert.equal(asset.mime, "font/woff2");
+  assert.equal(asset.name, "Geist Mono");
+  assert.deepEqual(
+    await readFile(path.join(root, "data", "assets", asset.id)),
+    font,
+  );
+  const fake = enqueue(p.id, await image(), {
+    kind: "font",
+    name: "logo.ttf",
+  });
+  assert.equal((await completed(fake, "failed")).error, "INVALID_MEDIA");
+  assert.equal(app.getProject(p.id)!.assets!.length, 1);
+});
 test("actual audio normalization and portable import precompute durable waveforms", async () => {
   const source = path.join(root, "tone.wav");
   execFileSync("ffmpeg", [

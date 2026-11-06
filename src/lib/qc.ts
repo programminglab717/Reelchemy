@@ -110,6 +110,14 @@ export function inspectTimeline(
           message: `Missing asset: ${l.assetId}`,
           severity: "error",
         });
+      if (l.fontAssetId && !assetIds.includes(l.fontAssetId))
+        issues.push({
+          sceneId: s.id,
+          layerId: l.id,
+          code: "missing-asset",
+          message: `Missing font: ${l.fontAssetId}`,
+          severity: "error",
+        });
       if (l.kind === "text" && l.text.length > 90)
         issues.push({
           sceneId: s.id,

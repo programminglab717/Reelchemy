@@ -20,6 +20,23 @@ export const fullHdFormats = {
   square: { width: 1080, height: 1080 },
 } as const;
 const color = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+// Uploaded brand fonts are stored byte-for-byte in their original container.
+export const fontMimes = [
+  "font/ttf",
+  "font/otf",
+  "font/woff",
+  "font/woff2",
+] as const;
+export type FontMime = (typeof fontMimes)[number];
+export const assetMimes = [
+  "image/png",
+  "audio/wav",
+  "video/mp4",
+  ...fontMimes,
+] as const;
+export function isFontMime(mime: string): mime is FontMime {
+  return (fontMimes as readonly string[]).includes(mime);
+}
 export const keyframeSchema = z.object({
   frame: z.number().int().min(0).max(599),
   x: z.number().min(-1).max(1),
@@ -53,6 +70,11 @@ export const layerSchema = z.object({
   color: color,
   fontSize: z.number().min(12).max(120).default(48),
   fontFamily: z.enum(["sans", "serif", "mono"]).optional(),
+  // An uploaded font asset of this project; fontFamily stays the fallback.
+  fontAssetId: z
+    .string()
+    .regex(/^[a-f0-9-]{36}$/)
+    .optional(),
   fontWeight: z
     .enum(["regular", "medium", "semibold", "bold", "heavy"])
     .optional(),
@@ -268,6 +290,13 @@ export const timelineSchema = z
           });
     for (const scene of t.scenes)
       for (const layer of scene.layers)
+        if (layer.fontAssetId && layer.kind !== "text")
+          ctx.addIssue({
+            code: "custom",
+            message: "Only text layers can use an uploaded font.",
+          });
+    for (const scene of t.scenes)
+      for (const layer of scene.layers)
         if (layer.kind === "image" && !layer.assetId)
           ctx.addIssue({
             code: "custom",
@@ -309,7 +338,7 @@ export type Asset = {
   name: string;
   source: string;
   license: string;
-  mime: "image/png" | "audio/wav" | "video/mp4";
+  mime: (typeof assetMimes)[number];
   bytes?: number;
   durationFrames?: number;
   width?: number;

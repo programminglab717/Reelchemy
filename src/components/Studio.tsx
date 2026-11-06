@@ -47,6 +47,7 @@ import { Film } from "@/video/Composition";
 import {
   videoDimensions,
   totalFrames,
+  isFontMime,
   type ProjectSummary,
   type RenderJob,
   type Timeline,
@@ -1156,6 +1157,9 @@ export function Studio({
                     ]),
                   )}
                   onChange={changeTimeline}
+                  fonts={(project.assets || []).filter((a) =>
+                    isFontMime(a.mime),
+                  )}
                 />
                 <div className="section-heading">
                   <h2>Your storyboard</h2>
@@ -1488,6 +1492,20 @@ export function Studio({
                   onRecordStart={() => player.current?.pause()}
                   project={project}
                   onProject={editor.mergeAssets}
+                  onUseFont={
+                    scene?.layers.some(
+                      (layer) => layer.kind === "text" && !layer.locked,
+                    )
+                      ? (fontAssetId) =>
+                          changeScene({
+                            layers: scene.layers.map((layer) =>
+                              layer.kind === "text" && !layer.locked
+                                ? { ...layer, fontAssetId }
+                                : layer,
+                            ),
+                          })
+                      : undefined
+                  }
                   onAdd={(assetId) => {
                     if (!scene) return;
                     const asset = project.assets?.find((a) => a.id === assetId);

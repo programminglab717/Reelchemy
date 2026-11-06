@@ -12,10 +12,21 @@ export const fontWeights = {
   bold: 700,
   heavy: 800,
 };
+// CSS family name for an uploaded font. Asset IDs are validated UUIDs, so the
+// name needs no escaping; the layer's generic family remains the fallback.
+export function fontFaceFamily(assetId: string) {
+  return `reelchemy-font-${assetId}`;
+}
+export function layerFontFamily(layer: Layer) {
+  const fallback = fontFamilies[layer.fontFamily || "sans"];
+  return layer.fontAssetId
+    ? `"${fontFaceFamily(layer.fontAssetId)}", ${fallback}`
+    : fallback;
+}
 export function textStyle(layer: Layer, width: number): CSSProperties {
   return {
     fontSize: (layer.fontSize * width) / 1280,
-    fontFamily: fontFamilies[layer.fontFamily || "sans"],
+    fontFamily: layerFontFamily(layer),
     fontWeight: layer.fontWeight
       ? fontWeights[layer.fontWeight]
       : layer.fontSize > 30

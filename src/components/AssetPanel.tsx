@@ -1,7 +1,8 @@
 "use client";
 import { useMediaSubmission } from "./useMediaSubmission";
 import { useState } from "react";
-import type { Project } from "@/lib/schema";
+import { isFontMime, type Project } from "@/lib/schema";
+import { FontPreview } from "./FontPreview";
 import type { AssetUpdate } from "@/lib/project-assets";
 import { VideoUpload } from "./VideoUpload";
 import { NarrationRecorder } from "./NarrationRecorder";
@@ -15,6 +16,7 @@ export function AssetPanel({
   onRecordingActive,
   onRecordStart,
   canAddVisual,
+  onUseFont,
 }: {
   project: Pick<Project, "id" | "assets" | "timeline">;
   onProject: (p: AssetUpdate) => void;
@@ -23,9 +25,12 @@ export function AssetPanel({
   onRecordingActive?: (active: boolean) => void;
   onRecordStart: () => void;
   canAddVisual: boolean;
+  // Applies an uploaded font to the selected scene's text layers.
+  onUseFont?: (id: string) => void;
 }) {
   const imageUpload = useMediaSubmission(`/api/projects/${project.id}/assets`);
   const audioUpload = useMediaSubmission(`/api/projects/${project.id}/assets`);
+  const fontUpload = useMediaSubmission(`/api/projects/${project.id}/assets`);
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   return (
@@ -151,6 +156,53 @@ export function AssetPanel({
           </button>
         </div>
       </form>
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true);
+          setError("");
+          const form = e.currentTarget;
+          try {
+            const body = new FormData(form);
+            body.set("kind", "font");
+            const data = await fontUpload.submit(body);
+            onProject(data);
+            form.reset();
+          } catch (e) {
+            setError(e instanceof Error ? e.message : "Font upload failed");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <div className="layer-fields">
+          <label>
+            Brand font (TTF, OTF, WOFF, WOFF2)
+            <input
+              aria-label="Upload font"
+              disabled={busy}
+              type="file"
+              name="file"
+              accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2"
+              required
+            />
+          </label>
+          <label>
+            Font license
+            <input
+              name="license"
+              placeholder="Licensed for video use"
+              disabled={busy}
+              minLength={3}
+              maxLength={500}
+              required
+            />
+          </label>
+          <button className="subtle" disabled={busy}>
+            {busy ? fontUpload.message || "Preparing media…" : "Upload font"}
+          </button>
+        </div>
+      </form>
       <div className="asset-grid">
         {(project.assets || []).map((a) => (
           <div key={a.id}>
@@ -167,6 +219,12 @@ export function AssetPanel({
                 preload="none"
                 src={`/api/projects/${project.id}/assets/${a.id}`}
               />
+            ) : isFontMime(a.mime) ? (
+              <FontPreview
+                id={a.id}
+                src={`/api/projects/${project.id}/assets/${a.id}`}
+                name={a.name}
+              />
             ) : (
               <img
                 width={100}
@@ -178,7 +236,12 @@ export function AssetPanel({
             )}
             <p>{a.name}</p>
             <small>{a.license}</small>
-            {a.mime !== "audio/wav" && (
+            {isFontMime(a.mime) && onUseFont && (
+              <button className="subtle" onClick={() => onUseFont(a.id)}>
+                Use for text in selected scene
+              </button>
+            )}
+            {a.mime !== "audio/wav" && !isFontMime(a.mime) && (
               <button
                 className="subtle"
                 disabled={!canAddVisual}

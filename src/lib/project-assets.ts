@@ -1,4 +1,4 @@
-import type { Project, Timeline } from "./schema";
+import { isFontMime, type Project, type Timeline } from "./schema";
 export type AssetUpdate = Pick<Project, "id" | "assets">;
 export function validAssetId(id: string) {
   return /^[a-f0-9-]{36}$/.test(id);
@@ -20,6 +20,15 @@ export function validateProjectAssets(
         throw new Error(
           "Visual assets must belong to this project and match the layer type.",
         );
+  for (const scene of t.scenes)
+    for (const layer of scene.layers)
+      if (
+        layer.fontAssetId &&
+        !project.assets?.some(
+          (a) => a.id === layer.fontAssetId && isFontMime(a.mime),
+        )
+      )
+        throw new Error("Text fonts must be fonts uploaded to this project.");
   for (const scene of t.scenes)
     for (const layer of scene.layers)
       if (layer.kind === "video") {

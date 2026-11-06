@@ -16,6 +16,7 @@ import {
   type Scene,
   type Timeline,
   type Asset,
+  isFontMime,
 } from "@/lib/schema";
 function KeyframeEditor({
   layer,
@@ -209,6 +210,7 @@ export function LayerEditor({
                 layer={layer}
                 label={`Layer ${layer.id}`}
                 onChange={(l) => updateLayer(layer.id, l)}
+                fonts={assets.filter((a) => isFontMime(a.mime))}
               />
             )}
             {layer.kind === "video" && (

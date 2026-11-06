@@ -588,7 +588,7 @@ test("owned studio media can be searched/reused without copying files, histories
       for (const query of [
         "limit=51",
         "offset=-1",
-        "kind=font",
+        "kind=document",
         "projectId=..%2Fauth",
         `q=${"a".repeat(101)}`,
       ])

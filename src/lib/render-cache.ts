@@ -76,7 +76,10 @@ export function sceneCacheKey(
   const ids = [
     ...new Set(
       t.scenes.flatMap((s) =>
-        s.layers.flatMap((l) => (l.assetId ? [l.assetId] : [])),
+        s.layers.flatMap((l) => [
+          ...(l.assetId ? [l.assetId] : []),
+          ...(l.fontAssetId ? [l.fontAssetId] : []),
+        ]),
       ),
     ),
   ].sort();
