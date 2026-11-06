@@ -13,7 +13,12 @@ export class RenderProcessInspectionError extends Error {
     );
   }
 }
-type Identity = { started: string; state: string; parent: number };
+type Identity = {
+  started: string;
+  state: string;
+  parent: number;
+  name: string;
+};
 async function boundedRead(
   pid: string,
   name: "stat" | "environ",
@@ -53,8 +58,17 @@ async function identity(pid: string): Promise<Identity> {
     started: fields[19],
     state: fields[0],
     parent: Number(fields[1]),
+    name: source.slice(source.indexOf("(") + 1, source.lastIndexOf(")")),
   };
 }
+// Process names (kernel `comm`, at most 15 bytes) that a render attempt can
+// leave behind: the immutable browser launcher, Chromium/headless shell,
+// FFmpeg tools, Remotion's compositor and Node helpers. A same-UID process
+// whose environment cannot be read is treated as possibly-active render work
+// only when its name matches; unrelated non-dumpable programs (ssh/gpg agents,
+// CI runner services) must not block recovery forever.
+const possibleRenderProcess =
+  /^(?:chrome.*|chromium.*|headless_shell|ffmpeg|ffprobe|remotion.*|compositor.*|node|MainThread|render-browser.*|sh|bash|dash)$/;
 const dead = (value: Identity) => ["Z", "X"].includes(value.state);
 const gone = (error: unknown) =>
   ["ENOENT", "ESRCH"].includes((error as NodeJS.ErrnoException).code ?? "");
@@ -62,8 +76,20 @@ async function inspect(pid: string, root: string) {
   if ((await lstat(`/proc/${pid}`)).uid !== process.getuid!()) return;
   const before = await identity(pid);
   if (dead(before)) return;
-  const contents = await boundedRead(pid, "environ", 64 * 1024),
-    after = await identity(pid);
+  let contents: string;
+  try {
+    contents = await boundedRead(pid, "environ", 64 * 1024);
+  } catch (error) {
+    if (
+      ["EACCES", "EPERM"].includes(
+        (error as NodeJS.ErrnoException).code ?? "",
+      ) &&
+      !possibleRenderProcess.test(before.name)
+    )
+      return;
+    throw error;
+  }
+  const after = await identity(pid);
   if (dead(after) || before.started !== after.started) return;
   const environment = new Map(
       contents.split("\0").map((value) => {

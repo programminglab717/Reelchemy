@@ -60,7 +60,7 @@ test("a same-UID non-dumpable native child cannot disappear from recovery throug
     "python3",
     [
       "-c",
-      "import ctypes,time; assert ctypes.CDLL(None).prctl(4,0,0,0,0)==0; print('ready',flush=True); time.sleep(30)",
+      "import ctypes,time; libc=ctypes.CDLL(None); assert libc.prctl(15,b'chrome',0,0,0)==0; assert libc.prctl(4,0,0,0,0)==0; print('ready',flush=True); time.sleep(30)",
     ],
     {
       stdio: ["ignore", "pipe", "pipe"],
@@ -76,6 +76,28 @@ test("a same-UID non-dumpable native child cannot disappear from recovery throug
   }
 });
 
+test("an unrelated non-dumpable same-UID program does not block recovery, while browser-named ones still do", async () => {
+  const root = path.join(tmpdir(), `unrelated-native-${randomUUID()}`);
+  const child = spawnTestProcess(
+    "python3",
+    [
+      "-c",
+      "import ctypes,time; libc=ctypes.CDLL(None); assert libc.prctl(15,b'ssh-agent',0,0,0)==0; assert libc.prctl(4,0,0,0,0)==0; print('ready',flush=True); time.sleep(30)",
+    ],
+    { stdio: ["ignore", "pipe", "pipe"], env: { ...process.env } },
+  );
+  try {
+    await once(child.stdout!, "data");
+    const name = (await readFile(`/proc/${child.pid}/stat`, "utf8")).match(
+      /\(([^)]*)\)/,
+    )?.[1];
+    assert.equal(name, "ssh-agent");
+    assert.deepEqual([...(await liveNativeRenderJobs(root))], []);
+  } finally {
+    child.kill("SIGTERM");
+    await shutdownTestProcesses([child]);
+  }
+});
 test("an unreaped non-dumpable zombie cannot block recovery because it has stopped executing", async () => {
   const parent = spawnTestProcess(
     "python3",
