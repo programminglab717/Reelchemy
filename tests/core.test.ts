@@ -174,6 +174,8 @@ test("custom keyframes interpolate deterministically and invalid ordering is rej
     scale: 1.5,
     opacity: 0.5,
     translateY: 0,
+    // Keys without rotation add none to the layer's static rotation.
+    rotation: 0,
   });
   assert.equal(layerMotion(l, 40).opacity, 1);
   l.keyframes[1].frame = 0;
