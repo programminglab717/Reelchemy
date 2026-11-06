@@ -396,3 +396,18 @@ The single render consumer no longer claims strictly first-come-first-served. Ea
 - Automatic retries keep their place. Queued jobs admitted before this release (no key) keep rowid priority.
 
 Keys live in `render_queue_keys` and are removed by triggers when a job becomes terminal or is deleted; backups/restore need no special handling (restored active jobs become failed and release their keys). The service-wide active limit (5) and per-studio limit are unchanged. A queued maker sees "Waiting in the render queue · N exports ahead", a count of rendering plus higher-ranked queued work only; no other studio's details are exposed. Shorter work admitted later can still move ahead, so the count can rise.
+
+## Render capacity and task limits (0.64)
+
+Measured on a 4-visible-CPU host under the reference render limits (2 CPUs, 4 GiB, 256 tasks), one five-minute native-HD export at a time:
+
+| Workload                                                       | Time  | Peak memory | Peak tasks |
+| -------------------------------------------------------------- | ----- | ----------- | ---------- |
+| Square 1080×1080 procedural motion                             | 678 s | 1.29 GB     | <256       |
+| Portrait 1080×1920 procedural motion (0.61)                    | 681 s | 1.35 GB     | <256       |
+| Landscape 1920×1080 procedural motion                          | 754 s | 1.55 GB     | <256       |
+| Landscape full-frame footage + captions + 30 clip audio tracks | 673 s | 1.67 GB     | 230        |
+
+All fit the automatic fifteen-minute attempt budget; landscape motion leaves the least margin. The worker renders one export at a time, so a service-wide queue of five long films can mean an hour or more of waiting; the fair queue (0.62) keeps one studio's films from blocking others.
+
+Thread pools in Chromium and FFmpeg scale with **visible** CPU cores, not the container's CPU quota. 0.64 caps Chromium renderers (`--renderer-process-limit=4` in the immutable launcher) and bounds FFmpeg decoder/filter threads. The final audio mux still uses about two tasks per audible input with FFmpeg 6+ (exports allow at most 32). On hosts with many more cores, or different FFmpeg/Chromium builds, measure a full-footage five-minute export against `pids_limit` before production. Task-limit refusals appear as "Video compositing could not finish safely" or other native failures with no memory pressure; cgroup `pids.events` shows them.

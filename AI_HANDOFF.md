@@ -6,7 +6,7 @@ Read `AGENTS.md`, `PROJECT_STATUS.md`, `VALIDATION.md`, `PRODUCTION_PLAN.md`, `O
 
 ## Git state
 
-- `origin/work` contains the accepted **0.63** application (accepted source `7eed554`; 0.62 `5b9b003`; 0.61 `5567641`), status report and this handoff. It includes the former `codex/render-budget` candidate history, which is now superseded.
+- `origin/work` contains the accepted **0.64** application (accepted source `a3941f4`; 0.63 `7eed554`; 0.62 `5b9b003`; 0.61 `5567641`), status report and this handoff. It includes the former `codex/render-budget` candidate history, which is now superseded.
 - Do not assume `main` is current. Fetch and inspect remote branches before work. Keep new candidates separate from accepted code until their acceptance checks pass. Do not force-push or rewrite existing history.
 
 ## User instructions
@@ -35,7 +35,7 @@ The duration-based attempt budget is accepted. New real-worker coverage (`tests/
 ## Immediate next work
 
 1. Accepted: fair shared render queue (0.62) and creator-first layout from a screenshot walkthrough (0.63). Hosted Actions shows zero registered workflows; a repository admin must enable Actions.
-2. Broader constrained capacity measurements (square/landscape motion, full-footage mixed media) under 2 CPU/4 GiB. Where Docker is unavailable, cgroup-v1 CPU/memory limits work in the cloud container.
+2. Done in 0.64: constrained five-minute capacity for square/landscape motion and full-footage under 2 CPU/4 GiB/256 tasks (cgroup-v1 runner), including a task-limit fix. Next capacity steps: concurrent throughput and many-core hosts.
 3. Continue creator usability, operations and release work below.
 
 ## Remaining release work

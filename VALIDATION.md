@@ -1286,3 +1286,15 @@ The runner uses cgroup-v1 limits in the cloud container, equivalent to the refer
 The square and landscape motion cases fit the automatic budget on 2 CPUs; landscape motion leaves about 16% margin. Before 0.64, the full-footage mixed-media case failed under the reference task limit, so a five-minute footage film with captions and clip audio could fail in the reference deployment on a 4-core host. 0.64 caps Chromium renderers in the immutable launcher and bounds FFmpeg decoder/filter threads. The remaining peak is the final audio mux, where FFmpeg 6 uses about two threads per audible input. Exports are already limited to 32 audible clips/tracks, so its worst case stays near the measured 230 (about 10% below 256). Debian's FFmpeg 5.1 in the reference image has no per-input demux threads, so it should use fewer. Hosts with many more visible cores, or other FFmpeg/Chromium builds, should be measured before raising concurrency; staged audio mixing or a higher task limit are the next options if needed.
 
 The earlier interrupted square-motion attempt was rerun here. These are synthetic single-job pipeline measurements, not concurrent service throughput, immutable-image, hosted or artistic acceptance.
+
+### Complete 0.64 acceptance
+
+The first complete backend/native run of `2e35505` passed **550/551**. The failure was the existing mail-race test: one of six concurrent first writers returned "unavailable" (2 admitted where 3 were expected). Instrumentation under four busy-loop CPU hogs reproduced it in 4/15 runs as **`SQLITE_BUSY: database is locked`** during outbox connection setup (journal-mode/schema statements outside the busy-timeout write transaction). Before the fix it passed 12/12 unloaded on both 0.63 and 0.64. Commit `4535d5f` retries setup only before the immediate transaction begins (at most 5 attempts with jittered backoff). The race then passed **0/20 failures under the same load**, and all 34 mail tests pass.
+
+Frozen **`a3941f4`** (0.64; non-root, same method) passes:
+
+- **551/551 complete backend/native checks** in 672.4 seconds, including the new launcher-argument test;
+- production build/guards/type/lint/format (BUILD_ID `kzfN8UZrhhcWn9SuLVb7r`, the same ten pre-existing warnings);
+- the **complete 90/90 production HTTPS browser regression** in 40.2 minutes, with 0 skipped/unexpected/flaky (fixture `reelchemy-e2e-VHUvfQ`).
+
+A constrained five-minute landscape motion rerun on the same source passes in **738.0 seconds** (+10.1 s prep), with peak **1,436,823,552 bytes**, peak 192 tasks and no limit events (753.6 s on 0.63), so the renderer cap does not slow motion rendering. A prior intermediate formatting failure (`VALIDATION.md` table) was corrected before this run.

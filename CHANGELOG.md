@@ -488,9 +488,10 @@ Add a selected-layer duplicate action to the canvas and advanced layer controls.
 - Make the sticky editor tools bar opaque, place the "Recent projects" label above the project list, and style the sidebar search box and mobile project library, which rendered as unstyled controls with an overlapping heading.
 - Accepted from frozen `7eed554`: 550/550 backend/native checks, production build/guards and the complete 90/90 production HTTPS browser regression, zero skipped/flaky. This is developer walkthrough review, not creator acceptance.
 
-## 0.64.0 — 2026-11-06 candidate
+## 0.64.0 — 2026-11-06
 
 - Bound the render pipeline's task (thread) count under the reference render service's 256-task limit. A constrained five-minute full-frame footage/caption/audio export failed after 9 seconds of frame rendering with "Video compositing could not finish safely". Sampling showed 295 tasks with the limit lifted: about ten Chromium renderer processes stacked up from rapid still captures (each closed page's renderer outlived it), plus FFmpeg input decoders sized by the host's visible cores.
 - The immutable browser launcher now passes `--renderer-process-limit=4`. The footage compositor bounds each input decoder's threads, and the audio mux uses one decoder thread per track plus a single filter-graph thread.
 - Record constrained 2 CPU / 4 GiB / 256-task five-minute native-HD measurements for square motion, landscape motion and full-footage mixed media.
 - Retry mail-outbox connection setup on `SQLITE_BUSY` before the write transaction begins. Concurrent first use could hit `SQLITE_BUSY` in journal-mode/schema setup outside the busy timeout, so a valid message was refused as unavailable. The failure was found as a one-off full-suite failure and reproduced in 4 of 15 loaded runs, then 0 of 20 after the fix. Work inside the immediate transaction is never repeated.
+- Accepted from frozen `a3941f4`: 551/551 backend/native checks, production build/guards and the complete 90/90 production HTTPS browser regression. Landscape motion runs at 738.0 s under the cap, with no slowdown.
