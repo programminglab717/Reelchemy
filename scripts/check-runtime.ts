@@ -585,6 +585,18 @@ try {
         true,
       );
     };
+    // Model an installation that has queued account mail. No mail worker runs,
+    // so the synthetic message stays pending in the private outbox.
+    await run([
+      "exec",
+      web,
+      "node",
+      "--import",
+      "tsx",
+      "--input-type=module",
+      "--eval",
+      'const { enqueueMail } = await import("./src/lib/mail-outbox.ts"); enqueueMail({ to: "upgrade-drill@example.test", subject: "Verify", text: "Synthetic upgrade drill message" });',
+    ]);
     await switchTo(image);
     await decoded(seed.jobId);
     const upgraded = await execute("retry", {
