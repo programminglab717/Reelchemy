@@ -1,3 +1,4 @@
+import { chromiumCrashArgs } from "./chromium-flags";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { chromium } from "playwright-core";
@@ -25,7 +26,7 @@ export async function checkLayout(
   await mkdir(outputDir, { recursive: true });
   const browser = await chromium.launch({
     executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
-    args: ["--no-sandbox"],
+    args: ["--no-sandbox", ...chromiumCrashArgs()],
     timeout: 30000,
   });
   let reason: Error | undefined, closing: Promise<void> | undefined;

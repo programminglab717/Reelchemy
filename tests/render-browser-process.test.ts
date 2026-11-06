@@ -225,7 +225,11 @@ test("the immutable launcher caps renderer processes and strips its private cont
     assert.equal(result.status, 0, result.stderr);
     const argv = (await readFile(record, "utf8")).trim().split("\n");
     assert.equal(argv[0], "--renderer-process-limit=4");
-    assert.deepEqual(argv.slice(1), [
+    assert.equal(
+      argv[1],
+      `--crash-dumps-dir=${path.join(await realpath(tmpdir()), "reelchemy-chromium-crashes")}`,
+    );
+    assert.deepEqual(argv.slice(2), [
       `--user-data-dir=${profile}`,
       "--headless",
       "about:blank",

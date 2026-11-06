@@ -1,0 +1,13 @@
+import { mkdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
+// Chromium's crash handler needs a writable report directory. In read-only
+// containers it can otherwise start without one and abort the browser
+// ("chrome_crashpad_handler: --database is required"). Point it at private
+// temporary storage, which the services mount writable.
+export function chromiumCrashArgs() {
+  const directory = path.join(tmpdir(), "reelchemy-chromium-crashes");
+  mkdirSync(directory, { recursive: true, mode: 0o700 });
+  return [`--crash-dumps-dir=${directory}`];
+}

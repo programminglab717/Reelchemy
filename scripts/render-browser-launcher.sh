@@ -39,4 +39,8 @@ esac
 # Rapid still captures close pages faster than Chromium retires their renderer
 # processes. Cap renderers so closed pages' processes are reused instead of
 # accumulating threads past the render service's task limit.
-exec "$executable" --renderer-process-limit=4 "$@"
+# A writable crash-report directory keeps Chromium's crash handler from
+# aborting the browser in read-only containers.
+crashes="$temporary_root/reelchemy-chromium-crashes"
+mkdir -m 700 "$crashes" 2>/dev/null || [ -d "$crashes" ]
+exec "$executable" --renderer-process-limit=4 "--crash-dumps-dir=$crashes" "$@"
