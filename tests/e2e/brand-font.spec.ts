@@ -43,7 +43,9 @@ test("an uploaded brand font previews, applies to scene text and reaches the exp
     buffer: Buffer.from("definitely not a font file"),
   });
   await fontForm.locator('input[name="license"]').fill("OFL 1.1");
-  await fontForm.getByRole("button", { name: "Upload font" }).click();
+  await fontForm
+    .getByRole("button", { name: "Upload brand font", exact: true })
+    .click();
   await expect(page.getByRole("alert").first()).toBeVisible({
     timeout: 60000,
   });
@@ -53,7 +55,9 @@ test("an uploaded brand font previews, applies to scene text and reaches the exp
     buffer: font,
   });
   await fontForm.locator('input[name="license"]').fill("OFL 1.1");
-  await fontForm.getByRole("button", { name: "Upload font" }).click();
+  await fontForm
+    .getByRole("button", { name: "Upload brand font", exact: true })
+    .click();
   await expect(page.getByLabel("Geist Mono preview")).toHaveText(
     "Aa Bb Cc 123",
     { timeout: 60000 },

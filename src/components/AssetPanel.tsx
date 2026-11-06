@@ -199,7 +199,9 @@ export function AssetPanel({
             />
           </label>
           <button className="subtle" disabled={busy}>
-            {busy ? fontUpload.message || "Preparing media…" : "Upload font"}
+            {busy
+              ? fontUpload.message || "Preparing media…"
+              : "Upload brand font"}
           </button>
         </div>
       </form>
