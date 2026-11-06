@@ -4,7 +4,7 @@ Reviewed 6 November 2026 (Asia/Karachi); updated after 0.61 acceptance on 5 Nove
 
 ## Committed checkpoints
 
-- Accepted application code: **0.62.0** on `work` (fair shared render queue), accepted from frozen source `5b9b003`. 0.61.0 was accepted from `5567641`; 0.60.0 was `ece58be`.
+- Accepted application code: **0.63.0** on `work` (creator-first layout), accepted from frozen source `7eed554`. 0.62.0 (fair shared render queue) was `5b9b003`; 0.61.0 was `5567641`; 0.60.0 was `ece58be`.
 - `codex/render-budget` (`7768981`) is superseded by `work`; its history is preserved in `work`.
 - No production deployment, original database migration/compaction, original backup removal or live AI/SMTP operation has been performed.
 - The 0.61 acceptance ran in a new cloud environment. The previous workspace's `/workspace/Reelchemy-evidence` tree and private drivers were not available; new-environment evidence logs are outside Git and are summarized in VALIDATION.md.
@@ -76,6 +76,7 @@ Reviewed 6 November 2026 (Asia/Karachi); updated after 0.61 acceptance on 5 Nove
 | Complete production HTTPS browser regression at 0.61          | **89/89**, 41.7 minutes       | Same frozen source/build; zero skipped/unexpected/flaky. Disposable cloud container, not a Docker test image; no peak memory recorded. |
 | Complete backend/native suite at 0.62                         | **550/550**, 748.2 seconds    | Frozen `5b9b003`, same method as 0.61; adds fair-queue ordering/position contracts.                                                    |
 | Complete production HTTPS browser regression at 0.62          | **90/90**, 41.1 minutes       | Same frozen source/build (BUILD_ID `NJkjEjaOMf01C0MjtxtBW`); includes the visible queue-position case; zero skipped/flaky.             |
+| Complete backend/native + browser at 0.63                     | **550/550**, **90/90**        | Frozen `7eed554`; layout/copy changes from a developer screenshot walkthrough (not creator acceptance).                                |
 | Hosted GitHub Actions                                         | **Not running**               | GitHub reports zero registered workflows and runs despite committed `checks.yml`; repository-admin action needed.                      |
 | Five-minute landscape HD footage/caption/audio measurement    | Passed in **545.831 seconds** | Synthetic 2 CPU/4 GiB case, 9,000 frames; not a general load/quality guarantee.                                                        |
 | Five-minute portrait HD procedural-motion measurement at 0.61 | Passed in **680.990 seconds** | 1080×1920, 30 fps, 9,000 frames, 15 scenes; approximately 1.26 GiB peak, no OOM/swap, within a bounded 15-minute budget.               |
@@ -88,7 +89,7 @@ Detailed frozen-source identifiers, resource records, failures/corrections and a
 
 1. **0.61 acceptance — done.** Real-worker deadline enforcement exposed and fixed a consumer exit caused by an orphaned FFmpeg stitcher. The complete suites pass from one frozen source; see VALIDATION.md.
 2. **Broader render capacity.** Current long-form evidence covers specific synthetic landscape-footage and portrait-motion cases. Broaden representative format/motion/mixed-media cases and measure service throughput, queue behavior and failure recovery under load. These results may require further performance fixes or clearer supported-workload guidance.
-3. **Creator acceptance and usability.** Complete real editing sessions against useful videos, review the whole exported films and fix the resulting workflow/visual/audio issues. Synthetic microphone tones and codec checks cannot establish spoken narration or artistic quality. A review pack with actual exports/notes/screenshots is available in the workspace.
+3. **Creator acceptance and usability.** A developer screenshot walkthrough (0.63) moved account accounting below the creative work and fixed maker-facing copy/styling; real creator sessions are still needed. Complete real editing sessions against useful videos, review the whole exported films and fix the resulting workflow/visual/audio issues. Synthetic microphone tones and codec checks cannot establish spoken narration or artistic quality. A review pack with actual exports/notes/screenshots is available in the workspace.
 4. **Remaining advanced editing scope.** Custom uploaded brand fonts, arbitrary layer masks, animated rotation and a general linked-track ripple/grouping workflow are not implemented. Existing static rotation, system typography, scene splitting, track manipulation and synchronized scene deletion are available. Longer continuous source imports/takes would also need additional ingestion/recording work. Whether these capabilities are required for the first launch needs creator/use-case feedback.
 5. **Final real AI integration verification.** Adapters and mocked contracts exist; actual authentication/model/endpoint behavior, plan/revision quality, latency, spending/usage and provider failures still need live checks and any resulting fixes. This stays at the end, as requested.
 

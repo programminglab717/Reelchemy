@@ -1241,3 +1241,29 @@ A focused production run of both lifecycle cases plus a private, uncommitted scr
 **Hosted CI.** The GitHub API reports `total_count: 0` workflows and 0 workflow runs for `programminglab717/Reelchemy`, although `.github/workflows/checks.yml` is committed on `work`. Hosted Actions appears disabled or never registered for the repository; a repository administrator must enable it. No hosted CI result exists.
 
 **Interrupted capacity attempt.** A constrained five-minute square native-HD motion benchmark (cgroup-v1: 2 CPU CFS quota, 4 GiB memory, 256 tasks) on accepted 0.61 source was in frame rendering at about 1.22 GB peak when the cloud container restarted. The log shows session termination before the subsequent browser crash. This is an infrastructure interruption, not a product result, and no capacity conclusion is drawn; it is to be rerun.
+
+## Creator-first layout — 0.63
+
+A private, uncommitted Playwright walkthrough of the 0.62 production build captured desktop (1440×900) and mobile (390×844) screens. It covered sign-in, the empty studio, idea-to-storyboard creation, the editor, a real export to "Your film is ready." and a starter template. Visual review found:
+
+- account-wide export storage/activity accounting led the home page and every editor page, above the composer and editor;
+- after export completion, activity and file-removal controls appeared before the video and download;
+- queued makers saw the operator instruction "Keep the render worker running alongside the web app.";
+- the sign-in form showed the new-password length hint;
+- history entries ended in a bare id prefix;
+- the sticky tools bar was translucent;
+- the "Recent projects" label sat above Trash/Account settings;
+- the sidebar search and mobile project library rendered as unstyled controls, with the mobile heading overlapping "Open Trash".
+
+0.63 fixes each item. Accounting moves to a "Storage and export records" section after the creative work, and the active-exports summary stays on top. The export result and Download MP4 come first and sit directly below the export action. No feature, API or limit changes.
+
+Frozen **`7eed554`** (same method as 0.61/0.62) passes:
+
+- **550/550 complete backend/native checks** in 713.2 seconds;
+
+- production build/guards/type/lint/format in 57.0 seconds (BUILD_ID `Q2B7XuPH9Loqa43ilLmRI`, the same ten pre-existing warnings);
+- the **complete 90/90 production HTTPS browser regression** in 40.8 minutes, with 0 skipped/unexpected/flaky (fixture `reelchemy-e2e-xeyEWr`).
+
+A focused 15-case run on the intermediate `3b8033b` covered accounts, export files/storage, interface, all studio flows and the walkthrough. The repeated walkthrough confirmed the composer above the fold, the styled mobile library, the opaque tools bar and Download MP4 leading the ready panel. A complete run on `3b8033b` was stopped after 3 cases and superseded by `7eed554`. Full-page screenshots draw sticky elements at their capture position; those artefacts were not treated as defects.
+
+This is self-review by the developer, not creator or maker acceptance, which still needs real users and real narration.

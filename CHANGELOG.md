@@ -479,10 +479,11 @@ Add a selected-layer duplicate action to the canvas and advanced layer controls.
 - Record that GitHub reports zero registered workflows and zero runs for the repository despite the committed `checks.yml`. Hosted Actions appears disabled and needs repository-admin action; no hosted CI result exists.
 - Accepted from frozen `5b9b003`: 550/550 backend/native checks, production build/guards and the complete 90/90 production HTTPS browser regression (new queue-position case included), zero skipped/flaky.
 
-## 0.63.0 — 2026-11-05 candidate
+## 0.63.0 — 2026-11-06
 
 - Put creative work first. A screenshot walkthrough of the production build showed account-wide export storage and activity accounting leading the home page and every editor page. It now follows the creative work in a "Storage and export records" section; the active-exports summary stays on top.
 - After an export completes, show the video thumbnail and Download MP4 before the activity log and file-removal controls.
 - Replace the operator instruction shown to queued makers ("Keep the render worker running…") with plain shared-queue guidance.
 - Show the 12-character hint only when choosing a password, and label history entries "Export #id" instead of a bare id prefix.
 - Make the sticky editor tools bar opaque, place the "Recent projects" label above the project list, and style the sidebar search box and mobile project library, which rendered as unstyled controls with an overlapping heading.
+- Accepted from frozen `7eed554`: 550/550 backend/native checks, production build/guards and the complete 90/90 production HTTPS browser regression, zero skipped/flaky. This is developer walkthrough review, not creator acceptance.
