@@ -117,6 +117,7 @@ try {
       "render-resolution.test.ts",
       "render-video-composite.test.ts",
       "render-deadline-worker.test.ts",
+      "render-shape-motion.test.ts",
       "shared-media-worker.test.ts",
     ].includes(path.basename(arg)),
   );

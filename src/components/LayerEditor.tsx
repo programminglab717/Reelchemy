@@ -38,6 +38,7 @@ function KeyframeEditor({
         keys={layer.keyframes || []}
         durationFrames={durationFrames}
         onChange={(keyframes) => change({ ...layer, keyframes })}
+        rotation
       />
       <MotionJson
         key={JSON.stringify(layer.keyframes)}

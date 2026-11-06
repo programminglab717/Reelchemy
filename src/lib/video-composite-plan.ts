@@ -24,6 +24,7 @@ export function videoCompositePlan(
     !video.assetId ||
     !video.video ||
     video.rotation ||
+    video.mask ||
     video.animation !== "none" ||
     video.keyframes?.length ||
     video.x + video.width > 1 ||

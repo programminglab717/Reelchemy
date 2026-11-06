@@ -26,6 +26,9 @@ export const keyframeSchema = z.object({
   y: z.number().min(-1).max(1),
   scale: z.number().min(0.1).max(3),
   opacity: z.number().min(0).max(1),
+  // Degrees added to the layer's static rotation; omitted means 0. Lets a
+  // layer spin or swing over time (at most two turns either way).
+  rotation: z.number().min(-720).max(720).optional(),
 });
 export const layerSchema = z.object({
   id: z.string().min(1).max(80),
@@ -59,6 +62,9 @@ export const layerSchema = z.object({
   italic: z.boolean().optional(),
   underline: z.boolean().optional(),
   imageFit: z.enum(["contain", "cover"]).optional(),
+  // Clips the layer to a shape: "circle" (an ellipse for non-square boxes)
+  // or "rounded" corners, e.g. for presenter bubbles or framed photos.
+  mask: z.enum(["circle", "rounded"]).optional(),
   mediaPosition: z
     .object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) })
     .optional(),
@@ -419,14 +425,15 @@ export function animationState(frame: number, animation: Layer["animation"]) {
 export function layerMotion(layer: Layer, frame: number) {
   const fallback = animationState(frame, layer.animation),
     keys = layer.keyframes || [];
-  if (!keys.length) return { ...fallback, x: 0, y: 0 };
+  if (!keys.length) return { ...fallback, x: 0, y: 0, rotation: 0 };
   return keyframeMotion(keys, frame);
 }
 export function keyframeMotion(
   keys: NonNullable<Layer["keyframes"]>,
   frame: number,
 ) {
-  if (!keys.length) return { x: 0, y: 0, scale: 1, opacity: 1, translateY: 0 };
+  if (!keys.length)
+    return { x: 0, y: 0, scale: 1, opacity: 1, translateY: 0, rotation: 0 };
   const right = keys.findIndex((k) => k.frame >= frame);
   const a = right < 0 ? keys[keys.length - 1] : keys[Math.max(0, right - 1)],
     b = right < 0 ? a : keys[right];
@@ -436,11 +443,14 @@ export function keyframeMotion(
       : Math.max(0, Math.min(1, (frame - a.frame) / (b.frame - a.frame)));
   const value = (key: "x" | "y" | "scale" | "opacity") =>
     a[key] + (b[key] - a[key]) * fraction;
+  const turn =
+    (a.rotation ?? 0) + ((b.rotation ?? 0) - (a.rotation ?? 0)) * fraction;
   return {
     x: value("x"),
     y: value("y"),
     scale: value("scale"),
     opacity: value("opacity"),
     translateY: 0,
+    rotation: turn,
   };
 }

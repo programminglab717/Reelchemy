@@ -149,7 +149,48 @@ const envelopeSchema = z.discriminatedUnion("version", [
       ),
     project: portableProject,
   }),
+  // Animated (keyframe/camera) rotation and layer masks. Older readers would
+  // silently drop these unknown fields, so this version makes them refuse.
+  z.object({
+    format: z.literal("reelchemy"),
+    version: z.literal(5),
+    requiredFeatures: z
+      .array(
+        z.enum([
+          "native-hd-v1",
+          "extended-timeline-v1",
+          "large-history-v1",
+          "layer-rotation-v1",
+          "keyframe-rotation-v1",
+          "layer-mask-v1",
+        ]),
+      )
+      .min(1)
+      .max(6)
+      .refine(
+        (features) =>
+          (features.includes("keyframe-rotation-v1") ||
+            features.includes("layer-mask-v1")) &&
+          new Set(features).size === features.length,
+      ),
+    project: portableProject,
+  }),
 ]);
+function hasLayerMask(project: Pick<Project, "timeline" | "revisions">) {
+  return [project.timeline, ...project.revisions.map((r) => r.timeline)].some(
+    (t) => t?.scenes.some((s) => s.layers.some((l) => !!l.mask)),
+  );
+}
+function hasKeyframeRotation(project: Pick<Project, "timeline" | "revisions">) {
+  return [project.timeline, ...project.revisions.map((r) => r.timeline)].some(
+    (t) =>
+      t?.scenes.some(
+        (s) =>
+          !!s.camera?.some((k) => !!k.rotation) ||
+          s.layers.some((l) => !!l.keyframes?.some((k) => !!k.rotation)),
+      ),
+  );
+}
 function hasNativeHd(project: Pick<Project, "timeline" | "revisions">) {
   return [project.timeline, ...project.revisions.map((r) => r.timeline)].some(
     (t) => t?.exportResolution === "1080p",
@@ -249,18 +290,35 @@ export async function exportArchive(project: Project) {
   ].some((t) => t?.scenes.some((s) => s.layers.some((l) => !!l.rotation)));
   const nativeHd = hasNativeHd(input);
   const extended = hasExtendedTimeline(input);
+  const keyframeRotation = hasKeyframeRotation(input);
+  const layerMask = hasLayerMask(input);
   const manifest = strToU8(
     JSON.stringify({
       format: "reelchemy",
       version:
-        nativeHd || extended ? 4 : largeHistory ? 3 : needsRotation ? 2 : 1,
-      ...(nativeHd || extended || largeHistory || needsRotation
+        keyframeRotation || layerMask
+          ? 5
+          : nativeHd || extended
+            ? 4
+            : largeHistory
+              ? 3
+              : needsRotation
+                ? 2
+                : 1,
+      ...(nativeHd ||
+      extended ||
+      largeHistory ||
+      needsRotation ||
+      keyframeRotation ||
+      layerMask
         ? {
             requiredFeatures: [
               ...(nativeHd ? ["native-hd-v1"] : []),
               ...(extended ? ["extended-timeline-v1"] : []),
               ...(largeHistory ? ["large-history-v1"] : []),
               ...(needsRotation ? ["layer-rotation-v1"] : []),
+              ...(keyframeRotation ? ["keyframe-rotation-v1"] : []),
+              ...(layerMask ? ["layer-mask-v1"] : []),
             ],
           }
         : {}),
@@ -334,18 +392,28 @@ export async function importArchive(
   const candidate = raw as Record<string, unknown>;
   checkCollections(
     candidate.project,
-    candidate.version !== 3 && candidate.version !== 4,
+    candidate.version !== 3 &&
+      candidate.version !== 4 &&
+      candidate.version !== 5,
   );
   const envelope = envelopeSchema.parse(raw);
   const input = envelope.project;
   if (
+    (hasKeyframeRotation(input) || hasLayerMask(input)) !==
+    (envelope.version === 5)
+  )
+    throw new Error(
+      "Animated rotation or layer masks require the matching archive feature version.",
+    );
+  if (
+    envelope.version !== 5 &&
     (hasNativeHd(input) || hasExtendedTimeline(input)) !==
-    (envelope.version === 4)
+      (envelope.version === 4)
   )
     throw new Error(
       "Native HD or extended timelines require the matching archive feature version.",
     );
-  if (envelope.version === 4) {
+  if (envelope.version === 4 || envelope.version === 5) {
     const required = [
       ...(hasNativeHd(input) ? ["native-hd-v1"] : []),
       ...(hasExtendedTimeline(input) ? ["extended-timeline-v1"] : []),
@@ -357,14 +425,14 @@ export async function importArchive(
       )
         ? ["layer-rotation-v1"]
         : []),
+      ...(hasKeyframeRotation(input) ? ["keyframe-rotation-v1"] : []),
+      ...(hasLayerMask(input) ? ["layer-mask-v1"] : []),
     ];
     if (
       required.length !== envelope.requiredFeatures.length ||
       required.some(
         (feature) =>
-          !envelope.requiredFeatures.includes(
-            feature as (typeof envelope.requiredFeatures)[number],
-          ),
+          !(envelope.requiredFeatures as readonly string[]).includes(feature),
       )
     )
       throw new Error("Archive features do not match the saved project.");

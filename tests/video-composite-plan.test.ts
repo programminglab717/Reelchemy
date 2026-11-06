@@ -91,6 +91,10 @@ test("transforms, continuous motion, multiple clips, fades/cameras and caption-h
       t.scenes[0].durationFrames = 60;
       t.captions = [];
     },
+    // A shaped clip is clipped by the browser, not the FFmpeg overlay.
+    (t) => {
+      t.scenes[0].layers[1].mask = "circle";
+    },
   ];
   for (const mutate of mutations) {
     const timeline = fixture();

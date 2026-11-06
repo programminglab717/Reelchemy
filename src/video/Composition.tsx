@@ -69,7 +69,7 @@ function SceneView({
       <AbsoluteFill
         style={{
           opacity: opacity * camera.opacity,
-          transform: `translate(${camera.x * width}px, ${camera.y * height}px) scale(${camera.scale})`,
+          transform: `translate(${camera.x * width}px, ${camera.y * height}px) rotate(${camera.rotation}deg) scale(${camera.scale})`,
         }}
       >
         {!transparent && (
@@ -98,10 +98,17 @@ function SceneView({
                   height: `${l.height * 100}%`,
                   color: l.color,
                   opacity: a.opacity,
-                  transform: `translate(${a.x * width}px, ${a.y * height + a.translateY * pixelScale}px) rotate(${l.rotation || 0}deg) scale(${a.scale})`,
+                  transform: `translate(${a.x * width}px, ${a.y * height + a.translateY * pixelScale}px) rotate(${(l.rotation || 0) + a.rotation}deg) scale(${a.scale})`,
                   overflow: "hidden",
                   display: "flex",
                   alignItems: "center",
+                  ...(l.mask === "circle"
+                    ? { clipPath: "ellipse(50% 50% at 50% 50%)" }
+                    : l.mask === "rounded"
+                      ? {
+                          clipPath: `inset(0 round ${Math.round(Math.min(l.width * width, l.height * height) * 0.12)}px)`,
+                        }
+                      : {}),
                 }}
               >
                 {l.kind === "video" && l.video ? (

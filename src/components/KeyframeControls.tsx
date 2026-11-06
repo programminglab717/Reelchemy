@@ -7,16 +7,22 @@ export function KeyframeControls({
   durationFrames,
   label,
   onChange,
+  rotation = false,
 }: {
   keys: Keys;
   durationFrames: number;
   label: string;
   onChange: (keys: Keys) => void;
+  // Layers can animate rotation; the scene camera cannot.
+  rotation?: boolean;
 }) {
   const [cursor, setCursor] = useState(0);
   const frame = Math.min(cursor, durationFrames - 1);
   const key = keys.find((k) => k.frame === frame);
-  const value = key || { frame, ...keyframeMotion(keys, frame) };
+  const pose = keyframeMotion(keys, frame);
+  const value = key
+    ? { ...key, rotation: key.rotation ?? 0 }
+    : { frame, ...pose };
   const full = keys.length >= 30 && !key;
   function set(patch: Partial<Keys[number]> = {}) {
     if (full) return;
@@ -26,6 +32,9 @@ export function KeyframeControls({
       y: value.y,
       scale: value.scale,
       opacity: value.opacity,
+      ...(rotation && (value.rotation || "rotation" in patch)
+        ? { rotation: value.rotation }
+        : {}),
       ...patch,
     };
     onChange(
@@ -100,6 +109,9 @@ export function KeyframeControls({
             ["y", "Vertical offset", -1, 1, 0.01],
             ["scale", "Scale", 0.1, 3, 0.01],
             ["opacity", "Opacity", 0, 1, 0.01],
+            ...(rotation
+              ? ([["rotation", "Rotation (degrees)", -720, 720, 1]] as const)
+              : []),
           ] as const
         ).map(([field, name, min, max, step]) => (
           <label key={field}>

@@ -29,6 +29,9 @@ export function sliceKeys(
         y: pose.y,
         scale: pose.scale,
         opacity: pose.opacity,
+        ...(keys.some((k) => k.rotation !== undefined)
+          ? { rotation: pose.rotation }
+          : {}),
       });
     }
   }
@@ -41,6 +44,9 @@ export function sliceKeys(
       y: p.y,
       scale: p.scale,
       opacity: p.opacity,
+      ...(keys.some((k) => k.rotation !== undefined)
+        ? { rotation: p.rotation }
+        : {}),
     });
   }
   return result.sort((a, b) => a.frame - b.frame);

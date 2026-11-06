@@ -64,6 +64,24 @@ export function MediaFitControls({
             <option value="cover">Fill and crop</option>
           </select>
         </label>
+        <label>
+          Shape
+          <select
+            aria-label="Media shape mask"
+            value={layer.mask || "none"}
+            onChange={(e) => {
+              const mask = e.target.value as "none" | "circle" | "rounded";
+              const next = { ...layer };
+              if (mask === "none") delete next.mask;
+              else next.mask = mask;
+              onChange(next);
+            }}
+          >
+            <option value="none">Rectangle</option>
+            <option value="rounded">Rounded corners</option>
+            <option value="circle">Circle / ellipse</option>
+          </select>
+        </label>
         {(["x", "y"] as const).map((axis) => (
           <label key={axis}>
             {axis === "x" ? "Horizontal" : "Vertical"} framing ·{" "}

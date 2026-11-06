@@ -177,3 +177,124 @@ test("rotation survives split, schema parsing and portable saved-history remappi
     ),
   );
 });
+test("animated rotation interpolates, survives a mid-turn split and requires its own archive feature", async () => {
+  const { keyframeMotion, keyframeSchema } = await import("../src/lib/schema");
+  const keys = [
+    { frame: 0, x: 0, y: 0, scale: 1, opacity: 1, rotation: 0 },
+    { frame: 100, x: 0, y: 0, scale: 1, opacity: 1, rotation: 360 },
+  ];
+  near(keyframeMotion(keys, 25).rotation, 90);
+  near(keyframeMotion(keys, 150).rotation, 360);
+  // Keys without a rotation are treated as 0 degrees.
+  near(
+    keyframeMotion(
+      [
+        { frame: 0, x: 0, y: 0, scale: 1, opacity: 1 },
+        { frame: 10, x: 0, y: 0, scale: 1, opacity: 1, rotation: -40 },
+      ],
+      5,
+    ).rotation,
+    -20,
+  );
+  assert.equal(
+    keyframeSchema.safeParse({ ...keys[1], rotation: 721 }).success,
+    false,
+  );
+  const t = blankTimeline(brief);
+  t.scenes[0].layers = [{ ...base, rotation: 10, keyframes: keys }];
+  const split = splitScene(timelineSchema.parse(t), 0, 50);
+  // The second half starts exactly where the turn was at the cut.
+  const second = split.scenes[1].layers[0].keyframes!;
+  assert.equal(second[0].frame, 0);
+  near(second[0].rotation!, 180);
+  near(
+    keyframeMotion(split.scenes[0].layers[0].keyframes!, 49).rotation,
+    keyframeMotion(keys, 49).rotation,
+  );
+  const p: Project = {
+    id: crypto.randomUUID(),
+    name: "Spinning story",
+    brief,
+    timeline: split,
+    assets: [],
+    messages: [],
+    createdAt: new Date().toISOString(),
+    revisions: [],
+  };
+  const archive = await exportArchive(p);
+  const envelope = JSON.parse(strFromU8(unzipSync(archive)["project.json"]));
+  assert.equal(envelope.version, 5);
+  assert.deepEqual(envelope.requiredFeatures, [
+    "layer-rotation-v1",
+    "keyframe-rotation-v1",
+  ]);
+  const restored = await importArchive(archive);
+  near(restored.timeline!.scenes[1].layers[0].keyframes![0].rotation!, 180);
+  // A version-4 envelope cannot smuggle animated rotation past the check.
+  await assert.rejects(
+    importArchive(
+      zipSync({
+        "project.json": strToU8(
+          JSON.stringify({
+            ...envelope,
+            version: 4,
+            requiredFeatures: ["layer-rotation-v1"],
+          }),
+        ),
+      }),
+    ),
+  );
+  // Camera rotation alone also needs the feature.
+  const camera = blankTimeline(brief);
+  camera.scenes[0].camera = [
+    { frame: 0, x: 0, y: 0, scale: 1, opacity: 1, rotation: -5 },
+  ];
+  const cameraEnvelope = JSON.parse(
+    strFromU8(
+      unzipSync(
+        await exportArchive({
+          ...p,
+          timeline: timelineSchema.parse(camera),
+        }),
+      )["project.json"],
+    ),
+  );
+  assert.deepEqual(cameraEnvelope.requiredFeatures, ["keyframe-rotation-v1"]);
+});
+test("shape masks are bounded and require their own archive feature", async () => {
+  assert.equal(layerSchema.parse({ ...base, mask: "circle" }).mask, "circle");
+  assert.equal(layerSchema.parse({ ...base, mask: "rounded" }).mask, "rounded");
+  assert.equal(layerSchema.safeParse({ ...base, mask: "star" }).success, false);
+  const p: Project = {
+    id: crypto.randomUUID(),
+    name: "Masked story",
+    brief,
+    timeline: timelineSchema.parse({
+      ...blankTimeline(brief),
+      scenes: [
+        {
+          ...blankTimeline(brief).scenes[0],
+          layers: [{ ...base, mask: "rounded" }],
+        },
+      ],
+    }),
+    assets: [],
+    messages: [],
+    createdAt: new Date().toISOString(),
+    revisions: [],
+  };
+  const archive = await exportArchive(p);
+  const envelope = JSON.parse(strFromU8(unzipSync(archive)["project.json"]));
+  assert.equal(envelope.version, 5);
+  assert.deepEqual(envelope.requiredFeatures, ["layer-mask-v1"]);
+  assert.equal(
+    (await importArchive(archive)).timeline!.scenes[0].layers[0].mask,
+    "rounded",
+  );
+  envelope.requiredFeatures = ["keyframe-rotation-v1"];
+  await assert.rejects(
+    importArchive(
+      zipSync({ "project.json": strToU8(JSON.stringify(envelope)) }),
+    ),
+  );
+});
