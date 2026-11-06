@@ -8,7 +8,10 @@ import {
   type Timeline,
   type AudioTrack,
 } from "../src/lib/schema";
-import { deleteSceneAndCloseGap } from "../src/lib/scene-ripple";
+import {
+  deleteSceneAndCloseGap,
+  resizeSceneWithRipple,
+} from "../src/lib/scene-ripple";
 import { creatorTemplateTimeline } from "../src/lib/creator-templates";
 import { clipAudioTracks } from "../src/lib/clip-audio";
 const assetId = randomUUID();
@@ -215,4 +218,68 @@ test("invalid or track-capacity cuts refuse atomically instead of dropping narra
     prompt: "Keep one",
   });
   assert.throws(() => deleteSceneAndCloseGap(one, 0), /at least one scene/);
+});
+
+test("lengthening a scene moves later audio and captions, leaving items already playing across its end", () => {
+  const t = film();
+  t.audioTracks = [
+    audio("before", 0, 100),
+    audio("across", 120, 60),
+    audio("after", 150, 90),
+  ];
+  t.captions = [
+    { id: "c1", startFrame: 10, endFrame: 60, text: "First" },
+    { id: "c2", startFrame: 140, endFrame: 155, text: "Across" },
+    { id: "c3", startFrame: 160, endFrame: 200, text: "Second scene" },
+  ];
+  const next = resizeSceneWithRipple(timelineSchema.parse(t), 0, 210);
+  assert.equal(next.scenes[0].durationFrames, 210);
+  assert.deepEqual(
+    next.audioTracks!.map((a) => [a.id, a.startFrame, a.durationFrames]),
+    [
+      ["before", 0, 100],
+      ["across", 120, 60],
+      ["after", 210, 90],
+    ],
+  );
+  assert.deepEqual(
+    next.captions!.map((c) => [c.id, c.startFrame, c.endFrame]),
+    [
+      ["c1", 10, 60],
+      ["c2", 140, 155],
+      ["c3", 220, 260],
+    ],
+  );
+  // Later scenes themselves are unchanged.
+  assert.deepEqual(next.scenes.slice(1), t.scenes.slice(1));
+});
+
+test("shortening a scene closes its trailing frames like a cut and refuses invalid lengths", () => {
+  const t = film();
+  t.audioTracks = [audio("across", 100, 100, 30), audio("after", 200, 50)];
+  t.captions = [
+    { id: "gone", startFrame: 125, endFrame: 145, text: "Removed" },
+    { id: "late", startFrame: 160, endFrame: 190, text: "Next scene" },
+  ];
+  const next = resizeSceneWithRipple(timelineSchema.parse(t), 0, 120);
+  assert.equal(totalFrames(next), 420);
+  assert.deepEqual(
+    next.audioTracks!.map((a) => [
+      a.id,
+      a.startFrame,
+      a.offsetFrames,
+      a.durationFrames,
+    ]),
+    [
+      ["across", 100, 30, 20],
+      [next.audioTracks![1].id, 120, 80, 50],
+      ["after", 170, 0, 50],
+    ],
+  );
+  assert.deepEqual(
+    next.captions!.map((c) => [c.id, c.startFrame, c.endFrame]),
+    [["late", 130, 160]],
+  );
+  assert.throws(() => resizeSceneWithRipple(timelineSchema.parse(t), 0, 10));
+  assert.throws(() => resizeSceneWithRipple(timelineSchema.parse(t), 9, 60));
 });

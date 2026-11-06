@@ -91,7 +91,7 @@ See [CHANGELOG.md](CHANGELOG.md) for checkpoints. Verified checkpoints are commi
 
 ## Sound, captions and portable projects
 
-Upload an audio file with its source/usage rights, add it in **Sound & captions**, then edit start/offset/duration in frames (30 fps), gain and fades. Audio files are capped at 10 MB and 120 seconds, decoded locally and normalized to 48 kHz stereo WAV. AAC exports are padded/trimmed to the video duration, with a limiter on the final mix. Preview uses per-track gain; the exported overlapping mix additionally limits peaks. Review narration timing and creative sound choices yourself; the checks verify technical timing and levels, not perceptual quality.
+Upload an audio file with its source/usage rights, add it in **Sound & captions**, then edit start/offset/duration in frames (30 fps), gain and fades. Audio files are capped at 64 MB and five minutes, decoded locally and normalized to 48 kHz stereo WAV. AAC exports are padded/trimmed to the video duration, with a limiter on the final mix. Preview uses per-track gain; the exported overlapping mix additionally limits peaks. Review narration timing and creative sound choices yourself; the checks verify technical timing and levels, not perceptual quality.
 
 Caption cues must not overlap or exceed the timeline. Each cue is limited to 80 characters, displayed in the bottom safe area, and exported as SRT/VTT alongside the MP4. Cue boundaries are frame-based; subtitle milliseconds round to the nearest millisecond.
 
@@ -139,7 +139,7 @@ Layer **Custom keyframes** and **Scene camera keyframes** now provide frame mark
 
 Upload **MP4 / MOV / WebM** with its source/usage rights, then choose **Add video to selected scene**. A clip starts behind the existing artwork so titles remain on top. **Footage range** controls set scene start, source in, length, fit-entire-clip versus fill/crop, and source-audio volume. Values use seconds and snap to 30 fps. Hide mutes the clip as well as hiding its picture. Lock prevents direct clip edits. Source audio joins the existing audio tracks in preview and the AAC export mix, with at most 32 audible clips/tracks in a timeline.
 
-Input clips are capped at 25 MB, 120 seconds, 8.3 megapixels and 120 fps. H.264, HEVC, VP8, VP9 and AV1 in MP4/MOV/WebM containers are accepted by the validator. Normalization removes source metadata, limits picture size to fit within 1920×1080 without upscaling, converts to 30 fps H.264 and retains source audio as AAC. The normalized file must also fit 25 MB, preserve duration within three frames and fully decode. Normalization has a two-minute deadline; decoder support and performance remain platform-dependent. These limits do not raise the current sixty-second project/output-size caps or constitute an OS-level media sandbox.
+Input clips are capped at 95 MB (under Cloudflare's 100 MB request limit), five minutes, 8.3 megapixels and 120 fps. H.264, HEVC, VP8, VP9 and AV1 in MP4/MOV/WebM containers are accepted by the validator. Normalization removes source metadata, limits picture size to fit within 1920×1080 without upscaling, converts to 30 fps H.264 and retains source audio as AAC. The normalized file must also fit 95 MB, preserve duration within three frames and fully decode. Normalization has a nine-minute deadline; decoder support and performance remain platform-dependent. These limits are not an OS-level media sandbox.
 
 Private media GET supports single HTTP byte ranges for browser seeking, with authentication/resource authorization applied before range handling. Render-time images, video and audio are served by `render-assets.ts` only on a random loopback port with a fresh capability token and an allowlist of that immutable job's media IDs. The server streams bounded ranges from retained regular-file descriptors, serves no directory, rejects symlinks/pipes, and closes connections/files after the attempt. Media bytes are never embedded in renderer props or URL queries. Image rendering waits for decode before capturing a frame. Cache keys use streamed file SHA-256 values, so temporary source ports/tokens do not defeat clip reuse. Keep worker ports private; they are internal services rather than public media endpoints.
 
@@ -151,7 +151,7 @@ Editable ZIPs include normalized footage, clip settings and source-audio metadat
 
 ## Narration, captions and project management (0.9.0)
 
-Use **Record narration** in Project assets to capture up to 60 seconds. Recording needs HTTPS or localhost, microphone permission and AudioWorklet support. Preview/download the take, give it a name and usage rights, and save it to assets; **Add audio** places it on the timeline. Start pauses the preview to avoid feedback. Unsaved takes stay in browser memory and are guarded during in-app navigation/sign-out and page unload; save or download them before closing the tab. Upload errors retain the take for retry. Hardware/browser recording quality still needs creator testing.
+Use **Record narration** in Project assets to capture up to five minutes. Recording needs HTTPS or localhost, microphone permission and AudioWorklet support. Preview/download the take, give it a name and usage rights, and save it to assets; **Add audio** places it on the timeline. Start pauses the preview to avoid feedback. Unsaved takes stay in browser memory and are guarded during in-app navigation/sign-out and page unload; save or download them before closing the tab. Upload errors retain the take for retry. Hardware/browser recording quality still needs creator testing.
 
 Audio and audible-footage bars display frame-based waveforms that follow source in/out points and clip volume. They show source amplitude, not loudness or the final mix; fades, the multi-track sum and the export limiter still need listening. A waveform error offers retry without blocking normal editing/export.
 
@@ -173,7 +173,7 @@ The GitHub Actions workflow runs local/static/unit/build checks and isolated bro
 
 Select a text layer on the canvas to edit its content, size, system font family, weight, alignment, line/letter spacing, italic and underline styling. The same controls are available in the layer inspector. Locked layers disable editing. Reset keeps content and size, and resets the other text styling; undo restores the previous appearance. Autosave, versions, scene splits and portable archives retain the styles.
 
-Rendering and layout diagnostics use the same style function. Text that cannot fit after bounded font repair blocks export. These are system font families with platform fallbacks; uploaded brand fonts, arbitrary font URLs, masks and ripple editing are still separate work.
+Rendering and layout diagnostics use the same style function. Text that cannot fit after bounded font repair blocks export. These are system font families with platform fallbacks; uploaded brand fonts (0.69) are described below. Arbitrary font URLs are not supported.
 
 ## Recoverable project removal (0.11.0)
 
@@ -416,3 +416,15 @@ SRT/WebVTT imports accept up to 256 KiB of UTF-8 and 500 bounded cues, enough to
 ### Encrypted backup operator (0.60)
 
 `npm run backup:encrypted` inspects an existing pinned Restic repository, uploads a fresh completed verified snapshot, verifies a full private restore, and previews namespace retention. `expire --apply` requires a recent fully verified anchor and preserves other installations and original local snapshots. Repository/authority pins and a private password file are explicit; the operator receives only its selected storage credentials. See [OPERATIONS.md](OPERATIONS.md) and the separate `.env.backup.example` for setup and limits. The operator image and CI are configured; actual immutable images and hosted storage still require release acceptance.
+
+### Your own AI key and server deployment (0.67)
+
+Each studio can save its own provider key under **Account settings → AI director**: Anthropic, OpenAI, Google Gemini (through its OpenAI-compatible endpoint) or another OpenAI-compatible provider. Enter the model ID, the key, the model's input/output price per million tokens and a daily spending limit. The key is encrypted on the server (AES-256-GCM, bound to the studio), only its last four characters are ever shown, and **Delete key** removes it immediately. Keys are never placed in source code or environment files. Planning uses the studio's own key first, then the platform key when `REELCHEMY_PLATFORM_AI` allows it (`off`, `all`, or `granted` per studio via `npm run ai:entitlement`), then the demo director. Usage is accounted per source (`npm run ai:usage`); the global platform budget counts platform spending only.
+
+`deploy/reelchemy.sh` installs and operates a single-host Docker deployment behind a Cloudflare Tunnel; see [DEPLOYMENT.md](DEPLOYMENT.md).
+
+### Long sources, animated rotation, masks and brand fonts (0.68–0.69)
+
+Footage, audio files and microphone takes may each run up to five minutes. Layer and camera keyframes take an optional rotation (±720°). **Media shape mask** clips an image or video to a circle/ellipse or rounded corners.
+
+Upload a TTF, OTF, WOFF or WOFF2 font (up to 5 MB, with its license) under **Project assets → Brand font**. **Use for text in selected scene** applies it to that scene's unlocked text layers; **Brand font** in the text controls picks one per layer, with the chosen generic family as the fallback. Fonts are stored unchanged after a structural container check and are parsed only by Chromium. Preview, export and the layout check load the same font; an export stops with a clear message if Chromium cannot load it. Fonts can be reused from the studio media library and travel in project archives (`custom-font-v1`). Make sure your font license allows embedding in videos.

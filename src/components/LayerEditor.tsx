@@ -8,7 +8,10 @@ import { TypographyControls } from "./TypographyControls";
 import { LayerRotation } from "./LayerRotation";
 import { useState } from "react";
 import { duplicateLayer } from "@/lib/layer-edit";
-import { deleteSceneAndCloseGap } from "@/lib/scene-ripple";
+import {
+  deleteSceneAndCloseGap,
+  resizeSceneWithRipple,
+} from "@/lib/scene-ripple";
 import {
   layerSchema,
   timelineSchema,
@@ -63,6 +66,7 @@ export function LayerEditor({
 }) {
   const scene = timeline.scenes[selected];
   const [error, setError] = useState("");
+  const [ripple, setRipple] = useState(true);
   function update(next: Timeline) {
     const result = timelineSchema.safeParse(next);
     if (!result.success) {
@@ -118,10 +122,33 @@ export function LayerEditor({
             min={30}
             max={600}
             value={scene.durationFrames}
-            onChange={(e) =>
-              updateScene({ durationFrames: Number(e.target.value) })
-            }
+            onChange={(e) => {
+              const durationFrames = Number(e.target.value);
+              if (!ripple) {
+                updateScene({ durationFrames });
+                return;
+              }
+              try {
+                update(
+                  resizeSceneWithRipple(timeline, selected, durationFrames),
+                );
+              } catch (problem) {
+                setError(
+                  problem instanceof Error
+                    ? problem.message
+                    : "This scene length could not be applied.",
+                );
+              }
+            }}
           />
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={ripple}
+            onChange={(e) => setRipple(e.target.checked)}
+          />
+          Move later audio and captions with this scene
         </label>
         <label>
           Transition
