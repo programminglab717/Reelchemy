@@ -2,6 +2,9 @@ import {
   MAX_TIMELINE_SECONDS,
   MAX_SOURCE_FRAMES,
   MAX_MEDIA_UPLOAD_BYTES,
+  MAX_STORED_ASSET_BYTES,
+  MAX_ARCHIVE_BYTES,
+  byteLimitText,
   usesExtendedTimeline,
 } from "./timeline-limits";
 import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
@@ -37,9 +40,9 @@ import {
 } from "./schema";
 const MAX_TOTAL = 250 * 1024 * 1024;
 const MAX_MANIFEST = 10 * 1024 * 1024;
-// A five-minute normalized stereo WAV is about 58 MB; videos are capped at
-// 100 MB. Import admission (250 MB) matches the export total.
-const MAX_ASSET = 110 * 1024 * 1024;
+// Each archived file is stored (normalized) media; the archive itself stays
+// within MAX_ARCHIVE_BYTES for both download and import.
+const MAX_ASSET = MAX_STORED_ASSET_BYTES;
 const MAX_REVISIONS = 10000;
 const MAX_MESSAGES = 10000;
 const portableProject = z.object({
@@ -59,12 +62,7 @@ const portableProject = z.object({
         source: z.string().max(500),
         license: z.string().min(1).max(500),
         mime: z.enum(assetMimes),
-        bytes: z
-          .number()
-          .int()
-          .min(1)
-          .max(25 * 1024 * 1024)
-          .optional(),
+        bytes: z.number().int().min(1).max(MAX_STORED_ASSET_BYTES).optional(),
         // Image admission bounds decoded pixels, not each edge. Dimensions
         // are re-measured by normalization rather than trusted on import.
         width: z.number().int().min(1).max(16000000).optional(),
@@ -366,8 +364,10 @@ export async function exportArchive(project: Project) {
     }
   }
   const zip = zipSync(files, { level: 6 });
-  if (zip.length > 50 * 1024 * 1024)
-    throw new Error("Project exceeds the 50 MB portable archive limit.");
+  if (zip.length > MAX_ARCHIVE_BYTES)
+    throw new Error(
+      `Project exceeds the ${byteLimitText(MAX_ARCHIVE_BYTES)} portable archive limit.`,
+    );
   return zip;
 }
 export async function importArchive(
@@ -378,8 +378,10 @@ export async function importArchive(
   } = {},
 ): Promise<Project> {
   assertNormalizationActive(options);
-  if (bytes.length > 50 * 1024 * 1024)
-    throw new Error("Archives must be 50 MB or smaller.");
+  if (bytes.length > MAX_ARCHIVE_BYTES)
+    throw new Error(
+      `Archives must be ${byteLimitText(MAX_ARCHIVE_BYTES)} or smaller.`,
+    );
   let total = 0;
   const names = new Set<string>();
   const files = unzipSync(bytes, {
@@ -500,13 +502,21 @@ export async function importArchive(
                 MAX_MEDIA_UPLOAD_BYTES.font,
                 normalization,
               )
-            : await (a.mime === "audio/wav" ? storeAudio : storeImage)(
-                Buffer.from(source),
-                a.name,
-                a.license,
-                25 * 1024 * 1024,
-                normalization,
-              );
+            : a.mime === "audio/wav"
+              ? await storeAudio(
+                  Buffer.from(source),
+                  a.name,
+                  a.license,
+                  MAX_MEDIA_UPLOAD_BYTES.audio,
+                  normalization,
+                )
+              : await storeImage(
+                  Buffer.from(source),
+                  a.name,
+                  a.license,
+                  MAX_MEDIA_UPLOAD_BYTES.image,
+                  normalization,
+                );
       assets.push(asset);
       mapping.set(a.id, asset.id);
     }

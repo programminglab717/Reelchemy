@@ -107,6 +107,7 @@ import {
 } from "./media-storage-policy";
 import { MediaProcessingStore } from "./media-processing-store";
 import { MediaInputFiles } from "./media-input-files";
+import { UploadSessionStore } from "./upload-sessions";
 import { withPrivateDirectory } from "./private-directory";
 import { removeCachedWaveform } from "./waveform-cache";
 import { ownedMediaCatalogue } from "./media-catalogue";
@@ -258,6 +259,9 @@ export const accountErasures = {
   },
 };
 export const mediaInputs = new MediaInputFiles(dataDir);
+export const uploadSessions = new UploadSessionStore(db, dataDir, () =>
+  mediaProcessingPolicy(),
+);
 export function cleanupUnreferencedMediaOutputs(ids: string[]) {
   return db
     .transaction(() =>

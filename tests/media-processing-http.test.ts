@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { createHash, randomUUID, randomBytes } from "node:crypto";
 import Database from "better-sqlite3";
+import { execFileSync } from "node:child_process";
 import sharp from "sharp";
 import { startMediaWorker } from "./helpers/media-worker";
 import { mediaInputFingerprint } from "../src/lib/media-processing-store";
@@ -40,6 +41,8 @@ const { POST: cancel } =
 const { GET: list } =
   await import("../src/app/api/workspace/media-requests/route");
 const { GET: projectGET } = await import("../src/app/api/projects/[id]/route");
+const { POST: startUpload } = await import("../src/app/api/uploads/route");
+const uploadPiece = await import("../src/app/api/uploads/[id]/route");
 let ingestion: Awaited<ReturnType<typeof startMediaWorker>> | undefined;
 after(async () => {
   await ingestion?.stop();
@@ -504,10 +507,26 @@ function clientTransport(
     response: Response,
   ) => Promise<Response>,
 ) {
-  const counts = { posts: 0, catalogues: 0, projects: 0 };
+  const counts = { posts: 0, catalogues: 0, projects: 0, pieces: 0 };
   const transport: AccountFetch = async (url, init = {}) => {
     const req = request(owner, url, init);
     const uploadMatch = url.match(/^\/api\/projects\/([^/]+)\/assets$/);
+    const pieceMatch = url.match(/^\/api\/uploads\/([^/]+)$/);
+    if (url === "/api/uploads") {
+      const response = await startUpload(req, context(""));
+      return intercept ? intercept(url, init, response) : response;
+    }
+    if (pieceMatch) {
+      if (init.method === "PUT") counts.pieces++;
+      const handler =
+        init.method === "PUT"
+          ? uploadPiece.PUT
+          : init.method === "DELETE"
+            ? uploadPiece.DELETE
+            : uploadPiece.GET;
+      const response = await handler(req, context(pieceMatch[1]));
+      return intercept ? intercept(url, init, response) : response;
+    }
     const receiptMatch = url.match(/^\/api\/media-requests\/([^/]+)$/);
     const projectMatch = url.match(/^\/api\/projects\/([^/]+)$/);
     let response: Response;
@@ -885,4 +904,136 @@ test("a completed upload retains its receipt until the catalogue contains that e
   assert.equal(pending.current, null);
   assert.equal(client.counts.posts, 1);
   assert.equal(client.counts.projects, 0);
+});
+
+test("a file larger than one request uploads in verified pieces, resumes after interruptions and is processed once", async () => {
+  ingestion ??= await startMediaWorker();
+  const p = project(),
+    endpoint = `/api/projects/${p.id}/assets`,
+    pending: MediaSubmissionRef = { current: null };
+  // About 44 MB of real WAV audio: two pieces of up to 32 MiB.
+  const wav = path.join(root, "long-narration.wav");
+  execFileSync(
+    "ffmpeg",
+    [
+      "-v",
+      "error",
+      "-f",
+      "lavfi",
+      "-i",
+      "sine=frequency=330:duration=230",
+      "-ac",
+      "2",
+      "-ar",
+      "48000",
+      "-c:a",
+      "pcm_s16le",
+      "-y",
+      wav,
+    ],
+    { timeout: 60000 },
+  );
+  const bytes = await readFile(wav);
+  assert.ok(bytes.length > 40 * 1024 * 1024);
+  const file = () => {
+    const data = new FormData();
+    // The same chosen file keeps its modification time between attempts.
+    data.set(
+      "file",
+      new File([new Uint8Array(bytes)], "Long narration.wav", {
+        lastModified: 1700000000000,
+      }),
+    );
+    data.set("kind", "audio");
+    data.set("license", "Generated narration fixture");
+    return data;
+  };
+  let lostPieceResponse = false,
+    stopAfterFirstPiece = true,
+    damaged = false;
+  const controller = new AbortController();
+  const client = clientTransport(async (url, init, response) => {
+    if (init.method === "PUT") {
+      // First piece: the server stores it but the reply is lost.
+      if (!lostPieceResponse) {
+        lostPieceResponse = true;
+        throw new TypeError("Synthetic connection reset after a stored piece");
+      }
+      if (stopAfterFirstPiece && response.ok) {
+        stopAfterFirstPiece = false;
+        controller.abort(new Error("Synthetic page closed mid-upload"));
+      }
+    }
+    return response;
+  });
+  await assert.rejects(
+    () =>
+      submitMedia(
+        client.transport,
+        endpoint,
+        file(),
+        pending,
+        controller.signal,
+      ),
+    /page closed/,
+  );
+  const uploadId = pending.current?.uploadId;
+  assert.ok(uploadId);
+  assert.equal(client.counts.posts, 0);
+  // The retried first piece was recognised, not appended twice.
+  const half = app.uploadSessions.status(uploadId, owner.workspace)!;
+  assert.equal(half.received, 32 * 1024 * 1024);
+  // A damaged piece is refused without moving the position.
+  const corrupt = await uploadPiece.PUT(
+    request(owner, `/api/uploads/${uploadId}`, {
+      method: "PUT",
+      headers: {
+        "Upload-Offset": String(half.received),
+        "X-Reelchemy-Chunk-SHA256": createHash("sha256")
+          .update(bytes.subarray(half.received))
+          .digest("hex"),
+      },
+      body: new Uint8Array(bytes.subarray(half.received)).map((b, i) =>
+        i === 7 ? b ^ 1 : b,
+      ),
+    }),
+    context(uploadId),
+  );
+  assert.equal(corrupt.status, 422);
+  damaged = true;
+  // Another studio cannot see or extend it.
+  const foreign = await uploadPiece.GET(
+    request(other, `/api/uploads/${uploadId}`),
+    context(uploadId),
+  );
+  assert.equal(foreign.status, 404);
+  // Reopening continues from the stored position and queues one input.
+  const result = await submitMedia(
+    client.transport,
+    endpoint,
+    file(),
+    pending,
+    new AbortController().signal,
+    () => {},
+    60000,
+  );
+  assert.ok(damaged);
+  assert.equal(client.counts.posts, 1);
+  assert.equal(client.counts.pieces, 3);
+  assert.equal(result.assets?.length, 1);
+  const asset = result.assets![0];
+  assert.equal(asset.mime, "audio/wav");
+  assert.equal(asset.name, "Long narration.wav");
+  assert.ok(Math.abs((asset.durationFrames || 0) - 230 * 30) <= 2);
+  assert.equal(app.uploadSessions.status(uploadId, owner.workspace), undefined);
+  assert.deepEqual(
+    (await readdir(path.join(root, "data", "upload-staging"))).filter((name) =>
+      name.endsWith(".part"),
+    ),
+    [],
+  );
+  const receipt = app.mediaProcessing
+    .list(owner.workspace)
+    .requests.find((item) => item.projectId === p.id)!;
+  assert.equal(receipt.state, "completed");
 });

@@ -2,6 +2,9 @@ import {
   MAX_SOURCE_SECONDS,
   MAX_SOURCE_FRAMES,
   MAX_MEDIA_UPLOAD_BYTES,
+  MAX_STORED_MEDIA_BYTES,
+  byteLimitText,
+  mediaUploadLimitText,
 } from "./timeline-limits";
 import { mkdtemp, writeFile, readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
@@ -15,21 +18,41 @@ import {
   writeNormalizedMedia,
   type MediaNormalizationOptions,
 } from "./media-normalization";
-export const MAX_VIDEO_BYTES = MAX_MEDIA_UPLOAD_BYTES.video;
+// Normalized (stored) video. Uploads may be much larger; normalization caps
+// the bitrate so five minutes of 1080p fits.
+export const MAX_VIDEO_BYTES = MAX_STORED_MEDIA_BYTES.video;
+const tooLarge = () =>
+  new Error(`Video files must be ${mediaUploadLimitText("video")} or smaller.`);
 export async function storeVideo(
   bytes: Buffer,
   name: string,
   license: string,
   options: MediaNormalizationOptions = {},
 ): Promise<Asset> {
+  if (bytes.length > MAX_MEDIA_UPLOAD_BYTES.video) throw tooLarge();
+  const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-video-in-"));
+  try {
+    const input = path.join(dir, "input");
+    await writeFile(input, bytes);
+    return await storeVideoFile(input, bytes.length, name, license, options);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+// Normalizes a video read in place from `input` (large uploads are never
+// copied into memory or the memory-backed temporary directory).
+export async function storeVideoFile(
+  input: string,
+  inputBytes: number,
+  name: string,
+  license: string,
+  options: MediaNormalizationOptions = {},
+): Promise<Asset> {
   const id = normalizationId(options);
-  if (bytes.length > MAX_VIDEO_BYTES)
-    throw new Error("Video files must be 95 MB or smaller.");
+  if (inputBytes > MAX_MEDIA_UPLOAD_BYTES.video) throw tooLarge();
   const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-video-"));
   try {
-    const input = path.join(dir, "input"),
-      output = path.join(dir, "normalized.mp4");
-    await writeFile(input, bytes);
+    const output = path.join(dir, "normalized.mp4");
     const meta = probeMedia(input);
     assertNormalizationActive(options);
     const streams = meta.streams.filter(
@@ -95,6 +118,11 @@ export async function storeVideo(
         "fast",
         "-crf",
         "23",
+        // At most about 5 Mb/s: five minutes stay under the stored-video limit.
+        "-maxrate",
+        "5M",
+        "-bufsize",
+        "10M",
         "-pix_fmt",
         "yuv420p",
         "-c:a",
@@ -113,12 +141,13 @@ export async function storeVideo(
         "+faststart",
         output,
       ],
-      { timeoutMs: 540000, cancelled: options.cancelled },
+      // Large 4K/high-frame-rate sources can take many minutes on two cores.
+      { timeoutMs: 1500000, cancelled: options.cancelled },
     );
     const outputBytes = (await stat(output)).size;
     if (outputBytes > MAX_VIDEO_BYTES)
       throw new Error(
-        "Normalized video exceeds 95 MB. Trim or compress the clip first.",
+        `Normalized video exceeds ${byteLimitText(MAX_VIDEO_BYTES)}. Trim the clip first.`,
       );
     const clean = probeMedia(output),
       v = clean.streams.find(

@@ -10,6 +10,7 @@ import { sniffFontMime } from "./fonts";
 import { byteRange } from "./media-range";
 import { CommandCancelledError } from "./process";
 import type { Timeline } from "./schema";
+import { MAX_STORED_ASSET_BYTES } from "./timeline-limits";
 
 // Job-scoped capabilities, bound only to loopback. No user-controlled URL or
 // filesystem path is served, and no normalized media is embedded in props.
@@ -74,7 +75,7 @@ export async function serveRenderAssets(
       if (
         !metadata.isFile() ||
         metadata.size < 1 ||
-        metadata.size > 25 * 1024 * 1024
+        metadata.size > MAX_STORED_ASSET_BYTES
       )
         throw new Error("Render assets must be bounded regular media files.");
       files.get(id)!.size = metadata.size;

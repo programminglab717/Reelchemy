@@ -1,13 +1,14 @@
 import type Database from "better-sqlite3";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
-import { mediaKinds } from "./timeline-limits";
+import { mediaKinds, MAX_MEDIA_UPLOAD_BYTES } from "./timeline-limits";
 import {
   mediaStorageLimit,
   validatedSharedMediaBytes,
 } from "./media-storage-policy";
 import {
   MEDIA_INPUT_BYTES,
+  MEDIA_DIRECT_BYTES,
   mediaProcessingPolicy,
   MediaProcessingCapacity,
   MediaProcessingConflict,
@@ -28,7 +29,8 @@ const inputSchema = z.discriminatedUnion("operation", [
       bytes: z.number().int().min(1).max(MEDIA_INPUT_BYTES.upload),
       sha256: hash,
     })
-    .strict(),
+    .strict()
+    .refine((input) => input.bytes <= MAX_MEDIA_UPLOAD_BYTES[input.kind]),
   z
     .object({
       operation: z.literal("import"),
@@ -295,6 +297,16 @@ export class MediaProcessingStore {
       nextOffset: rows.length > 20 ? offset + 20 : null,
     };
   }
+  // An earlier request with this owner-scoped key, if any (for retries of a
+  // request whose input has already been handed over).
+  byRequestKey(workspace: string, requestKey: string) {
+    const row = this.db
+      .prepare(
+        "SELECT * FROM media_requests WHERE workspace_id=? AND request_key=?",
+      )
+      .get(workspace, uuid.parse(requestKey)) as Row | undefined;
+    return row ? receipt(row) : undefined;
+  }
   waveform(workspace: string, project: string, asset: string) {
     uuid.parse(asset);
     const row = this.db
@@ -313,6 +325,9 @@ export class MediaProcessingStore {
       fingerprint?: string;
       storageLimitBytes?: number;
       sharedStorageLimitBytes?: number;
+      // Disk to reserve for the raw input; defaults to the single-request
+      // maximum (a staged upload passes its exact size).
+      inputBytes?: number;
     },
     admit?: () => void,
   ) {
@@ -376,7 +391,16 @@ export class MediaProcessingStore {
             )
             .get() as { bytes: number }
         ).bytes;
-        const bytes = MEDIA_INPUT_BYTES[input.operation];
+        const bytes =
+          input.operation === "waveform"
+            ? 0
+            : (input.inputBytes ?? MEDIA_DIRECT_BYTES[input.operation]);
+        if (
+          !Number.isSafeInteger(bytes) ||
+          bytes < 0 ||
+          bytes > MEDIA_INPUT_BYTES[input.operation]
+        )
+          throw new MediaProcessingUnavailable();
         if (
           counts.total >=
             (analysis ? this.policy.analyses : this.policy.inputs) ||
@@ -438,6 +462,9 @@ export class MediaProcessingStore {
           row.fingerprint !== mediaInputFingerprint(input)
         )
           throw new MediaProcessingConflict();
+        // The raw input must fit the disk this request reserved.
+        if ("bytes" in input && input.bytes > row.reserved_bytes)
+          throw new MediaProcessingUnavailable();
         persistInput?.();
         this.db
           .prepare(

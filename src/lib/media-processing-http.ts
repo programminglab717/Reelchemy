@@ -15,9 +15,11 @@ import {
   assertSharedMediaCapacity,
   assertUploadProjectCapacity,
   assertImportProjectCapacity,
+  uploadSessions,
 } from "./db";
 import {
   MEDIA_INPUT_BYTES,
+  MEDIA_DIRECT_BYTES,
   mediaProcessingPolicy,
   MediaProcessingCapacity,
   MediaProcessingConflict,
@@ -25,7 +27,12 @@ import {
   MediaAnalysisLimit,
   type MediaOperation,
 } from "./media-processing-policy";
-import type { MediaReceipt, MediaInput } from "./media-processing-store";
+import {
+  mediaInputFingerprint,
+  type MediaReceipt,
+  type MediaInput,
+} from "./media-processing-store";
+import { UploadSessionGone } from "./upload-sessions";
 import {
   MediaStorageLimitError,
   sharedMediaStorageLimit,
@@ -44,11 +51,15 @@ export function reserveMediaRequest(
   projectId: string | null,
   operation: MediaOperation,
   storageLimitBytes?: number,
+  staged?: { fingerprint: string; bytes: number },
 ) {
   const requestKey = z
     .uuid()
     .parse(req.headers.get("Idempotency-Key") ?? randomUUID());
-  const fingerprint = req.headers.get("X-Reelchemy-Media-Intent") ?? undefined;
+  const fingerprint =
+    staged?.fingerprint ??
+    req.headers.get("X-Reelchemy-Media-Intent") ??
+    undefined;
   if (fingerprint !== undefined)
     z.string()
       .regex(/^[a-f0-9]{64}$/)
@@ -63,6 +74,7 @@ export function reserveMediaRequest(
       storageLimitBytes,
       sharedStorageLimitBytes:
         operation === "waveform" ? undefined : sharedMediaStorageLimit(),
+      inputBytes: staged?.bytes,
     },
     operation === "upload"
       ? () => {
@@ -229,12 +241,55 @@ export async function receiveMediaRequest(
   let queued = false;
   try {
     const usage = mediaStorage(workspaceId);
+    // A file already sent in pieces (see upload-sessions): queue it as is.
+    const sessionId = req.headers.get("X-Reelchemy-Upload-Session");
+    type QueuedInput = Exclude<MediaInput, { operation: "waveform" }>;
+    let staged: { id: string; metadata: QueuedInput } | undefined;
+    if (sessionId !== null) {
+      z.uuid().parse(sessionId);
+      let session;
+      try {
+        session = uploadSessions.complete(
+          sessionId,
+          workspaceId,
+          operation,
+          projectId,
+        );
+      } catch (error) {
+        // A retried hand-over whose input was already queued.
+        const earlier = mediaProcessing.byRequestKey(
+          workspaceId,
+          z.uuid().parse(req.headers.get("Idempotency-Key")),
+        );
+        if (error instanceof UploadSessionGone && earlier)
+          return await mediaRequestResponse(req, earlier, workspaceId);
+        throw error;
+      }
+      staged = {
+        id: session.id,
+        metadata:
+          operation === "upload"
+            ? {
+                operation,
+                name: session.name!,
+                kind: session.kind!,
+                license: session.license!,
+                bytes: session.bytes,
+                sha256: session.sha256!,
+              }
+            : { operation, bytes: session.bytes, sha256: session.sha256! },
+      };
+    }
     reservation = reserveMediaRequest(
       req,
       workspaceId,
       projectId,
       operation,
       usage.limitBytes,
+      staged && {
+        fingerprint: mediaInputFingerprint(staged.metadata),
+        bytes: staged.metadata.bytes,
+      },
     );
     if (!reservation.created)
       return await mediaRequestResponse(req, reservation.receipt, workspaceId);
@@ -251,9 +306,11 @@ export async function receiveMediaRequest(
         mediaProcessing.get(reservation!.receipt.id, workspaceId)?.state !==
         "receiving",
     };
-    let bytes: Uint8Array, metadata: MediaInput;
-    if (operation === "upload") {
-      const form = await multipart(req, MEDIA_INPUT_BYTES.upload, options);
+    let bytes: Uint8Array | undefined, metadata: QueuedInput;
+    if (staged) {
+      metadata = staged.metadata;
+    } else if (operation === "upload") {
+      const form = await multipart(req, MEDIA_DIRECT_BYTES.upload, options);
       const kind = z.enum(mediaKinds).parse(form.get("kind") || "image");
       const file = form.get("file");
       if (!(file instanceof File))
@@ -278,7 +335,7 @@ export async function receiveMediaRequest(
         sha256: createHash("sha256").update(bytes).digest("hex"),
       };
     } else {
-      bytes = await readLimitedBody(req, MEDIA_INPUT_BYTES.import, options);
+      bytes = await readLimitedBody(req, MEDIA_DIRECT_BYTES.import, options);
       metadata = {
         operation,
         bytes: bytes.length,
@@ -295,12 +352,18 @@ export async function receiveMediaRequest(
       reservation.token,
       metadata,
       () =>
-        mediaInputs.write(
-          reservation!.receipt.id,
-          bytes,
-          MEDIA_INPUT_BYTES[operation],
-          metadata.sha256,
-        ),
+        staged
+          ? uploadSessions.adopt(
+              staged.id,
+              workspaceId,
+              reservation!.receipt.id,
+            )
+          : mediaInputs.write(
+              reservation!.receipt.id,
+              bytes!,
+              MEDIA_INPUT_BYTES[operation],
+              metadata.sha256,
+            ),
     );
     queued = true;
     return await mediaRequestResponse(req, receipt, workspaceId);

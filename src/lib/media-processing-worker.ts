@@ -8,12 +8,13 @@ import {
   projectInWorkspace,
   cleanupMediaRequest,
   cleanupUnreferencedMediaOutputs,
+  uploadSessions,
 } from "./db";
 import { MEDIA_INPUT_BYTES } from "./media-processing-policy";
 import type { MediaTask, MediaFailure } from "./media-processing-store";
 import { storeImage } from "./assets";
-import { storeAudio } from "./audio";
-import { storeVideo } from "./video";
+import { storeAudioFile } from "./audio";
+import { storeVideoFile } from "./video";
 import { storeFont } from "./fonts";
 import { MAX_MEDIA_UPLOAD_BYTES } from "./timeline-limits";
 import { importArchive } from "./archive";
@@ -43,13 +44,20 @@ export function cleanMediaProcessing() {
   for (const entry of mediaProcessing.cleanupCandidates())
     cleanupMediaRequest(entry.id);
   mediaProcessing.prune();
+  // Unfinished chunked uploads past their resume window, and orphaned pieces.
+  uploadSessions.cleanup();
 }
 export async function processMediaTask(
   task: MediaTask,
   stopping: () => boolean = () => false,
   deadlineMs = 600000,
 ) {
-  const deadline = Date.now() + deadlineMs;
+  // Video normalization of long, high-resolution sources needs more time.
+  const deadline =
+    Date.now() +
+    (task.input?.operation === "upload" && task.input.kind === "video"
+      ? deadlineMs * 3
+      : deadlineMs);
   const cancelled = () =>
     stopping() || Date.now() >= deadline || mediaProcessing.isCancelled(task);
   try {
@@ -59,19 +67,32 @@ export async function processMediaTask(
     }
     const input = task.input;
     if (input.operation === "upload") {
-      const bytes = mediaInputs.read(
-        task.id,
-        MEDIA_INPUT_BYTES.upload,
-        input.bytes,
-        input.sha256,
-      );
       const id = randomUUID();
       mediaProcessing.recordOutputs(task, [id]);
       const options = { id, cancelled };
-      const asset =
-        input.kind === "video"
-          ? await storeVideo(bytes, input.name, input.license, options)
-          : input.kind === "font"
+      let asset: Asset;
+      if (input.kind === "video" || input.kind === "audio") {
+        // Possibly gigabytes: verify by streaming and let FFmpeg read the
+        // queued file in place.
+        const source = await mediaInputs.verifiedPath(
+          task.id,
+          MAX_MEDIA_UPLOAD_BYTES[input.kind],
+          input.bytes,
+          input.sha256,
+        );
+        asset = await (
+          input.kind === "video" ? storeVideoFile : storeAudioFile
+        )(source.file, input.bytes, input.name, input.license, options);
+        source.check();
+      } else {
+        const bytes = mediaInputs.read(
+          task.id,
+          MAX_MEDIA_UPLOAD_BYTES[input.kind],
+          input.bytes,
+          input.sha256,
+        );
+        asset =
+          input.kind === "font"
             ? await storeFont(
                 bytes,
                 input.name,
@@ -79,13 +100,14 @@ export async function processMediaTask(
                 MAX_MEDIA_UPLOAD_BYTES.font,
                 options,
               )
-            : await (input.kind === "audio" ? storeAudio : storeImage)(
+            : await storeImage(
                 bytes,
                 input.name,
                 input.license,
-                10 * 1024 * 1024,
+                MAX_MEDIA_UPLOAD_BYTES.image,
                 options,
               );
+      }
       await waveform(asset, cancelled);
       mediaProcessing.finish(task, () => {
         if (

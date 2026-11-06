@@ -6,8 +6,10 @@ import {
   lstatSync,
   openSync,
   readFileSync,
+  realpathSync,
   unlinkSync,
   writeFileSync,
+  createReadStream,
 } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
@@ -82,6 +84,61 @@ export class MediaInputFiles {
         closeSync(descriptor);
       }
     });
+  }
+  // For inputs too large to hold in memory: verifies size and SHA-256 by
+  // streaming, and returns the file's real path for native tools (which cannot
+  // use this process's directory anchor). `check()` confirms afterwards that
+  // the same file is still in place.
+  async verifiedPath(
+    id: string,
+    maximum: number,
+    expectedBytes: number,
+    expectedHash: string,
+  ) {
+    const identity = this.file(id, (file) => {
+      const descriptor = openSync(
+        file,
+        constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+      );
+      try {
+        const stat = fstatSync(descriptor);
+        if (
+          !stat.isFile() ||
+          stat.size < 1 ||
+          stat.size > maximum ||
+          stat.size !== expectedBytes
+        )
+          throw new Error("Invalid private media input.");
+        return { dev: stat.dev, ino: stat.ino, size: stat.size };
+      } finally {
+        closeSync(descriptor);
+      }
+    });
+    const real = path.join(
+      realpathSync(this.root),
+      "media-inputs",
+      `${z.uuid().parse(id)}.input`,
+    );
+    const check = () => {
+      const stat = lstatSync(real);
+      if (
+        !stat.isFile() ||
+        stat.dev !== identity.dev ||
+        stat.ino !== identity.ino ||
+        stat.size !== identity.size
+      )
+        throw new Error("Invalid private media input.");
+    };
+    check();
+    const hash = createHash("sha256");
+    for await (const piece of createReadStream(real, {
+      highWaterMark: 1024 * 1024,
+    }))
+      hash.update(piece as Buffer);
+    if (hash.digest("hex") !== expectedHash)
+      throw new Error("Invalid private media input.");
+    check();
+    return { file: real, check };
   }
   remove(id: string) {
     this.file(id, (file) => {

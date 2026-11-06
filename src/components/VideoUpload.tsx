@@ -72,9 +72,10 @@ export function VideoUpload({
         </button>
       </div>
       <p>
-        Up to 95 MB / 5 minutes. Clips are checked and converted to 30 fps
-        H.264; source audio is retained. Preparing a clip may take up to two
-        minutes.
+        Up to {mediaUploadLimitText("video")} / 5 minutes. Large files upload in
+        pieces and resume if the connection drops. Clips are checked and
+        converted to 30 fps H.264 (up to 1080p); source audio is retained.
+        Preparing a long or 4K clip can take several minutes.
       </p>
       {error && <p role="alert">{error}</p>}
     </form>

@@ -108,6 +108,10 @@ cmd_install() {
   set_var REELCHEMY_PUBLIC_SIGNUP "$signup"
   [ -n "$(get REELCHEMY_PLATFORM_AI)" ] || set_var REELCHEMY_PLATFORM_AI off
   [ -n "$(get AI_PROVIDER)" ] || set_var AI_PROVIDER mock
+  # Single-owner server defaults: room for several five-minute videos per
+  # studio (stored video is up to 200 MB each). Change in the env file.
+  [ -n "$(get REELCHEMY_MEDIA_STORAGE_BYTES)" ] || set_var REELCHEMY_MEDIA_STORAGE_BYTES 10737418240
+  [ -n "$(get REELCHEMY_MEDIA_SHARED_STORAGE_BYTES)" ] || set_var REELCHEMY_MEDIA_SHARED_STORAGE_BYTES 21474836480
   if [ -n "$smtp_host" ]; then
     [ -n "$smtp_from" ] || die "--smtp-from is required with --smtp-host"
     set_var SMTP_HOST "$smtp_host"; set_var SMTP_PORT "$smtp_port"

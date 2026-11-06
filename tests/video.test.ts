@@ -318,3 +318,50 @@ test("real footage is normalized, bounded, resolved locally and round trips with
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test("normalization caps the bitrate so five minutes of 1080p stay within the stored-video limit", async () => {
+  const { MAX_STORED_MEDIA_BYTES, MAX_SOURCE_SECONDS } =
+    await import("../src/lib/timeline-limits");
+  const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-bitrate-"));
+  try {
+    // Full-frame noise is the worst case for the encoder.
+    const source = path.join(dir, "noise.mp4");
+    execFileSync(
+      "ffmpeg",
+      [
+        "-v",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        "nullsrc=s=1920x1080:r=30:d=4,geq=lum='random(1)*255':cb=128:cr=128",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "ultrafast",
+        "-crf",
+        "12",
+        "-pix_fmt",
+        "yuv420p",
+        "-y",
+        source,
+      ],
+      { timeout: 120000 },
+    );
+    const input = await readFile(source);
+    const asset = await storeVideo(input, "Noise.mp4", "Generated noise");
+    // 5 Mb/s for 4 s plus one 10 Mb VBV buffer, with container overhead.
+    assert.ok(input.length > 3 * asset.bytes!, "source is far above the cap");
+    assert.ok(
+      asset.bytes! <= 4 * 625000 + 1250000 + 200000,
+      `normalized ${asset.bytes} bytes`,
+    );
+    // The same ceiling over the longest source fits the stored-video limit.
+    assert.ok(
+      MAX_SOURCE_SECONDS * 625000 + (128000 / 8) * MAX_SOURCE_SECONDS <
+        MAX_STORED_MEDIA_BYTES.video,
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

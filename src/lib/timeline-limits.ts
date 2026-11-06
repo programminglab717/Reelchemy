@@ -4,18 +4,40 @@ export const MAX_TIMELINE_FRAMES = MAX_TIMELINE_SECONDS * 30;
 // as the longest film, so a whole narration can be one continuous source.
 export const MAX_SOURCE_SECONDS = 300;
 export const MAX_SOURCE_FRAMES = MAX_SOURCE_SECONDS * 30;
-// Upload size limits shared by browser checks and server admission.
+// Upload size limits shared by browser checks and server admission. Files
+// larger than one upload chunk are sent in pieces, so these limits are not
+// bound by a proxy's per-request body limit (Cloudflare: 100 MB on Free/Pro).
+const MiB = 1024 * 1024;
 export const MAX_MEDIA_UPLOAD_BYTES = {
-  image: 10 * 1024 * 1024,
-  audio: 64 * 1024 * 1024,
-  // Stays under Cloudflare's 100 MB request-body limit with form overhead.
-  video: 95 * 1024 * 1024,
-  font: 5 * 1024 * 1024,
+  image: 25 * MiB,
+  audio: 256 * MiB,
+  video: 2048 * MiB,
+  font: 5 * MiB,
 } as const;
+// Normalized media actually stored for a project. Video is bitrate-capped
+// during normalization so five minutes of 1080p stays within this bound.
+export const MAX_STORED_MEDIA_BYTES = {
+  image: 20 * MiB,
+  audio: 64 * MiB,
+  video: 200 * MiB,
+  font: 5 * MiB,
+} as const;
+export const MAX_STORED_ASSET_BYTES = Math.max(
+  ...Object.values(MAX_STORED_MEDIA_BYTES),
+);
+// Portable project archives (ZIP): import and download ceiling.
+export const MAX_ARCHIVE_BYTES = 256 * MiB;
+// One upload request carries at most this much file data.
+export const UPLOAD_CHUNK_BYTES = 32 * MiB;
 export const mediaKinds = ["image", "audio", "video", "font"] as const;
 export type MediaKind = (typeof mediaKinds)[number];
+export function byteLimitText(bytes: number) {
+  return bytes >= 1024 * MiB && bytes % (1024 * MiB) === 0
+    ? `${bytes / (1024 * MiB)} GB`
+    : `${Math.round(bytes / MiB)} MB`;
+}
 export const mediaUploadLimitText = (kind: MediaKind) =>
-  `${MAX_MEDIA_UPLOAD_BYTES[kind] / 1024 / 1024} MB`;
+  byteLimitText(MAX_MEDIA_UPLOAD_BYTES[kind]);
 export const MAX_SCENES = 60;
 export const MAX_AUDIO_TRACKS = 12;
 export const MAX_CAPTIONS = 500;

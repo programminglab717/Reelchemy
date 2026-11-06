@@ -2,6 +2,11 @@ import path from "node:path";
 import sharp from "sharp";
 import type { Asset } from "./schema";
 import {
+  MAX_MEDIA_UPLOAD_BYTES,
+  MAX_STORED_MEDIA_BYTES,
+  mediaUploadLimitText,
+} from "./timeline-limits";
+import {
   assertNormalizationActive,
   normalizationId,
   writeNormalizedMedia,
@@ -15,12 +20,14 @@ export async function storeImage(
   bytes: Buffer,
   name: string,
   license: string,
-  maxBytes = 10 * 1024 * 1024,
+  maxBytes: number = MAX_MEDIA_UPLOAD_BYTES.image,
   options: MediaNormalizationOptions = {},
 ): Promise<Asset> {
   const id = normalizationId(options);
-  if (bytes.length > maxBytes)
-    throw new Error("Images must be 10 MB or smaller.");
+  if (bytes.length > Math.min(maxBytes, MAX_MEDIA_UPLOAD_BYTES.image))
+    throw new Error(
+      `Images must be ${mediaUploadLimitText("image")} or smaller.`,
+    );
   const image = sharp(bytes, { limitInputPixels: 16000000 });
   const meta = await image.metadata();
   assertNormalizationActive(options);
@@ -32,7 +39,7 @@ export async function storeImage(
     .autoOrient()
     .png()
     .toBuffer({ resolveWithObject: true });
-  if (clean.length > 20 * 1024 * 1024)
+  if (clean.length > MAX_STORED_MEDIA_BYTES.image)
     throw new Error("Decoded image is too large.");
   writeNormalizedMedia(id, clean, options);
   return {

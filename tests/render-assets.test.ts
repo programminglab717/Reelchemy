@@ -9,6 +9,7 @@ import {
   rename,
   symlink,
   rm,
+  truncate,
 } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
@@ -280,3 +281,30 @@ test(
     }
   },
 );
+
+test("exports serve stored media up to the stored-asset limit, such as a five-minute narration", async () => {
+  const { MAX_STORED_ASSET_BYTES } = await import("../src/lib/timeline-limits");
+  // A five-minute 48 kHz stereo WAV is about 58 MB (the old 25 MB bound
+  // refused it, failing any export that used it).
+  const narration = Buffer.alloc(58 * 1024 * 1024, 7);
+  const image = await asset(Buffer.from("image")),
+    voice = await asset(narration);
+  const served = await serveRenderAssets(timeline(image, undefined, voice));
+  try {
+    const response = await fetch(served.sources[voice], { method: "HEAD" });
+    assert.equal(response.status, 200);
+    assert.equal(
+      response.headers.get("content-length"),
+      String(narration.length),
+    );
+  } finally {
+    await served.close();
+  }
+  const oversized = randomUUID();
+  await writeFile(path.join(files, oversized), "");
+  await truncate(path.join(files, oversized), MAX_STORED_ASSET_BYTES + 1);
+  await assert.rejects(
+    serveRenderAssets(timeline(image, undefined, oversized)),
+    /bounded regular media files/,
+  );
+});

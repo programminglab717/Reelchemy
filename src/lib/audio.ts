@@ -1,4 +1,8 @@
-import { MAX_SOURCE_SECONDS, MAX_MEDIA_UPLOAD_BYTES } from "./timeline-limits";
+import {
+  MAX_SOURCE_SECONDS,
+  MAX_MEDIA_UPLOAD_BYTES,
+  mediaUploadLimitText,
+} from "./timeline-limits";
 import { clipAudioTracks } from "./clip-audio";
 import { runCommand } from "./process";
 import { execFileSync } from "node:child_process";
@@ -32,20 +36,38 @@ export function probeMedia(file: string) {
     ),
   );
 }
+const audioTooLarge = () =>
+  new Error(`Audio files must be ${mediaUploadLimitText("audio")} or smaller.`);
 export async function storeAudio(
   bytes: Buffer,
   name: string,
   license: string,
-  maxBytes = MAX_MEDIA_UPLOAD_BYTES.audio,
+  maxBytes: number = MAX_MEDIA_UPLOAD_BYTES.audio,
   options: MediaNormalizationOptions = {},
 ): Promise<Asset> {
-  const id = normalizationId(options);
-  if (bytes.length > maxBytes)
-    throw new Error("Audio files must be 64 MB or smaller.");
-  const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-audio-"));
+  if (bytes.length > Math.min(maxBytes, MAX_MEDIA_UPLOAD_BYTES.audio))
+    throw audioTooLarge();
+  const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-audio-in-"));
   try {
     const input = path.join(dir, "input");
     await writeFile(input, bytes);
+    return await storeAudioFile(input, bytes.length, name, license, options);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+// Normalizes audio read in place from `input` (see storeVideoFile).
+export async function storeAudioFile(
+  input: string,
+  inputBytes: number,
+  name: string,
+  license: string,
+  options: MediaNormalizationOptions = {},
+): Promise<Asset> {
+  const id = normalizationId(options);
+  if (inputBytes > MAX_MEDIA_UPLOAD_BYTES.audio) throw audioTooLarge();
+  const dir = await mkdtemp(path.join(tmpdir(), "reelchemy-audio-"));
+  try {
     const meta = probeMedia(input),
       duration = Number(meta.format.duration);
     assertNormalizationActive(options);

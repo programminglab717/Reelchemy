@@ -1,9 +1,18 @@
 import { LimitConfigurationError } from "./limits-policy";
 
+import { MAX_MEDIA_UPLOAD_BYTES, MAX_ARCHIVE_BYTES } from "./timeline-limits";
+
+// Largest queued input per operation (a staged chunked upload may reach it).
 export const MEDIA_INPUT_BYTES = {
-  upload: 96 * 1024 * 1024,
-  import: 250 * 1024 * 1024,
+  upload: Math.max(...Object.values(MAX_MEDIA_UPLOAD_BYTES)),
+  import: MAX_ARCHIVE_BYTES,
   waveform: 0,
+} as const;
+// Largest body accepted in one request. The studio sends anything above one
+// upload chunk in pieces; this keeps older clients' single uploads working.
+export const MEDIA_DIRECT_BYTES = {
+  upload: 96 * 1024 * 1024,
+  import: MEDIA_INPUT_BYTES.import,
 } as const;
 export type MediaOperation = keyof typeof MEDIA_INPUT_BYTES;
 export type MediaProcessingPolicy = ReturnType<typeof mediaProcessingPolicy>;
@@ -46,13 +55,19 @@ export function mediaProcessingPolicy(
     analyses,
     perStudioAnalyses,
     analysesPerHour: integer("REELCHEMY_WAVEFORMS_PER_HOUR", 120, 1, 1000),
+    // Disk for raw inputs waiting to be processed, and separately for chunked
+    // uploads still arriving. Each request reserves its actual size (a direct
+    // upload reserves its single-request maximum).
     rawBytes: integer(
       "REELCHEMY_MEDIA_RAW_BYTES",
-      1024 ** 3,
-      // At least one project import (the largest single reservation).
-      256 * 1024 * 1024,
       4 * 1024 ** 3,
+      // At least one project import.
+      MEDIA_INPUT_BYTES.import,
+      64 * 1024 ** 3,
     ),
+    // Unfinished chunked uploads can resume for this long after their last piece.
+    stagingIdleMs: 6 * 3600000,
+    stagingPerStudio: 2,
     // Large uploads over ordinary connections (and tunnels) need minutes.
     receiveMs: 600000,
     receiveCleanupMs: 720000,

@@ -1,4 +1,4 @@
-const MAX_ARCHIVE_BYTES = 50 * 1024 * 1024;
+import { MAX_ARCHIVE_BYTES } from "./timeline-limits";
 async function readBounded(response: Response, limit: number) {
   // Fetch exposes decompressed bytes; an encoded Content-Length describes
   // the wire representation, while the streaming cap still bounds the ZIP.
