@@ -28,7 +28,7 @@ Reviewed 6 November 2026 (Asia/Karachi); updated for 0.69 on 6 November 2026 (UT
 - Timeline zoom/scrub, scene reorder/duplication, splitting, media trim/move and scene-only preview.
 - Scene length changes that keep later audio and captions in sync (on by default).
 - Explicit scene deletion that closes the time gap, moves later audio/captions, splits retained audio source ranges and supports one-step undo.
-- Editing limits: five minutes, sixty scenes, twelve independent audio tracks and five hundred caption cues. Individual scenes remain bounded to twenty seconds; individual input video/audio files and microphone takes may each run up to five minutes (95 MB video, 64 MB audio uploads, within Cloudflare's 100 MB request limit). The five-minute limit is the assembled project duration. Document/output limits also apply.
+- Editing limits: five minutes, sixty scenes, twelve independent audio tracks and five hundred caption cues. Individual scenes remain bounded to twenty seconds; individual input video/audio files and microphone takes may each run up to five minutes (uploads up to 2 GB video / 256 MB audio, sent in resumable 32 MB pieces so a proxy's per-request limit does not apply). The five-minute limit is the assembled project duration. Document/output limits also apply.
 
 ### Media, voice and captions
 

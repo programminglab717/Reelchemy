@@ -306,10 +306,17 @@ test("real footage is normalized, bounded, resolved locally and round trips with
     assert.throws(() => validateProjectAssets(p, invalid), /trim exceeds/);
     invalid.scenes[0].layers[0].assetId = crypto.randomUUID();
     assert.throws(() => validateProjectAssets(p, invalid), /belong/);
+    // Oversized uploads are refused before any file is read.
+    const { storeVideoFile } = await import("../src/lib/video");
     await assert.rejects(
       () =>
-        storeVideo(Buffer.alloc(95 * 1024 * 1024 + 1), "large.mp4", "Owned"),
-      /95 MB/,
+        storeVideoFile(
+          "/nonexistent/input",
+          2048 * 1024 * 1024 + 1,
+          "large.mp4",
+          "Owned",
+        ),
+      /2 GB/,
     );
     await assert.rejects(() =>
       storeVideo(Buffer.from("not video"), "fake.mp4", "Owned"),

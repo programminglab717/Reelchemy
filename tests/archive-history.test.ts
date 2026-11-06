@@ -1,5 +1,6 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
+import { MAX_STORED_ASSET_BYTES } from "../src/lib/timeline-limits";
 import {
   existsSync,
   mkdtempSync,
@@ -249,7 +250,7 @@ test("archive reads reject symlinks, missing files, directories, FIFOs and overs
   await refused(source);
   unlinkSync(file);
   const fd = openSync(file, "w");
-  ftruncateSync(fd, 110 * 1024 * 1024 + 1);
+  ftruncateSync(fd, MAX_STORED_ASSET_BYTES + 1);
   closeSync(fd);
   await refused(source);
   unlinkSync(file);

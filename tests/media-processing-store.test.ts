@@ -10,7 +10,7 @@ import {
   MediaProcessingCapacity,
   MediaProcessingConflict,
   MediaProcessingUnavailable,
-  MEDIA_INPUT_BYTES,
+  MEDIA_DIRECT_BYTES,
 } from "../src/lib/media-processing-policy";
 import { LimitConfigurationError } from "../src/lib/limits-policy";
 import {
@@ -85,7 +85,7 @@ test("media policy rejects malformed and contradictory operator limits", () => {
   const defaults = mediaProcessingPolicy({});
   assert.equal(defaults.inputs, 4);
   assert.equal(defaults.perStudioInputs, 1);
-  assert.equal(defaults.rawBytes, 1024 * 1024 * 1024);
+  assert.equal(defaults.rawBytes, 4 * 1024 ** 3);
   for (const value of [
     "0",
     "-1",
@@ -138,7 +138,8 @@ test("receiving requests occupy studio/global slots before any body or decode", 
           .prepare("SELECT sum(reserved_bytes) AS bytes FROM media_requests")
           .get() as { bytes: number }
       ).bytes,
-      4 * MEDIA_INPUT_BYTES.upload,
+      // Without a known size, each reserves the single-request maximum.
+      4 * MEDIA_DIRECT_BYTES.upload,
     );
   } finally {
     f.db.close();

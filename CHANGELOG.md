@@ -537,3 +537,19 @@ Add a selected-layer duplicate action to the canvas and advanced layer controls.
 - Keep audio and captions in sync when a scene's length changes ("Move later audio and captions with this scene", on by default). Lengthening moves everything that starts at or after the old scene end; shortening removes the trailing frames like a cut, splitting audio across the boundary and collapsing captions inside it. Previously, later audio and captions kept their absolute frames and drifted against the scenes after the edit.
 - Tell the AI director that a font asset may only be a text layer's `fontAssetId`.
 - Archives carry animated rotation (`keyframe-rotation-v1`), masks (`layer-mask-v1`) and uploaded fonts (`custom-font-v1`) in envelope version 5, so older readers refuse these projects instead of silently dropping the fields.
+
+## 0.70.0 — 2026-11-06
+
+- Send large uploads in resumable, verified pieces. Proxies limit the size of one request: Cloudflare refuses request bodies over 100 MB on Free and Pro plans, including traffic through a Cloudflare Tunnel, which had capped video uploads at 95 MB.
+  - Files over 32 MB now go to a resumable upload. The browser sends 32 MB pieces with their SHA-256; the server stages them on the data volume and refuses damaged or out-of-order pieces.
+  - After a dropped connection or a reopened page, the upload continues from the server's recorded position.
+  - The finished file is verified and handed to the ordinary media queue, so receipts, quotas, cancellation and processing are unchanged.
+  - Uploads may now be up to 2 GB for video, 256 MB for audio and 25 MB for images; project archives may be up to 256 MB.
+- Keep large inputs out of memory: the worker verifies a queued file by streaming and FFmpeg reads it in place, instead of loading it and copying it into the memory-backed temporary directory.
+- Cap normalized video at about 5 Mb/s, so five minutes of 1080p stay within the 200 MB stored-video limit; long or 4K sources get a longer processing deadline.
+- Reserve each raw input's actual size instead of a fixed maximum; the default raw pool is 4 GB.
+- Fix limits left over from smaller media:
+  - exports refused any stored file over 25 MB, so a long clip or a five-minute narration (about 58 MB) failed to render;
+  - archives refused assets over 25 MB and re-imported audio through a 25 MB bound;
+  - project archives were capped at 50 MB.
+- New single-owner installs allow 10 GB of stored media per studio (20 GB shared).

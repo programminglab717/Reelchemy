@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { zipSync, strToU8 } from "fflate";
 import { archiveDownload } from "../src/lib/archive-download";
+import { MAX_ARCHIVE_BYTES } from "../src/lib/timeline-limits";
 
 test("editable downloads retain exact ZIP bytes and enforce their declared size", async () => {
   const bytes = zipSync({ "project.json": strToU8('{"format":"reelchemy"}') });
@@ -80,7 +81,7 @@ test("oversized declarations and actual streaming bodies close before they can b
     {
       headers: {
         "content-type": "application/zip",
-        "content-length": String(50 * 1024 * 1024 + 1),
+        "content-length": String(MAX_ARCHIVE_BYTES + 1),
       },
     },
   );
@@ -101,7 +102,7 @@ test("oversized declarations and actual streaming bodies close before they can b
   );
   await assert.rejects(archiveDownload(streamed), /download limit/);
   assert.equal(cancelled, 2);
-  assert(produced <= 52);
+  assert(produced <= MAX_ARCHIVE_BYTES / (1024 * 1024) + 2);
 });
 test("error-body admission is independent and interrupted streams cannot produce archives", async () => {
   let cancelled = false;

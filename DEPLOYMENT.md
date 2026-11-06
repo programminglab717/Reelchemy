@@ -4,7 +4,7 @@ This guide sets up a private test installation on a single Ubuntu server reached
 
 ## What you need
 
-- Ubuntu Server 22.04/24.04 with at least **4 CPU cores, 8 GB RAM and 40 GB free disk** (one five-minute HD export uses about 2 cores and 1.3–1.7 GB of memory for 11–13 minutes).
+- Ubuntu Server 22.04/24.04 with at least **4 CPU cores, 8 GB RAM and 60 GB free disk** (one five-minute HD export uses about 2 cores and 1.3–1.7 GB of memory for 11–13 minutes).
 - Docker Engine with the Compose plugin: <https://docs.docker.com/engine/install/ubuntu/> (then `sudo usermod -aG docker $USER` and log in again).
 - `git`, `curl` and `openssl` (`sudo apt-get install -y git curl openssl`).
 - A Cloudflare Tunnel (`cloudflared`) on the server and a public hostname such as `studio.example.com`.
@@ -61,6 +61,10 @@ ingress:
 ```
 
 The installation trusts Cloudflare's `CF-Connecting-IP` header for sign-in rate limits. Keep port 3001 closed to the network; the script already binds it to loopback only.
+
+**Upload sizes through the tunnel.** Cloudflare refuses any single request body over 100 MB on Free and Pro plans, tunnels included. Reelchemy therefore sends files over 32 MB in resumable 32 MB pieces, so creators can upload videos up to 2 GB (audio 256 MB, project archives 256 MB). An interrupted upload continues where it stopped when the same file is chosen again. Downloads are not limited.
+
+**Disk.** A new install allows each studio 10 GB of stored media (20 GB across all studios), set as `REELCHEMY_MEDIA_STORAGE_BYTES` and `REELCHEMY_MEDIA_SHARED_STORAGE_BYTES` in `.deploy/reelchemy.env`. Uploads in progress and waiting for processing can use up to twice `REELCHEMY_MEDIA_RAW_BYTES` (default 4 GB) of additional temporary space. Change a value, then run `deploy/reelchemy.sh update`.
 
 ## 4. Create your account and add your AI key
 
