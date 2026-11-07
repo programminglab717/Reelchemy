@@ -19,7 +19,13 @@ export type ProviderBudgetPolicy = {
 // operator-controlled.
 export function providerBudgetPolicy(
   env: Record<string, string | undefined> = process.env,
-  overrides: { prices?: ProviderPrices; studioMicroUsd?: number } = {},
+  overrides: {
+    prices?: ProviderPrices;
+    studioMicroUsd?: number;
+    // Calls one studio may have in flight (own keys may run several, e.g.
+    // the director writing scenes in parallel).
+    studioConcurrency?: number;
+  } = {},
 ): ProviderBudgetPolicy {
   function usd(name: string, fallback?: string) {
     const raw = env[name] || fallback;
@@ -77,8 +83,10 @@ export function providerBudgetPolicy(
     globalMicroUsd: usd("REELCHEMY_AI_GLOBAL_USD_PER_DAY", "20"),
     studioMicroUsd:
       overrides.studioMicroUsd ?? usd("REELCHEMY_AI_STUDIO_USD_PER_DAY", "2"),
-    globalConcurrency: integer("REELCHEMY_AI_CONCURRENT_CALLS", 2, 1, 32),
-    studioConcurrency: integer("REELCHEMY_AI_CALLS_PER_STUDIO", 1, 1, 4),
+    globalConcurrency: integer("REELCHEMY_AI_CONCURRENT_CALLS", 4, 1, 32),
+    studioConcurrency:
+      overrides.studioConcurrency ??
+      integer("REELCHEMY_AI_CALLS_PER_STUDIO", 1, 1, 4),
     payloadBytes: integer(
       "REELCHEMY_AI_MAX_PAYLOAD_BYTES",
       128 * 1024,
@@ -96,7 +104,20 @@ export function providerBudgetPolicy(
 export function providerReservationCost(
   payloadBytes: number,
   policy: ProviderBudgetPolicy,
+  // The call's output limit, and images it sends (counted per image, not by
+  // their encoded bytes).
+  outputTokens: number = PROVIDER_OUTPUT_TOKENS,
+  images = 0,
 ) {
+  if (
+    !Number.isSafeInteger(outputTokens) ||
+    outputTokens < 1 ||
+    outputTokens > 64000 ||
+    !Number.isSafeInteger(images) ||
+    images < 0 ||
+    images > 20
+  )
+    throw new ProviderError("request-size");
   if (
     !Number.isSafeInteger(payloadBytes) ||
     payloadBytes < 0 ||
@@ -112,8 +133,8 @@ export function providerReservationCost(
   );
   return estimatedMicroUsd(
     {
-      input: payloadBytes + 4096,
-      output: PROVIDER_OUTPUT_TOKENS,
+      input: payloadBytes + 4096 + images * 2000,
+      output: outputTokens,
       cacheRead: 0,
       cacheWrite: 0,
     },

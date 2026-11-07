@@ -61,12 +61,12 @@ export const postgresIndexScene: MotionCode = {
 .query{left:120px;top:190px;width:520px;height:330px}
 .card-head{height:52px;display:flex;align-items:center;gap:10px;padding:0 22px;border-bottom:1px solid rgba(148,163,184,.15)}
 .dot{width:13px;height:13px;border-radius:50%}.r{background:#f87171}.y{background:#fbbf24}.g{background:#34d399}
-.tab{margin-left:auto;font:500 18px "JetBrains Mono";color:#64748b}
+.tab{margin-left:auto;font:500 22px "JetBrains Mono";color:#64748b}
 .sql{margin:34px 34px 0;font:500 38px/1.55 "JetBrains Mono";color:#e2e8f0}
 .line{white-space:nowrap}
 .k{color:#c084fc}.n{color:#fbbf24}
 .timing{position:absolute;left:30px;bottom:26px;display:flex;align-items:baseline;gap:12px;font-family:"JetBrains Mono"}
-.t-label{font-size:18px;color:#64748b;text-transform:uppercase;letter-spacing:.12em}
+.t-label{font-size:21px;color:#64748b;text-transform:uppercase;letter-spacing:.12em}
 .t-value{font-size:40px;font-weight:700;color:#34d399}.t-unit{font-size:22px;color:#34d399}
 .planner{position:absolute;left:850px;top:180px;width:220px;height:140px;border-radius:20px;background:linear-gradient(160deg,#1e293b,#0f172a);border:1px solid #334155;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
 .planner-icon{color:#38bdf8;height:52px}
@@ -84,7 +84,7 @@ export const postgresIndexScene: MotionCode = {
 .heap-label{font:500 26px "Space Grotesk";color:#94a3b8;margin-bottom:16px}
 .pages{display:grid;grid-template-columns:repeat(10,1fr);gap:14px}
 .page{height:150px;border-radius:12px;background:#0f172a;border:1px solid #1e293b;padding:12px;display:flex;flex-direction:column;gap:9px}
-.page .pn{font:600 16px "JetBrains Mono";color:#475569}
+.page .pn{font:600 21px "JetBrains Mono";color:#475569}
 .page .ln{height:9px;border-radius:5px;background:#1e293b}
 .page.hit{border-color:#f472b6;background:#2a0f2a;box-shadow:0 0 50px rgba(244,114,182,.45)}
 .page.hit .pn{color:#f9a8d4}.page .ln.hit{background:#f472b6}

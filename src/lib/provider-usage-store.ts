@@ -21,6 +21,8 @@ export type ProviderAccounting = {
     provider: "anthropic" | "compatible";
     model: string;
     payloadBytes: number;
+    outputTokens?: number;
+    images?: number;
   }): { record(tokens: ProviderTokens | undefined): void; uncertain(): void };
 };
 export class ProviderUsageStore {
@@ -56,12 +58,19 @@ export class ProviderUsageStore {
       provider: "anthropic" | "compatible";
       model: string;
       payloadBytes: number;
+      outputTokens?: number;
+      images?: number;
     },
     policy: ProviderBudgetPolicy,
     now = Date.now(),
     access: ProviderAccess = "platform",
   ) {
-    const amount = providerReservationCost(input.payloadBytes, policy);
+    const amount = providerReservationCost(
+      input.payloadBytes,
+      policy,
+      input.outputTokens,
+      input.images,
+    );
     if (!workspaceId || !input.model || input.model.length > 200)
       throw new ProviderError("budget-configuration");
     return this.db

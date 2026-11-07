@@ -8,6 +8,7 @@ import {
 import { isMotionFile } from "./libraries";
 import { readMotionFile } from "./motion-files";
 import { motionDocument, motionStages, type MotionCode } from "./document";
+import { LAYOUT_AUDIT_SOURCE } from "./audit";
 
 // Runs one code scene headlessly and captures stills at chosen times, with
 // every uncaught error and simple pixel measurements. Used to check generated
@@ -24,6 +25,8 @@ export type MotionPreview = {
   frames: MotionPreviewFrame[];
   errors: string[];
   loaded: boolean;
+  // Layout notes from the in-scene audit, prefixed with their time.
+  layout: string[];
 };
 export async function previewMotionScene(input: {
   code: MotionCode;
@@ -34,6 +37,8 @@ export async function previewMotionScene(input: {
   width?: number;
   seed?: number;
   timeoutMs?: number;
+  // Captured times at which to run the layout audit.
+  auditAt?: number[];
 }): Promise<MotionPreview> {
   const stage = motionStages[input.format];
   const width = input.width ?? (input.format === "portrait" ? 540 : 960);
@@ -128,6 +133,12 @@ window.seekScene = (time) => new Promise((resolve) => {
       ] as const,
     );
     const frames: MotionPreviewFrame[] = [];
+    const layout: string[] = [];
+    const audits = new Set(
+      (input.auditAt ?? []).map((t) =>
+        Math.max(0, Math.min(input.durationSeconds, t)).toFixed(3),
+      ),
+    );
     if (loaded) {
       let previous: Buffer | undefined;
       for (const time of [...input.times].sort((a, b) => a - b)) {
@@ -146,6 +157,20 @@ window.seekScene = (time) => new Promise((resolve) => {
             `The scene did not reach ${clamped.toFixed(2)}s (${reply}).`,
           );
           break;
+        }
+        if (audits.has(clamped.toFixed(3))) {
+          const sceneFrame = page.frames().find((f) => f !== page.mainFrame());
+          const notes = sceneFrame
+            ? ((await sceneFrame
+                .evaluate(LAYOUT_AUDIT_SOURCE)
+                .catch(() => [])) as string[])
+            : [];
+          // Report each problem once, at the first time it was seen.
+          for (const note of notes) {
+            const key = note.replace(/ \(and \d+ similar\)$/, "");
+            if (!layout.some((seen) => seen.includes(key)))
+              layout.push(`At ${clamped.toFixed(1)}s: ${note}`);
+          }
         }
         const png = await page.screenshot({ type: "png" });
         const gray = await sharp(png).greyscale().raw().toBuffer();
@@ -177,7 +202,7 @@ window.seekScene = (time) => new Promise((resolve) => {
         (window as unknown as HostWindow).sceneErrors.slice(0, 50),
       )),
     );
-    return { frames, errors, loaded };
+    return { frames, errors, loaded, layout };
   } finally {
     await browser.close().catch(() => {});
     server.close();
@@ -187,6 +212,7 @@ window.seekScene = (time) => new Promise((resolve) => {
 // A single image with the stills side by side in rows, for review.
 export async function contactSheet(frames: MotionPreviewFrame[], columns = 3) {
   if (!frames.length) throw new Error("No frames to show.");
+  columns = Math.max(1, Math.min(columns, frames.length));
   const meta = await sharp(frames[0].png).metadata();
   const w = meta.width!,
     h = meta.height!,

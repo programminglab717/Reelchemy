@@ -21,10 +21,12 @@ const result = await previewMotionScene({
   durationSeconds: duration,
   times,
   width: 640,
+  auditAt: times.slice(2),
 });
 for (const frame of result.frames)
   console.log(
     `${frame.time.toFixed(2)}s detail=${frame.detail.toFixed(1)} change=${frame.change?.toFixed(2) ?? "-"}`,
   );
 for (const error of result.errors) console.log("ERROR", error);
+for (const note of result.layout) console.log("LAYOUT", note);
 if (result.frames.length) writeFileSync(out, await contactSheet(result.frames));

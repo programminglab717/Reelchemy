@@ -106,6 +106,14 @@ export type StudioAi =
     };
 // Resolve without contacting a provider. A saved own key always wins, so a
 // studio owner can rely on their key even where platform AI is offered.
+function ownCallsPerStudio(env: Record<string, string | undefined>) {
+  const raw = env.REELCHEMY_AI_OWN_CALLS_PER_STUDIO;
+  if (raw === undefined || raw === "") return 3;
+  const value = Number(raw);
+  if (!/^\d+$/.test(raw) || value < 1 || value > 8)
+    throw new ProviderError("budget-configuration");
+  return value;
+}
 export function resolveStudioAi(
   workspaceId: string,
   stores: {
@@ -123,6 +131,8 @@ export function resolveStudioAi(
       policy: providerBudgetPolicy(env, {
         prices: own.prices,
         studioMicroUsd: own.studioMicroUsd,
+        // The studio pays its own provider; allow parallel director calls.
+        studioConcurrency: ownCallsPerStudio(env),
       }),
     };
   const configuration = providerConfiguration(env);

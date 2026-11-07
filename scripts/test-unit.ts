@@ -121,6 +121,8 @@ try {
       "render-font.test.ts",
       "render-motion.test.ts",
       "motion-sandbox.test.ts",
+      "motion-preflight.test.ts",
+      "director.test.ts",
       "shared-media-worker.test.ts",
     ].includes(path.basename(arg)),
   );
