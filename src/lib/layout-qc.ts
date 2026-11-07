@@ -68,6 +68,9 @@ export async function checkLayout(
     );
     for (const [i, scene] of timeline.scenes.entries()) {
       if (cancelled()) throw new Error("Render cancelled.");
+      // Code scenes draw their own text; their layout is checked when they
+      // are written (motion preflight), not from layers.
+      if (scene.code) continue;
       for (let pass = 0; pass <= 2; pass++) {
         await page.setContent(
           renderToStaticMarkup(

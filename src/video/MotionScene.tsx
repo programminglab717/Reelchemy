@@ -79,9 +79,15 @@ export function MotionScene({
       if (data?.reelchemy === "loaded") {
         current.loaded = true;
         for (const resolve of current.waiting.splice(0)) resolve();
-      } else if (data?.reelchemy === "error")
+      } else if (data?.reelchemy === "error") {
         console.error(`Code scene ${sceneId}: ${data.message}`);
-      else if (
+        // The studio's code editor shows errors for the scene it edits.
+        window.dispatchEvent(
+          new CustomEvent("reelchemy:code-scene-error", {
+            detail: { sceneId, message: String(data.message) },
+          }),
+        );
+      } else if (
         (data?.reelchemy === "ready" || data?.reelchemy === "rewind") &&
         typeof data.id === "number"
       ) {

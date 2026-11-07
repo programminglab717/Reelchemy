@@ -56,6 +56,11 @@ import {
 import { previewMotionBaseUrl } from "@/motion/preview";
 import { useDirector } from "./useDirector";
 import { DirectorStatus } from "./DirectorStatus";
+import {
+  CodeSceneEditor,
+  CodeSceneConvert,
+  codeVersion,
+} from "./CodeSceneEditor";
 const ideas: { icon: IconName; tag: string; title: string; prompt: string }[] =
   [
     {
@@ -692,16 +697,19 @@ export function Studio({
             </button>
             <div className="composer-note" aria-label="Director in use">
               <Icon name="sparkle" size={12} />{" "}
-              {directorSource === "own"
-                ? "AI director · your own key"
-                : directorSource === "platform"
-                  ? "AI director"
-                  : "Demo director"}{" "}
-              · Procedural animation · You approve before export
-              {directorSource === "demo" && (
+              {directorSource === "demo" ? (
                 <>
-                  {" · "}
-                  <Link href="/account">Add your AI key</Link>
+                  Demo director · simple title slides ·{" "}
+                  <Link href="/account">Add your AI key</Link> to have the AI
+                  director animate your film in code
+                </>
+              ) : (
+                <>
+                  {directorSource === "own"
+                    ? "AI director · your own key"
+                    : "AI director"}{" "}
+                  · Animated in code, checked frame by frame · You approve
+                  before export
                 </>
               )}
             </div>
@@ -1197,21 +1205,37 @@ export function Studio({
                   outFrame={previewEnd}
                   onChange={changeTimeline}
                 />
-                <CanvasEditor
-                  key={`canvas-${scene?.id}`}
-                  timeline={timeline}
-                  selected={selected}
-                  assetSources={Object.fromEntries(
-                    (project.assets || []).map((a) => [
-                      a.id,
-                      `/api/projects/${project.id}/assets/${a.id}`,
-                    ]),
-                  )}
-                  onChange={changeTimeline}
-                  fonts={(project.assets || []).filter((a) =>
-                    isFontMime(a.mime),
-                  )}
-                />
+                {scene?.code ? (
+                  <CodeSceneEditor
+                    key={`code-${scene.id}-${codeVersion(scene.code)}`}
+                    timeline={timeline}
+                    selected={selected}
+                    onChange={changeTimeline}
+                  />
+                ) : (
+                  <CanvasEditor
+                    key={`canvas-${scene?.id}`}
+                    timeline={timeline}
+                    selected={selected}
+                    assetSources={Object.fromEntries(
+                      (project.assets || []).map((a) => [
+                        a.id,
+                        `/api/projects/${project.id}/assets/${a.id}`,
+                      ]),
+                    )}
+                    onChange={changeTimeline}
+                    fonts={(project.assets || []).filter((a) =>
+                      isFontMime(a.mime),
+                    )}
+                  />
+                )}
+                {scene && !scene.code && (
+                  <CodeSceneConvert
+                    timeline={timeline}
+                    selected={selected}
+                    onChange={changeTimeline}
+                  />
+                )}
                 <div className="section-heading">
                   <h2>Your storyboard</h2>
                   <span>SELECT A SCENE TO REFINE IT</span>
@@ -1243,11 +1267,13 @@ export function Studio({
                         <span className="scene-symbol">
                           <Icon
                             name={
-                              s.strategy === "landscape"
-                                ? "landscape"
-                                : s.strategy === "diagram"
-                                  ? "nodes"
-                                  : "typography"
+                              s.code
+                                ? "code"
+                                : s.strategy === "landscape"
+                                  ? "landscape"
+                                  : s.strategy === "diagram"
+                                    ? "nodes"
+                                    : "typography"
                             }
                             size={82}
                           />

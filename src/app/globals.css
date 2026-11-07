@@ -2580,3 +2580,113 @@ main.account-page {
   border-radius: inherit;
   transition: width 0.6s ease;
 }
+.code-scene-editor .panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.code-scene-badge {
+  font:
+    600 11px/1 ui-monospace,
+    monospace;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.code-scene-help {
+  color: var(--muted);
+}
+.code-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 10px 0 0;
+}
+.code-tabs button {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+}
+.code-tabs button.selected {
+  background: #0f1720;
+  border-color: #0f1720;
+  color: #e2e8f0;
+}
+.layer-editor textarea.code-input {
+  display: block;
+  width: 100%;
+  min-height: 320px;
+  margin: 0;
+  padding: 14px;
+  border: 0;
+  border-radius: 0 8px 8px 8px;
+  background: #0f1720;
+  color: #e2e8f0;
+  font:
+    13px/1.55 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  white-space: pre;
+  overflow: auto;
+  resize: vertical;
+  tab-size: 2;
+}
+.code-libraries {
+  display: block;
+  margin: 10px 0 0;
+}
+.code-errors {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-left: 4px solid #b4432f;
+  border-radius: 8px;
+  background: #fbefec;
+}
+.code-errors pre {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+}
+.code-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 0;
+}
+.code-actions small {
+  color: var(--muted);
+}
+.code-reference {
+  margin: 12px 0 0;
+}
+.code-reference ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.code-scene-convert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: -6px 0 18px;
+  padding: 10px 14px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.layer-editor .code-libraries input {
+  display: inline-block;
+  margin: 0 6px 0 0;
+  vertical-align: middle;
+}

@@ -11,6 +11,7 @@ const artwork = {
     </>
   ),
   check: <path d="m4 12 5 5L20 6" />,
+  code: <path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16" />,
   "arrow-left": <path d="M20 12H4m6-6-6 6 6 6" />,
   "arrow-right": <path d="M4 12h16m-6-6 6 6-6 6" />,
   plus: <path d="M12 5v14M5 12h14" />,
