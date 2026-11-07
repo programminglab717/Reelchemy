@@ -37,7 +37,11 @@ function anthropicBody(
   return {
     model,
     max_tokens: maxTokens,
-    system,
+    // The writer's instructions repeat for every scene and review turn;
+    // cache them (reads cost a tenth of fresh input).
+    system: [
+      { type: "text", text: system, cache_control: { type: "ephemeral" } },
+    ],
     messages: messages.map((message) => ({
       role: message.role,
       content: parts(message.content).map((part) =>

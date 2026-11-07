@@ -1,20 +1,23 @@
 // Developer tool: capture stills of a code scene (JSON with html/css/js) and
 // write them as a contact sheet, reporting errors and motion measurements.
-//   npx tsx scripts/motion-preview.ts scene.json out.png [format] [seconds]
+//   npx tsx scripts/motion-preview.ts scene.json out.png [format] [seconds] [t1,t2,...]
 import { readFileSync, writeFileSync } from "node:fs";
 import { previewMotionScene, contactSheet } from "../src/motion/preflight";
 import { motionCodeSchema } from "../src/lib/schema";
 
-const [file, out, format = "landscape", seconds = "15"] = process.argv.slice(2);
+const [file, out, format = "landscape", seconds = "15", at] =
+  process.argv.slice(2);
 if (!file || !out) {
   console.error(
-    "Usage: motion-preview.ts scene.json out.png [format] [seconds]",
+    "Usage: motion-preview.ts scene.json out.png [format] [seconds] [t1,t2,...]",
   );
   process.exit(64);
 }
 const code = motionCodeSchema.parse(JSON.parse(readFileSync(file, "utf8")));
 const duration = Number(seconds);
-const times = Array.from({ length: 9 }, (_, i) => (duration * i) / 8);
+const times = at
+  ? at.split(",").map(Number)
+  : Array.from({ length: 9 }, (_, i) => (duration * i) / 8);
 const result = await previewMotionScene({
   code,
   format: format as "landscape",

@@ -1,4 +1,5 @@
 import { CLOCK_SOURCE } from "./clock";
+import { KIT_SOURCE } from "./kit";
 import {
   gsapPlugins,
   motionFonts,
@@ -31,40 +32,6 @@ export type MotionDocumentOptions = {
   seed: number;
   transparent?: boolean;
 };
-
-// The helper kit available to scene code as `R`.
-const KIT_SOURCE = String.raw`(() => {
-  const config = window.__REELCHEMY_CONFIG__;
-  const icons = window.__reelchemyIcons || {};
-  const escape = (value) => String(value).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-  const node = ([tag, attributes]) =>
-    "<" + tag + Object.entries(attributes || {}).map(([k, v]) => " " + k + '="' + escape(v) + '"').join("") + "/>";
-  window.R = {
-    width: config.stage.width,
-    height: config.stage.height,
-    fps: config.fps,
-    duration: config.duration,
-    stage: document.getElementById("stage"),
-    random: Math.random,
-    range: (min, max) => min + Math.random() * (max - min),
-    // Lucide icon as SVG markup, e.g. R.icon("database", { size: 96, color: "#7dd3fc" }).
-    icon(name, options = {}) {
-      const nodes = icons[name];
-      if (!nodes) throw new Error("Unknown icon: " + name);
-      const size = options.size || 48;
-      return '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size +
-        '" viewBox="0 0 24 24" fill="none" stroke="' + escape(options.color || "currentColor") +
-        '" stroke-width="' + (options.strokeWidth || 2) + '" stroke-linecap="round" stroke-linejoin="round"' +
-        (options.className ? ' class="' + escape(options.className) + '"' : "") + ">" + nodes.map(node).join("") + "</svg>";
-    },
-    iconNames: () => Object.keys(icons),
-  };
-  if (window.gsap) {
-    gsap.registerPlugin(...${JSON.stringify(gsapPlugins)}.map((name) => window[name]).filter(Boolean));
-    gsap.ticker.lagSmoothing(0);
-    window.__reelchemyFlush = () => gsap.ticker.tick();
-  }
-})();`;
 
 const scriptSafe = (source: string) =>
   source.replace(/<\/(script)/gi, "<\\/$1");
@@ -120,8 +87,8 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:$
 ${scripts.map((file) => `<script src="${base}/${file}"></script>`).join("\n")}
 </head><body><div id="stage">${options.code.html}</div>
 <script>${scriptSafe(KIT_SOURCE)}</script>
-<script>try{(function(R,gsap){${scriptSafe(options.code.js)}
-})(window.R,window.gsap);}catch(error){parent.postMessage({reelchemy:"error",message:String(error&&error.stack||error).slice(0,2000)},"*");}</script>
+<script>window.__reelchemyGate(window.__reelchemyFonts.then(()=>{try{(function(R,gsap){${scriptSafe(options.code.js)}
+})(window.R,window.gsap);}catch(error){parent.postMessage({reelchemy:"error",message:String(error&&error.stack||error).slice(0,2000)},"*");}}));</script>
 <script>window.addEventListener("load",()=>parent.postMessage({reelchemy:"loaded"},"*"));</script>
 </body></html>`;
 }

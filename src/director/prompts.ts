@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { motionStages, type MotionCode } from "../motion/document";
 import { postgresIndexScene } from "../motion/examples/postgres-index";
+import { cacheAsideScene } from "../motion/examples/cache-aside";
 import type { CreativeBrief } from "../lib/schema";
 
 // ---------------------------------------------------------------- plan
@@ -96,10 +97,31 @@ RUNTIME CONTRACT (exact — anything else will not work)
 - The stage has a fixed logical size given in the request (landscape 1920×1080, portrait 1080×1920, square 1080×1080), origin top-left, scaled to the output. Position elements absolutely in stage pixels. Never use vw/vh, media queries or the window size.
 - Time is virtual: Date, performance.now, requestAnimationFrame, setTimeout/setInterval and Math.random (seeded) are driven by the renderer, so every exported frame shows exactly the state at that time. Build ONE master GSAP timeline that starts at time 0 (const tl = gsap.timeline(); ...). It plays automatically; do not pause it or wait for events. Its total length must not exceed the scene duration; finish all motion so the last 0.5–1 s holds a complete, readable composition. A requestAnimationFrame loop is fine for continuous effects (particles, canvas).
 - Globals: gsap (GSAP 3.15) with these plugins already registered: SplitText, DrawSVGPlugin (drawSVG), MorphSVGPlugin (morphSVG), MotionPathPlugin (motionPath), ScrambleTextPlugin (scrambleText), TextPlugin (text), CustomEase. Optional: d3 v7 — only if you add <libraries>d3</libraries>. Nothing else exists: no imports, no other libraries, no fetch or network, no external images or fonts.
-- Helper R: R.width, R.height, R.duration (seconds), R.fps, R.stage (the #stage element), R.random() (seeded), R.range(min, max), R.icon(name, {size, color, strokeWidth}) → SVG markup string of a Lucide icon (kebab-case names such as database, server, cpu, cloud, cloud-upload, hard-drive, network, router, shield-check, lock, key-round, user, users, globe, zap, brain, bot, git-branch, git-merge, terminal, code, file-code, layers, layout-grid, workflow, timer, gauge, chart-line, chart-bar, rocket, search, mail, message-square, smartphone, monitor, wifi, link, package, box, boxes, settings, check, x, arrow-right, refresh-cw, triangle-alert). Insert with element.innerHTML = R.icon(...).
 - Fonts available: "Space Grotesk" (display), "Inter" (body), "JetBrains Mono" (code, numbers, data); weights 100–900.
-- Draw everything with HTML/CSS, inline SVG (paths you write), canvas, or icons. Use SVG paths for connectors so they can draw on (drawSVG) and carry moving dots (motionPath).
+- Draw everything with HTML/CSS, inline SVG, canvas, icons and the kit below. Prefer the kit's connectors over hand-computed SVG coordinates: they are routed from the elements' real layout boxes, so arrows always meet their boxes.
 - Keep it reasonably light: up to a few hundred elements; large blurred glows only for 1–3 background shapes.
+
+THE KIT — global R (use it; it is what makes diagrams precise)
+Facts: R.width, R.height, R.duration (s), R.fps, R.stage, R.random() (seeded), R.range(min, max), R.pick(list).
+Style: R.theme({background, surface, text, muted, accents: [...], displayFont, bodyFont}) — call first with the film's style; sets the stage background and CSS variables --r-bg --r-surface --r-text --r-muted --r-accent --r-accent-1…6 --r-display --r-body --r-mono for your CSS. R.accent(i) → accent colour.
+Elements (all positions in stage px; a target is an element or a CSS selector):
+- R.el(tag, {parent, className, text, html, style: {left: 100, top: 50, ...}}) → element.
+- R.node({parent, x, y, label, sub, icon, color, w, h, shape: "card"|"pill"|"circle", column: true (icon above text), fontSize, className}) → a styled diagram node CENTRED at x,y (class .r-node; add class "r-lit" to light it up). Animate it like any element.
+- R.icon(name, {size, color, strokeWidth}) → SVG markup of a Lucide icon (kebab-case: database, server, cpu, cloud, cloud-upload, hard-drive, network, router, shield-check, lock, key-round, user, users, globe, zap, brain, bot, git-branch, git-merge, terminal, code, file-code, layers, layout-grid, workflow, timer, gauge, chart-line, chart-bar, rocket, search, mail, message-square, smartphone, monitor, wifi, link, package, box, boxes, settings, check, x, arrow-right, refresh-cw, triangle-alert, …). Insert with el.innerHTML = R.icon(...).
+- R.box(target, relativeTo?) → {x, y, w, h} layout box (ignores GSAP transforms); R.point(target, "left"|"right"|"top"|"bottom"|"center"|[fx, fy]) → {x, y}.
+Strokes (SVG, drawn in a layer of the targets' nearest positioned container, so they move with it):
+- const link = R.connect(a, b, {from, to: "auto"|"left"|"right"|"top"|"bottom", curve: "curve"|"straight"|"elbow"|"arc", bend, tension, arrow: true|false|"start"|"both", color, width, dash: "4 10", glow: true, gap}). a and b may also be [x, y] points.
+- R.line([[x, y], ...], {smooth: true, color, width, arrow, dash, glow}) and R.ring(target, {color, pad, radius, width}) (an emphasis outline) return the same kind of stroke.
+- A stroke is visible unless drawn: tl.add(link.draw({duration, ease}), t) reveals it from start to end with the arrowhead riding the tip (hidden until then); link.undraw(); link.path is the <path>.
+- tl.add(R.flow(link, {count, duration, every, until, size, color, reverse, ease}), t) sends glowing packets along a stroke (or any SVG <path>): count packets each taking duration s, one every "every" s; "until" (s) keeps them coming for that long.
+Content:
+- const c = R.code(target, source, {lang: "sql"|"js"|"ts"|"python"|"go"|"rust"|"bash"|"json", lineNumbers, fontSize}) syntax-highlights code into the element. tl.add(c.type({duration}), t) types it with a caret; c.reveal() slides lines in; tl.add(c.highlight(lineIndex or [from, to], {color}), t) adds a highlight bar.
+- tl.add(R.count(target, to, {from, duration, decimals, prefix, suffix, separator}), t) counts a number up.
+- const chart = R.bars({parent, x, y, w, h, data: [{label, value, color}], horizontal, max, showValues, decimals, suffix}); tl.add(chart.grow(), t).
+Camera and ambience:
+- Put the diagram in a full-stage container (<div class="world" style="position:absolute;inset:0">) and pass it as parent; tl.add(R.focus(".world", target, {scale, at: [x, y], duration}), t) moves the camera to centre (or place at [x, y]) and zoom on target; R.focus(".world", null) returns.
+- R.grid({size, dots, color, drift}), R.glow({x, y, size, color, opacity}), R.particles({count, color, speed}) add a living background (they animate themselves for the whole scene).
+Every function that returns a tween or timeline is meant to be placed on your master timeline with tl.add(..., time).
 
 DESIGN STANDARDS
 - Show, don't tell: express the idea with diagrams that build, flows with things travelling along paths, transformations, metaphors and data. Text labels and headlines only; never paragraphs. At most ~12 words of body text on screen at once; headlines ≤ 8 words.
@@ -118,7 +140,10 @@ Reply with the scene only, exactly in this form (no markdown fences, no commenta
 </scene>
 Add <libraries>d3</libraries> inside <scene> only if you use d3.
 
-REFERENCE — a 15-second landscape scene that meets the standard (study its structure, timing and craft; do not copy its content):
+REFERENCE 1 — a 14-second landscape scene built with the kit (study how it composes, times and narrates; do not copy its content):
+${sceneMarkup(cacheAsideScene)}
+
+REFERENCE 2 — a 15-second landscape scene drawn by hand with SVG and GSAP plugins, for the craft of custom visuals:
 ${sceneMarkup(postgresIndexScene)}`;
 }
 export function writerUser(

@@ -122,6 +122,7 @@ try {
       "render-motion.test.ts",
       "motion-sandbox.test.ts",
       "motion-preflight.test.ts",
+      "motion-kit.test.ts",
       "director.test.ts",
       "director-api.test.ts",
       "shared-media-worker.test.ts",

@@ -35,16 +35,27 @@ export const LAYOUT_AUDIT_SOURCE = String.raw`(() => {
     if (el.scrollWidth > el.clientWidth + 2 && getComputedStyle(el).overflowX !== "visible")
       notes.push("Text " + label(el) + " overflows its box horizontally and is clipped.");
   }
+  // Content inside a camera container (R.focus) that is zoomed or moved is
+  // cropped on purpose; edge checks skip it.
+  const framed = (el) => {
+    const camera = el.closest("[data-r-camera]");
+    if (!camera) return false;
+    const t = getComputedStyle(camera).transform;
+    return !!t && t !== "none" && t !== "matrix(1, 0, 0, 1, 0, 0)";
+  };
   const margin = 24;
+  const reported = [];
   for (const el of stage.querySelectorAll("*")) {
     if (!visible(el) || el.closest("svg") && el.tagName.toLowerCase() !== "svg") continue;
+    if (framed(el) || reported.some((parent) => parent.contains(el))) continue;
     const r = local(el);
     const outside = r.x < -margin || r.y < -margin || r.x + r.w > W + margin || r.y + r.h > H + margin;
     const big = r.w * r.h > W * H * 0.6;
-    if (outside && !big && (el.textContent || "").trim())
+    if (outside && !big && (el.textContent || "").trim() && reported.push(el))
       notes.push("Element " + label(el) + " extends outside the stage (" + Math.round(r.x) + "," + Math.round(r.y) + " " + Math.round(r.w) + "×" + Math.round(r.h) + ").");
   }
   for (const el of texts) {
+    if (framed(el)) continue;
     const r = local(el);
     if (r.x < 48 || r.y < 32 || r.x + r.w > W - 48 || r.y + r.h > H - 32)
       if (!(r.x < -margin || r.y < -margin || r.x + r.w > W + margin || r.y + r.h > H + margin))

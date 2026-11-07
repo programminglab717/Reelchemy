@@ -95,6 +95,9 @@ globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
   if (!String(url).startsWith("https://api.anthropic.com/"))
     return original(url, init);
   const body = JSON.parse(String(init!.body));
+  // The instructions are sent as one cached system block.
+  assert.equal(body.system[0].cache_control.type, "ephemeral");
+  body.system = body.system.map((b: { text: string }) => b.text).join("");
   const last = body.messages[body.messages.length - 1].content
     .map((part: { text?: string }) => part.text ?? "")
     .join("");

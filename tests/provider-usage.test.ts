@@ -172,6 +172,11 @@ test("live pricing, budget and input configuration fail closed, with explicit ze
 
 test("atomic admission counts all workspaces and enforces studio/global concurrency without persisting refused calls", () => {
   const { db, store } = fixture();
+  // Two calls at once across the service, one per studio.
+  const policy = providerBudgetPolicy({
+    ...prices,
+    REELCHEMY_AI_CONCURRENT_CALLS: "2",
+  });
   try {
     const first = store.reserve("a", call, policy, 1000);
     assert.throws(

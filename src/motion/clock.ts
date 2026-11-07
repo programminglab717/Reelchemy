@@ -142,7 +142,12 @@ export const CLOCK_SOURCE = String.raw`(() => {
         ),
       ]).then(() => realRAF(() => realRAF(done)));
     });
+  // Scene code runs once its fonts have loaded; seeks wait for it so its
+  // timeline is built at time 0.
   let queue = Promise.resolve();
+  window.__reelchemyGate = (scene) => {
+    queue = queue.then(() => scene).catch(() => {});
+  };
   window.addEventListener("message", (event) => {
     if (event.source !== parent || !event.data || event.data.reelchemy !== "seek") return;
     const { id } = event.data;
