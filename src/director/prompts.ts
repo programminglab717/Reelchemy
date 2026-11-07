@@ -2,6 +2,7 @@ import { z } from "zod";
 import { motionStages, type MotionCode } from "../motion/document";
 import { postgresIndexScene } from "../motion/examples/postgres-index";
 import { cacheAsideScene } from "../motion/examples/cache-aside";
+import { compoundGrowthScene } from "../motion/examples/compound-growth";
 import type { CreativeBrief } from "../lib/schema";
 
 // ---------------------------------------------------------------- plan
@@ -52,6 +53,7 @@ Plan for real visual storytelling:
 - A clip of 30 seconds or less is usually ONE continuous scene (richer, no cuts) unless the brief clearly has separate parts. Longer films use several scenes of roughly 6–20 seconds; a scene may be up to 60 seconds.
 - Design one consistent style for the whole film: a palette (background, surface, text, muted, 2–5 luminous accents with strong contrast), fonts (display: "Space Grotesk", body: "Inter", code/data: "JetBrains Mono"), a motion language (easing, pace, signature moves) and recurring motifs that tie scenes together.
 - Be technically accurate about the subject. Use real names, real numbers when known, plausible example data otherwise.
+- Your designers' toolkit (plan visuals that use it): diagram nodes with icons; connectors that draw themselves between parts, with glowing packets travelling along them; code that types itself with syntax highlighting and highlighted lines; numbers that count up; bar charts that grow; emphasis rings; a camera that zooms into a part of the diagram and back; kinetic typography (words and characters animating in, scrambled text); SVG shapes that draw and morph; particles, grids and glows for depth.
 
 The scene seconds must add up exactly to the requested duration.
 
@@ -143,7 +145,10 @@ Add <libraries>d3</libraries> inside <scene> only if you use d3.
 REFERENCE 1 — a 14-second landscape scene built with the kit (study how it composes, times and narrates; do not copy its content):
 ${sceneMarkup(cacheAsideScene)}
 
-REFERENCE 2 — a 15-second landscape scene drawn by hand with SVG and GSAP plugins, for the craft of custom visuals:
+REFERENCE 2 — a 12-second PORTRAIT (1080×1920) data story for short-form video: kinetic type, a curve that draws with the counter in step, and a closing comparison:
+${sceneMarkup(compoundGrowthScene)}
+
+REFERENCE 3 — a 15-second landscape scene drawn by hand with SVG and GSAP plugins, for the craft of custom visuals:
 ${sceneMarkup(postgresIndexScene)}`;
 }
 export function writerUser(

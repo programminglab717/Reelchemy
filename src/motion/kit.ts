@@ -150,7 +150,7 @@ export const KIT_SOURCE = String.raw`(() => {
     if (o.opacity !== undefined) group.setAttribute("opacity", String(o.opacity));
     const path = svgEl("path", { d, fill: "none", stroke: color, "stroke-width": width, "stroke-linecap": "round", "stroke-linejoin": "round" }, group);
     if (o.glow) path.style.filter = "drop-shadow(0 0 " + (o.glow === true ? 8 : o.glow) + "px " + (o.glowColor || color) + ")";
-    const length = path.getTotalLength();
+    let length = path.getTotalLength();
     let mask;
     if (o.dash) {
       path.setAttribute("stroke-dasharray", o.dash);
@@ -173,6 +173,17 @@ export const KIT_SOURCE = String.raw`(() => {
       return Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI + (dir < 0 ? 180 : 0);
     };
     let progress = 1;
+    // Strokes routed from elements re-measure them when their draw starts,
+    // so text that grew meanwhile (a counter, typed code) is still framed.
+    const reshape = (next) => {
+      if (!next || next === d) return;
+      d = next;
+      path.setAttribute("d", d);
+      length = path.getTotalLength();
+      const dash = length + " " + (length + 1);
+      if (mask) { mask.setAttribute("d", d); mask.setAttribute("stroke-dasharray", dash); }
+      else path.setAttribute("stroke-dasharray", dash);
+    };
     const apply = (p) => {
       progress = p;
       const offset = length * (1 - p);
@@ -188,7 +199,9 @@ export const KIT_SOURCE = String.raw`(() => {
     };
     apply(o.hidden ? 0 : 1);
     const api = {
-      group, path, length, d, heads: heads.map((h) => h.el), pointAt, angleAt,
+      group, path, heads: heads.map((h) => h.el), pointAt, angleAt,
+      get length() { return length; },
+      get d() { return d; },
       get progress() { return progress; },
       set(p) { apply(clamp(p, 0, 1)); return api; },
       // Timeline that draws the stroke; it is hidden until the draw starts.
@@ -196,7 +209,7 @@ export const KIT_SOURCE = String.raw`(() => {
         const q = opts || {};
         const proxy = { p: q.from === undefined ? 0 : q.from };
         apply(proxy.p);
-        return gsap.to(proxy, { p: q.to === undefined ? 1 : q.to, duration: q.duration || 0.8, ease: q.ease || "power2.inOut", onUpdate: () => apply(proxy.p) });
+        return gsap.to(proxy, { p: q.to === undefined ? 1 : q.to, duration: q.duration || 0.8, ease: q.ease || "power2.inOut", onStart: () => { if (o.geometry) reshape(o.geometry()); }, onUpdate: () => apply(proxy.p) });
       },
       undraw(opts) {
         const q = opts || {};
@@ -228,6 +241,7 @@ export const KIT_SOURCE = String.raw`(() => {
     const o = Object.assign({ arrow: true, curve: "curve", gap: 10 }, options || {});
     if (!o.layer) o.layer = container([a, b]);
     const rel = o.layer === stage ? undefined : resolve(o.layer, "R.connect");
+    const route = () => {
     const ab = isPoint(a) ? null : box(a, rel), bb = isPoint(b) ? null : box(b, rel);
     const pa = isPoint(a) ? point(a) : null, pb = isPoint(b) ? point(b) : null;
     let [sa, sb] = ab && bb ? autoSide(ab, bb) : ["center", "center"];
@@ -275,7 +289,9 @@ export const KIT_SOURCE = String.raw`(() => {
       const n3 = B.n[0] || B.n[1] ? B.n : [-(Math.sign(p3.x - p0.x) || 1), 0];
       d = "M" + f1(p0.x) + " " + f1(p0.y) + " C" + f1(p0.x + n0[0] * k) + " " + f1(p0.y + n0[1] * k) + ", " + f1(p3.x + n3[0] * k) + " " + f1(p3.y + n3[1] * k) + ", " + f1(p3.x) + " " + f1(p3.y);
     }
-    return stroke(d, o);
+    return d;
+    };
+    return stroke(route(), Object.assign({}, o, { geometry: route }));
   }
   // Glowing packets travelling along a stroke or an SVG <path>.
   // Returns a timeline: tl.add(R.flow(link, { count: 3 }), 2)
@@ -315,12 +331,15 @@ export const KIT_SOURCE = String.raw`(() => {
     const o = Object.assign({ pad: 14, radius: 22, width: 3, glow: true, arrow: false }, options || {});
     if (!o.layer) o.layer = container([target]);
     const rel = o.layer === stage ? undefined : resolve(o.layer, "R.ring");
+    const outline = () => {
     const b = box(target, rel);
     const x = b.x - o.pad, y = b.y - o.pad, w = b.w + o.pad * 2, h = b.h + o.pad * 2, r = Math.min(o.radius, w / 2, h / 2);
     const d = "M" + f1(x + w / 2) + " " + f1(y) + " H" + f1(x + w - r) + " Q" + f1(x + w) + " " + f1(y) + " " + f1(x + w) + " " + f1(y + r) +
       " V" + f1(y + h - r) + " Q" + f1(x + w) + " " + f1(y + h) + " " + f1(x + w - r) + " " + f1(y + h) + " H" + f1(x + r) +
       " Q" + f1(x) + " " + f1(y + h) + " " + f1(x) + " " + f1(y + h - r) + " V" + f1(y + r) + " Q" + f1(x) + " " + f1(y) + " " + f1(x + r) + " " + f1(y) + " Z";
-    return stroke(d, Object.assign({ above: true }, o));
+    return d;
+    };
+    return stroke(outline(), Object.assign({ above: true }, o, { geometry: outline }));
   }
 
   // ------------------------------------------------------------ elements

@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { previewMotionScene } from "../src/motion/preflight";
 import { cacheAsideScene } from "../src/motion/examples/cache-aside";
+import { compoundGrowthScene } from "../src/motion/examples/compound-growth";
 
 // A scene that checks the kit from inside: each check runs at a moment on the
 // timeline and throws (reported as a scene error) when the kit misbehaves.
@@ -34,6 +35,10 @@ tl.add(link.draw({ duration: 1 }), 1)
   .add(code.type({ duration: 1 }), 1)
   .add(R.count(".n", 1234.5, { decimals: 1, duration: 1 }), 1)
   .add(R.focus(world, b, { scale: 2, at: [960, 540], duration: 0.5 }), 3);
+// A ring around the counter is measured when it starts drawing, after the
+// number has grown, not when the timeline was built.
+const counterRing = R.ring(".n", { pad: 0, radius: 0, glow: false });
+tl.add(counterRing.draw({ duration: 0.2 }), 2.5);
 const visibleChars = () => [...document.querySelectorAll(".editor .r-ch")].filter((c) => c.style.visibility !== "hidden").length;
 tl.call(() => {
   check(link.progress === 0, "an undrawn connector is hidden before its draw starts");
@@ -58,6 +63,8 @@ tl.call(() => {
     const r = b.getBoundingClientRect(), s = R.stage.getBoundingClientRect(), k = s.width / R.width;
     check(near((r.left - s.left + r.width / 2) / k, 960, 3) && near((r.top - s.top + r.height / 2) / k, 540, 3), "the camera centres the target");
     check(near(r.width / k, 600, 3), "the camera zooms the target");
+    const framed = counterRing.path.getBBox(), counter = R.box(".n");
+    check(near(framed.width, counter.w, 2) && counter.w > 150, "the ring frames the grown counter: " + framed.width + " vs " + counter.w);
   }, [], 3.9);
 `,
 };
@@ -106,5 +113,23 @@ test(
     assert.deepEqual(result.layout, []);
     assert(result.frames.slice(1, -1).every((f) => f.change! > 0.1));
     assert(result.frames.slice(1).every((f) => f.detail > 5));
+  },
+);
+
+test(
+  "the portrait reference scene meets its own checks",
+  { timeout: 120000 },
+  async () => {
+    const times = Array.from({ length: 7 }, (_, i) => (12 * i) / 6);
+    const result = await previewMotionScene({
+      code: compoundGrowthScene,
+      format: "portrait",
+      durationSeconds: 12,
+      times,
+      auditAt: times.slice(2),
+    });
+    assert.deepEqual(result.errors, []);
+    assert.deepEqual(result.layout, []);
+    assert(result.frames.slice(1, -1).every((f) => f.change! > 0.1));
   },
 );
