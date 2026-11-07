@@ -123,6 +123,7 @@ try {
       "motion-sandbox.test.ts",
       "motion-preflight.test.ts",
       "director.test.ts",
+      "director-api.test.ts",
       "shared-media-worker.test.ts",
     ].includes(path.basename(arg)),
   );

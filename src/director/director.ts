@@ -134,32 +134,144 @@ function fallbackScene(plan: FilmPlan, index: number): MotionCode {
   };
 }
 
-export async function directFilm(
-  options: DirectorOptions,
-): Promise<DirectorResult> {
+type SceneContext = {
+  brief: CreativeBrief;
+  llm: Llm;
+  vision: boolean;
+  signal?: AbortSignal;
+  preview: typeof previewMotionScene;
+  maxRevisions: number;
+  // Reports a step within this scene (0 = started, 1 = done).
+  step: (stage: string, within: number) => void;
+};
+// Writes (or rewrites) one scene: generate, preview and audit, then review
+// with the model until it approves or the revision limit is reached. Keeps
+// the attempt with the fewest problems.
+async function writeScene(
+  context: SceneContext,
+  plan: FilmPlan,
+  index: number,
+  messages: LlmMessage[],
+): Promise<{ code: MotionCode; report: SceneReport }> {
+  const { llm, signal } = context;
+  const scene = plan.scenes[index];
+  let code: MotionCode | undefined;
+  let best: { code: MotionCode; problems: string[] } | undefined;
+  let approved = false,
+    attempts = 0;
+  context.step("Writing", 0);
+  for (let round = 0; round <= context.maxRevisions; round++) {
+    signal?.throwIfAborted();
+    attempts++;
+    const reply = await llm({
+      system: writerSystem(),
+      messages,
+      maxTokens: SCENE_TOKENS,
+      signal,
+    });
+    messages.push({ role: "assistant", content: reply.text || "(empty)" });
+    let parsed: MotionCode | "approved";
+    try {
+      if (reply.truncated) throw new Error("cut off");
+      parsed = parseScene(reply.text);
+    } catch {
+      messages.push({
+        role: "user",
+        content: reply.truncated
+          ? "Your reply was cut off before the end. Reply with a more compact version of the complete scene in the <scene> format."
+          : "Your reply did not follow the <scene><html>…</html><css>…</css><js>…</js></scene> format. Reply with the complete scene in that format.",
+      });
+      continue;
+    }
+    if (parsed === "approved") {
+      if (code) approved = true;
+      break;
+    }
+    code = parsed;
+    context.step("Checking", 0.5);
+    const times = reviewTimes(scene.seconds);
+    const result = await context.preview({
+      code,
+      format: context.brief.format,
+      durationSeconds: scene.seconds,
+      times,
+      auditAt: times.slice(1),
+    });
+    const problems = sceneProblems(result, scene.seconds);
+    if (!best || problems.length <= best.problems.length)
+      best = { code, problems };
+    // Clean, and no images to judge by: accept without another call.
+    if (
+      round === context.maxRevisions ||
+      (!problems.length && !context.vision)
+    ) {
+      approved = !problems.length;
+      break;
+    }
+    const withImages = context.vision && result.frames.length > 0;
+    messages.push({
+      role: "user",
+      content: [
+        ...(withImages ? [{ png: await reviewSheet(result) }] : []),
+        {
+          text: reviewUser({
+            problems,
+            times: result.frames.map((frame) => frame.time),
+            withImages,
+          }),
+        },
+      ],
+    });
+    context.step("Reviewing", 0.7);
+  }
+  const kept = best ?? { code: fallbackScene(plan, index), problems: [] };
+  return {
+    code: kept.code,
+    report: {
+      title: scene.title,
+      attempts,
+      approved: approved && !!best && !best.problems.length,
+      remaining: kept.problems,
+      fallback: !best,
+    },
+  };
+}
+function sceneContext(options: DirectorOptions): Omit<SceneContext, "step"> {
+  return {
+    brief: options.brief,
+    llm: options.llm,
+    vision: options.vision,
+    signal: options.signal,
+    preview: options.preview ?? previewMotionScene,
+    maxRevisions: options.maxRevisions ?? 2,
+  };
+}
+async function planFilm(
+  options: DirectorOptions & { previous?: FilmPlan; instruction?: string },
+) {
   const { brief, llm, signal } = options;
-  const preview = options.preview ?? previewMotionScene;
-  const maxRevisions = options.maxRevisions ?? 2;
-  const progress = options.progress ?? (() => {});
-  progress("Planning the storyboard", 0.02);
-  // 1. Storyboard and style.
-  const planMessages: LlmMessage[] = [
-    { role: "user", content: plannerUser(brief) },
+  const messages: LlmMessage[] = [
+    {
+      role: "user",
+      content: plannerUser(brief, {
+        previous: options.previous,
+        instruction: options.instruction,
+      }),
+    },
   ];
-  let plan: FilmPlan | undefined;
-  for (let attempt = 0; attempt < 2 && !plan; attempt++) {
+  for (let attempt = 0; ; attempt++) {
     const reply = await llm({
       system: plannerSystem(),
-      messages: planMessages,
+      messages,
       maxTokens: PLAN_TOKENS,
       signal,
     });
     try {
-      plan = parsePlan(reply.text, brief.duration);
+      return parsePlan(reply.text, brief.duration);
     } catch (error) {
       if (attempt)
         throw new Error("The director could not produce a valid plan.");
-      planMessages.push(
+      messages.push(
         { role: "assistant", content: reply.text || "(empty)" },
         {
           role: "user",
@@ -168,121 +280,119 @@ export async function directFilm(
       );
     }
   }
-  const film = plan!;
-  // 2. Scenes: write, check, review, revise.
-  let finished = 0;
+}
+export function codeSceneFromPlan(
+  plan: FilmPlan,
+  index: number,
+  code: MotionCode,
+): Scene {
+  const scene = plan.scenes[index];
+  return {
+    id: `scene-${index + 1}-${randomUUID().slice(0, 8)}`,
+    title: scene.title.slice(0, 100),
+    intent: scene.goal.slice(0, 500),
+    durationFrames: Math.round(scene.seconds * 30),
+    background: plan.style.background,
+    accent: plan.style.accents[0],
+    strategy: "diagram",
+    layers: [],
+    transition: scene.transition,
+    code,
+  };
+}
+// A whole film: storyboard and style, then every scene. With `previous` and
+// `instruction`, the storyboard is revised rather than started fresh.
+export async function directFilm(
+  options: DirectorOptions & { previous?: FilmPlan; instruction?: string },
+): Promise<DirectorResult> {
+  const progress = options.progress ?? (() => {});
+  progress(
+    options.previous ? "Revising the storyboard" : "Planning the storyboard",
+    0.02,
+  );
+  const film = await planFilm(options);
+  const base = sceneContext(options);
   const total = film.scenes.length;
+  const share = new Array(total).fill(0);
+  const report = () => 0.08 + (0.88 * share.reduce((a, b) => a + b, 0)) / total;
   const scenes = await inParallel(
     film.scenes,
     Math.max(1, options.concurrency ?? 1),
     async (scene, index) => {
-      const label = `scene ${index + 1} of ${total}`;
-      progress(
-        `Writing ${label}: ${scene.title}`,
-        0.08 + (0.85 * finished) / total,
-      );
-      const messages: LlmMessage[] = [
-        { role: "user", content: writerUser(film, index, brief.format) },
-      ];
-      let code: MotionCode | undefined;
-      let best: { code: MotionCode; problems: string[] } | undefined;
-      let approved = false,
-        attempts = 0;
-      for (let round = 0; round <= maxRevisions; round++) {
-        signal?.throwIfAborted();
-        attempts++;
-        const reply = await llm({
-          system: writerSystem(),
-          messages,
-          maxTokens: SCENE_TOKENS,
-          signal,
-        });
-        messages.push({ role: "assistant", content: reply.text || "(empty)" });
-        let parsed: MotionCode | "approved";
-        try {
-          if (reply.truncated) throw new Error("cut off");
-          parsed = parseScene(reply.text);
-        } catch {
-          messages.push({
-            role: "user",
-            content: reply.truncated
-              ? "Your reply was cut off before the end. Reply with a more compact version of the complete scene in the <scene> format."
-              : "Your reply did not follow the <scene><html>…</html><css>…</css><js>…</js></scene> format. Reply with the complete scene in that format.",
-          });
-          continue;
-        }
-        if (parsed === "approved") {
-          if (code) approved = true;
-          break;
-        }
-        code = parsed;
-        progress(`Checking ${label}`, 0.08 + (0.85 * (finished + 0.5)) / total);
-        const times = reviewTimes(scene.seconds);
-        const result = await preview({
-          code,
-          format: brief.format,
-          durationSeconds: scene.seconds,
-          times,
-          auditAt: times.slice(1),
-        });
-        const problems = sceneProblems(result, scene.seconds);
-        if (!best || problems.length <= best.problems.length)
-          best = { code, problems };
-        // Clean, and no images to judge by: accept without another call.
-        if (round === maxRevisions || (!problems.length && !options.vision)) {
-          approved = !problems.length;
-          break;
-        }
-        const withImages = options.vision && result.frames.length > 0;
-        messages.push({
-          role: "user",
-          content: [
-            ...(withImages ? [{ png: await reviewSheet(result) }] : []),
-            {
-              text: reviewUser({
-                problems,
-                times: result.frames.map((frame) => frame.time),
-                withImages,
-              }),
-            },
-          ],
-        });
-        progress(
-          `Reviewing ${label}`,
-          0.08 + (0.85 * (finished + 0.7)) / total,
-        );
-      }
-      finished++;
-      const kept = best ?? { code: fallbackScene(film, index), problems: [] };
-      return {
-        code: kept.code,
-        report: {
-          title: scene.title,
-          attempts,
-          approved: approved && !!best && !best.problems.length,
-          remaining: kept.problems,
-          fallback: !best,
+      const result = await writeScene(
+        {
+          ...base,
+          step: (stage, within) => {
+            share[index] = within;
+            progress(
+              `${stage} scene ${index + 1} of ${total}: ${scene.title}`,
+              report(),
+            );
+          },
         },
-      };
+        film,
+        index,
+        [
+          {
+            role: "user",
+            content: writerUser(film, index, options.brief.format),
+          },
+        ],
+      );
+      share[index] = 1;
+      return result;
     },
   );
-  progress("Assembling the film", 0.96);
-  // 3. Timeline.
+  progress("Assembling the film", 0.97);
   const timeline: Timeline = timelineSchema.parse({
     fps: 30,
-    format: brief.format,
-    scenes: film.scenes.map((scene, index): Scene => ({
-      id: `scene-${index + 1}-${randomUUID().slice(0, 8)}`,
-      title: scene.title.slice(0, 100),
-      intent: scene.goal.slice(0, 500),
-      durationFrames: Math.round(scene.seconds * 30),
-      background: film.style.background,
-      accent: film.style.accents[0],
-      strategy: "diagram",
-      layers: [],
-      transition: scene.transition,
-      code: scenes[index].code,
-    })),
+    format: options.brief.format,
+    scenes: film.scenes.map((_, index) =>
+      codeSceneFromPlan(film, index, scenes[index].code),
+    ),
   });
   return { timeline, plan: film, scenes: scenes.map((s) => s.report) };
+}
+// Rewrites one existing code scene from an instruction, keeping its length.
+export async function directScene(
+  options: DirectorOptions & {
+    plan: FilmPlan;
+    index: number;
+    current: MotionCode;
+    instruction: string;
+  },
+) {
+  const progress = options.progress ?? (() => {});
+  return writeScene(
+    {
+      ...sceneContext(options),
+      step: (stage, within) =>
+        progress(`${stage} the scene`, 0.05 + 0.9 * within),
+    },
+    options.plan,
+    options.index,
+    [
+      {
+        role: "user",
+        content: `${writerUser(options.plan, options.index, options.brief.format)}
+
+Current version of this scene:
+<scene>
+<html>
+${options.current.html}
+</html>
+<css>
+${options.current.css}
+</css>
+<js>
+${options.current.js}
+</js>
+</scene>
+
+Requested change: ${options.instruction}
+
+Reply with the complete updated scene in the <scene> format, keeping its duration and the film's style.`,
+      },
+    ],
+  );
 }
