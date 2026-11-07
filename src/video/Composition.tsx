@@ -1,6 +1,7 @@
 import { SoundAndCaptions } from "./SoundAndCaptions";
 import React, { useEffect, useRef, useState } from "react";
 import { loadFontFace } from "./font-faces";
+import { MotionScene } from "./MotionScene";
 import { textStyle } from "../lib/text-style";
 import { mediaStyle } from "../lib/media-style";
 import type { VideoCompositePass } from "../lib/video-composite-plan";
@@ -58,6 +59,7 @@ function SceneView({
   assetSources,
   layoutOnly = false,
   compositePass,
+  motionBaseUrl = "",
 }: {
   scene: Scene;
   format: Timeline["format"];
@@ -65,6 +67,8 @@ function SceneView({
   assetSources: Record<string, string>;
   layoutOnly?: boolean;
   compositePass?: VideoCompositePass;
+  // Where the allowlisted motion libraries are served (code scenes).
+  motionBaseUrl?: string;
 }) {
   useSceneFonts(scene, assetSources);
   const currentFrame = useCurrentFrame();
@@ -100,13 +104,27 @@ function SceneView({
         fontFamily: "Arial, sans-serif",
       }}
     >
+      {scene.code && !transparent && (
+        <AbsoluteFill style={{ opacity }}>
+          <MotionScene
+            code={scene.code}
+            sceneId={scene.id}
+            format={format}
+            width={width}
+            height={height}
+            durationFrames={scene.durationFrames}
+            frame={frame}
+            baseUrl={motionBaseUrl}
+          />
+        </AbsoluteFill>
+      )}
       <AbsoluteFill
         style={{
           opacity: opacity * camera.opacity,
           transform: `translate(${camera.x * width}px, ${camera.y * height}px) rotate(${camera.rotation}deg) scale(${camera.scale})`,
         }}
       >
-        {!transparent && (
+        {!transparent && !scene.code && (
           <div
             style={{
               position: "absolute",
@@ -320,6 +338,7 @@ export function SceneLayout(props: {
   format: Timeline["format"];
   exportResolution?: Timeline["exportResolution"];
   assetSources: Record<string, string>;
+  motionBaseUrl?: string;
 }) {
   return <SceneView {...props} layoutOnly />;
 }
@@ -327,10 +346,12 @@ export function Film({
   timeline,
   assetSources = {},
   compositePass,
+  motionBaseUrl = "",
 }: {
   timeline: Timeline;
   assetSources?: Record<string, string>;
   compositePass?: VideoCompositePass;
+  motionBaseUrl?: string;
 }) {
   return (
     <AbsoluteFill>
@@ -350,6 +371,7 @@ export function Film({
               exportResolution={timeline.exportResolution}
               assetSources={assetSources}
               compositePass={compositePass}
+              motionBaseUrl={motionBaseUrl}
             />
           </Sequence>
         );

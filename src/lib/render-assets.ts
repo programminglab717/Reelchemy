@@ -7,6 +7,8 @@ import { randomBytes, createHash } from "node:crypto";
 import { assetDir } from "./assets";
 import { validAssetId } from "./project-assets";
 import { sniffFontMime } from "./fonts";
+import { isMotionFile } from "../motion/libraries";
+import { readMotionFile } from "../motion/motion-files";
 import { byteRange } from "./media-range";
 import { CommandCancelledError } from "./process";
 import type { Timeline } from "./schema";
@@ -109,9 +111,36 @@ export async function serveRenderAssets(
     await closeFiles();
     throw error;
   }
-  if (!files.size) return { sources, fingerprints, close: async () => {} };
+  // Code scenes load the allowlisted motion libraries from this server too.
+  const motion = timeline.scenes.some((scene) => !!scene.code);
+  if (!files.size && !motion)
+    return { sources, fingerprints, motionBaseUrl: "", close: async () => {} };
   const token = randomBytes(32).toString("hex");
   const server = createServer((req, res) => {
+    const library = new RegExp(`^/${token}/motion/([A-Za-z0-9./-]+)$`).exec(
+      req.url || "",
+    );
+    if (library) {
+      if (!motion || !isMotionFile(library[1])) {
+        res.writeHead(404).end();
+        return;
+      }
+      if (req.method !== "GET" && req.method !== "HEAD") {
+        res.writeHead(405, { Allow: "GET, HEAD" }).end();
+        return;
+      }
+      const { bytes, type } = readMotionFile(library[1]);
+      res.writeHead(200, {
+        "Content-Type": type,
+        "Content-Length": String(bytes.length),
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+        // Scene documents run with an opaque origin.
+        "Access-Control-Allow-Origin": "*",
+      });
+      res.end(req.method === "HEAD" ? undefined : bytes);
+      return;
+    }
     const match = new RegExp(`^/${token}/([a-f0-9-]{36})$`).exec(req.url || "");
     const file = match ? files.get(match[1]) : undefined;
     if (!file) {
@@ -200,6 +229,9 @@ export async function serveRenderAssets(
   return {
     sources,
     fingerprints,
+    motionBaseUrl: motion
+      ? `http://127.0.0.1:${address.port}/${token}/motion`
+      : "",
     close: () =>
       (closing ??= (async () => {
         try {

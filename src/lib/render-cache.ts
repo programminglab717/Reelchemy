@@ -103,7 +103,16 @@ async function fingerprint() {
     }
   }
   await walk("src/video");
+  // Code scenes: the runtime and the exact library versions they load.
+  await walk("src/motion");
   for (const f of [
+    "node_modules/gsap/package.json",
+    "node_modules/d3/package.json",
+    "node_modules/lucide-static/package.json",
+    "node_modules/@fontsource-variable/inter/package.json",
+    "node_modules/@fontsource-variable/space-grotesk/package.json",
+    "node_modules/@fontsource-variable/jetbrains-mono/package.json",
+
     "src/lib/render-cache.ts",
     "src/lib/render-static.ts",
     "src/lib/static-scene.ts",
@@ -236,6 +245,7 @@ type CachedSceneOptions = {
   serveUrl: string;
   assetSources: Record<string, string>;
   assetFingerprints?: Record<string, string>;
+  motionBaseUrl?: string;
   browserExecutable: string;
   puppeteerInstance: RenderBrowser;
   outputLocation: string;
@@ -303,7 +313,11 @@ async function renderScenesInDirectory(
         const composition = await selectComposition({
           serveUrl,
           id: "Reelchemy",
-          inputProps: { timeline: local, assetSources },
+          inputProps: {
+            timeline: local,
+            assetSources,
+            motionBaseUrl: options.motionBaseUrl || "",
+          },
           browserExecutable,
           puppeteerInstance,
         });
@@ -350,7 +364,11 @@ async function renderScenesInDirectory(
           await renderMedia({
             ...rendering,
             ...renderMediaResources,
-            inputProps: { timeline: local, assetSources },
+            inputProps: {
+              timeline: local,
+              assetSources,
+              motionBaseUrl: options.motionBaseUrl || "",
+            },
             codec: "h264",
             muted: true,
             pixelFormat: "yuv420p",

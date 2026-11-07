@@ -53,6 +53,7 @@ import {
   type Timeline,
   type Layer,
 } from "@/lib/schema";
+import { previewMotionBaseUrl } from "@/motion/preview";
 const ideas: { icon: IconName; tag: string; title: string; prompt: string }[] =
   [
     {
@@ -1040,6 +1041,7 @@ export function Studio({
                         component={Film}
                         inputProps={{
                           timeline,
+                          motionBaseUrl: previewMotionBaseUrl(),
                           assetSources: Object.fromEntries(
                             (project.assets || []).map((a) => [
                               a.id,

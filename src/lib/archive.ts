@@ -166,20 +166,27 @@ const envelopeSchema = z.discriminatedUnion("version", [
           "keyframe-rotation-v1",
           "layer-mask-v1",
           "custom-font-v1",
+          "code-scene-v1",
         ]),
       )
       .min(1)
-      .max(7)
+      .max(8)
       .refine(
         (features) =>
           (features.includes("keyframe-rotation-v1") ||
             features.includes("layer-mask-v1") ||
-            features.includes("custom-font-v1")) &&
+            features.includes("custom-font-v1") ||
+            features.includes("code-scene-v1")) &&
           new Set(features).size === features.length,
       ),
     project: portableProject,
   }),
 ]);
+function hasCodeScene(project: Pick<Project, "timeline" | "revisions">) {
+  return [project.timeline, ...project.revisions.map((r) => r.timeline)].some(
+    (t) => t?.scenes.some((s) => !!s.code),
+  );
+}
 function hasCustomFont(
   project: Pick<Project, "timeline" | "revisions" | "assets">,
 ) {
@@ -307,11 +314,12 @@ export async function exportArchive(project: Project) {
   const keyframeRotation = hasKeyframeRotation(input);
   const layerMask = hasLayerMask(input);
   const customFont = hasCustomFont(input);
+  const codeScene = hasCodeScene(input);
   const manifest = strToU8(
     JSON.stringify({
       format: "reelchemy",
       version:
-        keyframeRotation || layerMask || customFont
+        keyframeRotation || layerMask || customFont || codeScene
           ? 5
           : nativeHd || extended
             ? 4
@@ -326,7 +334,8 @@ export async function exportArchive(project: Project) {
       needsRotation ||
       keyframeRotation ||
       layerMask ||
-      customFont
+      customFont ||
+      codeScene
         ? {
             requiredFeatures: [
               ...(nativeHd ? ["native-hd-v1"] : []),
@@ -336,6 +345,7 @@ export async function exportArchive(project: Project) {
               ...(keyframeRotation ? ["keyframe-rotation-v1"] : []),
               ...(layerMask ? ["layer-mask-v1"] : []),
               ...(customFont ? ["custom-font-v1"] : []),
+              ...(codeScene ? ["code-scene-v1"] : []),
             ],
           }
         : {}),
@@ -422,11 +432,12 @@ export async function importArchive(
   if (
     (hasKeyframeRotation(input) ||
       hasLayerMask(input) ||
-      hasCustomFont(input)) !==
+      hasCustomFont(input) ||
+      hasCodeScene(input)) !==
     (envelope.version === 5)
   )
     throw new Error(
-      "Animated rotation, layer masks or uploaded fonts require the matching archive feature version.",
+      "Animated rotation, layer masks, uploaded fonts or code scenes require the matching archive feature version.",
     );
   if (
     envelope.version !== 5 &&
@@ -451,6 +462,7 @@ export async function importArchive(
       ...(hasKeyframeRotation(input) ? ["keyframe-rotation-v1"] : []),
       ...(hasLayerMask(input) ? ["layer-mask-v1"] : []),
       ...(hasCustomFont(input) ? ["custom-font-v1"] : []),
+      ...(hasCodeScene(input) ? ["code-scene-v1"] : []),
     ];
     if (
       required.length !== envelope.requiredFeatures.length ||

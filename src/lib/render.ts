@@ -39,6 +39,7 @@ export async function renderFilm(
       cacheNamespace,
       media.sources,
       media.fingerprints,
+      media.motionBaseUrl,
     );
   } finally {
     await media.close();
@@ -53,6 +54,7 @@ async function renderResolved(
   cacheNamespace: string,
   assetSources: Record<string, string>,
   assetFingerprints: Record<string, string>,
+  motionBaseUrl = "",
 ) {
   const repaired = repairBounds(input, 1, Object.keys(assetSources));
   let timeline = repaired.timeline;
@@ -108,6 +110,7 @@ async function renderResolved(
         serveUrl,
         assetSources,
         assetFingerprints,
+        motionBaseUrl,
         browserExecutable,
         puppeteerInstance,
         outputLocation,

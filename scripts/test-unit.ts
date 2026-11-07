@@ -119,6 +119,8 @@ try {
       "render-deadline-worker.test.ts",
       "render-shape-motion.test.ts",
       "render-font.test.ts",
+      "render-motion.test.ts",
+      "motion-sandbox.test.ts",
       "shared-media-worker.test.ts",
     ].includes(path.basename(arg)),
   );

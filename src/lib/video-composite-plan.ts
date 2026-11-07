@@ -15,6 +15,8 @@ export function videoCompositePlan(
 ): VideoCompositePlan | null {
   if (timeline.scenes.length !== 1) return null;
   const scene = timeline.scenes[0];
+  // A code scene is drawn by its own document, not as layers around footage.
+  if (scene.code) return null;
   const videos = scene.layers.filter(
     (layer) => layer.kind === "video" && !layer.hidden,
   );

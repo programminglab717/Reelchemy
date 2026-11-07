@@ -9,6 +9,7 @@ import { MediaFitControls } from "./MediaFitControls";
 import { layerCorners } from "@/lib/layer-geometry";
 import { LayerRotation } from "./LayerRotation";
 import { duplicateLayer } from "@/lib/layer-edit";
+import { previewMotionBaseUrl } from "@/motion/preview";
 
 export function CanvasEditor({
   timeline,
@@ -137,6 +138,7 @@ export function CanvasEditor({
               component={SceneLayout}
               inputProps={{
                 scene: visible,
+                motionBaseUrl: previewMotionBaseUrl(),
                 format: timeline.format,
                 exportResolution: timeline.exportResolution,
                 assetSources,

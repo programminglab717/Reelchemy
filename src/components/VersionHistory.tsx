@@ -10,6 +10,7 @@ import type {
   SavedVersionSnapshot,
 } from "@/lib/project-history";
 import { useAccountFetch } from "./AccountBoundary";
+import { previewMotionBaseUrl } from "@/motion/preview";
 function validVersion(value: unknown): value is SavedVersion {
   if (!value || typeof value !== "object") return false;
   const version = value as SavedVersion;
@@ -479,6 +480,7 @@ export function VersionHistory({
                         component={Film}
                         inputProps={{
                           timeline: snapshot.timeline,
+                          motionBaseUrl: previewMotionBaseUrl(),
                           assetSources: Object.fromEntries(
                             snapshot.assets.map((asset) => [
                               asset.id,

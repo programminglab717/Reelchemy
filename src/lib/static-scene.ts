@@ -29,6 +29,8 @@ export function staticScenePlan(
   if (timeline.scenes.length !== 1) return null;
   const scene = timeline.scenes[0];
   if (
+    // Code scenes animate on their own clock.
+    scene.code ||
     scene.camera?.length ||
     (scene.transition !== "cut" &&
       (scene.fadeIn !== false || scene.fadeOut !== false)) ||

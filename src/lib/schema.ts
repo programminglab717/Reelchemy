@@ -110,15 +110,34 @@ export const layerSchema = z.object({
     })
     .optional(),
 });
+// A scene written as code (HTML/CSS/JS against a fixed logical stage, run in
+// a sandboxed document on a virtual clock; see src/motion). Layers, if any,
+// are drawn above it.
+export const motionCodeSchema = z
+  .object({
+    html: z.string().max(60000),
+    css: z.string().max(40000),
+    js: z.string().min(1).max(80000),
+    libraries: z
+      .array(z.enum(["d3"]))
+      .max(4)
+      .optional(),
+  })
+  .strict();
+export const MAX_SCENE_FRAMES = 600;
+export const MAX_CODE_SCENE_FRAMES = 1800;
 export const sceneSchema = z.object({
   id: z.string().min(1).max(80),
   title: z.string().min(1).max(100),
   intent: z.string().max(500),
-  durationFrames: z.number().int().min(30).max(600),
+  // Layered scenes are at most MAX_SCENE_FRAMES (checked on the timeline);
+  // code scenes may run to MAX_CODE_SCENE_FRAMES.
+  durationFrames: z.number().int().min(30).max(MAX_CODE_SCENE_FRAMES),
   background: color,
   accent: color,
   strategy: z.enum(["typography", "diagram", "landscape"]),
   layers: z.array(layerSchema).max(20),
+  code: motionCodeSchema.optional(),
   transition: z.enum(["fade", "cut"]).default("fade"),
   camera: z.array(keyframeSchema).max(30).optional(),
   motionOffsetFrames: z
@@ -192,6 +211,12 @@ export const timelineSchema = z
       });
       return;
     }
+    for (const scene of t.scenes)
+      if (!scene.code && scene.durationFrames > MAX_SCENE_FRAMES)
+        ctx.addIssue({
+          code: "custom",
+          message: `Scene ${scene.title} is longer than 20 seconds. Split it, or use a code scene (up to 60 seconds).`,
+        });
     const frames = t.scenes.reduce((n, s) => n + s.durationFrames, 0);
     const tracks = t.audioTracks || [],
       captions = [...(t.captions || [])].sort(
