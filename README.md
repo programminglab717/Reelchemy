@@ -6,6 +6,29 @@ This is an actively developed local build toward the public product, with releas
 
 Current engineering checkpoint (0.60): five-minute/native-HD editing, private multi-user accounts, media/recording/captions and verified MP4s are implemented. Authored starters, readable scene notes, desktop/mobile shortcuts and synchronized scene deletion work without AI. All **543 backend/native checks** and production guards pass. The complete **89/89 production HTTPS browser baseline at 0.59** is supplemented by five current creator/mobile browser checks. Encrypted backup upload/restore/retention passes real local-repository tests; actual hosted/off-host restore, provider-version disposal, creator acceptance, immutable images and final live SMTP/AI remain open. See [VALIDATION.md](VALIDATION.md) for exact evidence and limits.
 
+## Animated code scenes and the AI director (0.71)
+
+With an AI key (Account settings → AI provider), new films and whole-story revisions go to the **AI director**, an agent that:
+
+- plans a storyboard and a style guide for the whole film;
+- writes each scene as HTML, CSS and JavaScript animated with GSAP;
+- renders test stills of every scene in a headless browser and checks them for errors, empty or frozen frames, clipped, overlapping or too-small text, and content off the stage;
+- shows the stills to the model (when it accepts images) and revises the scene until it meets the standard, keeping the best attempt.
+
+A clip of 30 seconds or less is usually one continuous scene. The director works in the background; the studio shows its progress and you can stop it. Without a key, the demo director makes simple title slides.
+
+Scene code runs on a fixed stage (1920×1080, 1080×1920 or 1080×1080) under a virtual clock: `Date`, `performance.now`, `requestAnimationFrame`, timers and `Math.random` (seeded) follow the frame being rendered, so preview and export show exactly the same frame. Available to scene code:
+
+- GSAP 3 with SplitText, DrawSVG, MorphSVG, MotionPath, ScrambleText, Text and CustomEase (all included in GSAP's free standard licence);
+- optional d3 7, Lucide icons, and the Inter, Space Grotesk and JetBrains Mono fonts;
+- the kit `R`: connectors routed between elements (`R.connect`), packets travelling along them (`R.flow`), diagram nodes (`R.node`), syntax-highlighted code that types itself (`R.code`), counters, bar charts, emphasis rings, a camera (`R.focus`), and backgrounds (`R.grid`, `R.glow`, `R.particles`).
+
+`src/motion/examples/` holds three reference scenes (two landscape diagrams and a portrait data story). To preview a scene from the command line, run `npx tsx scripts/motion-preview.ts scene.json sheet.png landscape 15`; it writes a contact sheet and reports errors and layout notes.
+
+In the studio, a code scene opens in a code editor (HTML, CSS and JavaScript, with Apply, Revert and the errors the scene throws in the player). A layered scene can be turned into code with **Write scene in code**. Revising a code scene by instruction sends it to the director, which keeps the scene's length.
+
+The director runs inside the web process. A restart marks an unfinished run as failed, and the film is not changed. Its calls are metered like planning; a studio's own key may run `REELCHEMY_AI_OWN_CALLS_PER_STUDIO` calls at once (default 3), which is how many scenes are written in parallel.
+
 ## Run
 
 Requirements: Node.js 24 (see `.node-version`; minimum 22.13), npm, FFmpeg/ffprobe on PATH, Chromium and Linux `flock` for the render and ingestion workers. The complete test suite and encrypted backup operator also require Restic 0.14 or newer. This cloud machine already supplies them. On Debian/Ubuntu, install system prerequisites with `sudo apt-get update && sudo apt-get install -y ffmpeg chromium util-linux restic`; installation may require host permission. Other platforms must provide a compatible Chromium and set `CHROMIUM_PATH`.
@@ -71,7 +94,7 @@ artifacts/               Ignored exports and visual evidence
 .data/                   Ignored SQLite database and worker lock
 ```
 
-Flow: brief → structured timeline → user approval → immutable job snapshot → capped bounds repair → deterministic frames → H.264 → ffprobe → QC evidence → download. No arbitrary generated JavaScript, remote asset URLs, or AI tool execution reaches the renderer. Uploaded images are decoded, re-encoded and resolved from local immutable files; original filenames never become storage paths. React escapes text; colors and geometry are constrained. One worker processes up to five queued/active jobs; each timeline is limited to 60 scenes, 20 layers per scene, and 300 seconds. Individual scenes remain at most 20 seconds. Provider output is capped at 6,000 tokens and 60 seconds per request; repeated requests can still incur costs.
+Flow: brief → structured timeline → user approval → immutable job snapshot → capped bounds repair → deterministic frames → H.264 → ffprobe → QC evidence → download. Layered scenes use the restricted DSL. Code scenes (written by the AI director or the maker) run HTML/CSS/JavaScript inside an opaque-origin sandboxed iframe whose content security policy allows no network: scripts, styles and fonts come only from an allowlisted local file server, images only inline. No remote asset URLs or AI tool execution reach the renderer. Uploaded images are decoded, re-encoded and resolved from local immutable files; original filenames never become storage paths. React escapes text; colors and geometry are constrained. One worker processes up to five queued/active jobs; each timeline is limited to 60 scenes, 20 layers per scene, and 300 seconds. Layered scenes are at most 20 seconds and code scenes at most 60 seconds. Provider output is capped at 6,000 tokens and 60 seconds per request; repeated requests can still incur costs.
 
 SQLite WAL supports the API and separate worker. Revisions retain every saved storyboard. Render jobs snapshot inputs so subsequent edits cannot alter an active export. A cancelled job never becomes completed. Export history survives refresh. On restart, an interrupted job is requeued once from its original timeline snapshot; another interruption after that limit marks it failed. Terminal jobs cannot be revived by late progress callbacks. Managed workers hold a permanent kernel lifecycle lock; never delete or replace `worker.lifecycle.lock` or `ingest.lifecycle.lock`. A crash releases the kernel lock automatically. Before handling an old diagnostic `.data/worker.lock`, stop older workers and inspect the recorded PID. Do not remove the database.
 

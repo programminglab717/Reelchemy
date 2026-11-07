@@ -553,3 +553,28 @@ Add a selected-layer duplicate action to the canvas and advanced layer controls.
   - archives refused assets over 25 MB and re-imported audio through a 25 MB bound;
   - project archives were capped at 50 MB.
 - New single-owner installs allow 10 GB of stored media per studio (20 GB shared).
+
+## 0.71.0 — 2026-11-07
+
+- **Animated code scenes.** A scene may now be HTML, CSS and JavaScript animated with GSAP instead of layers.
+  - Code scenes run on a fixed stage under a virtual clock (`Date`, `performance.now`, `requestAnimationFrame`, timers and seeded `Math.random`), so preview and export show the same exact frame. They may run up to 60 seconds.
+  - They run in an opaque-origin sandboxed iframe whose content security policy allows no network. Only allowlisted local files load: GSAP 3.15 with SplitText, DrawSVG, MorphSVG, MotionPath, ScrambleText, Text and CustomEase; optional d3 7; Lucide icons; and the Inter, Space Grotesk and JetBrains Mono fonts.
+  - The render browser keeps sandboxed frames in-process so screenshots never show a stale frame.
+  - Archives mark code scenes with the `code-scene-v1` feature.
+- **The kit `R`** gives scene code layout-aware primitives:
+  - connectors routed between elements' real boxes, with arrowheads that ride the drawing tip, and packets travelling along them;
+  - diagram nodes, and syntax-highlighted code that types itself, with highlighted lines;
+  - counters, bar charts, emphasis rings and a camera that zooms to a target;
+  - grid, glow and particle backgrounds, and a theme from the film's style guide.
+- **The AI director.** With an AI key, new films and whole-story revisions are made by an agent that:
+  - plans a storyboard and a style guide, then writes every scene as code (in parallel, up to the studio's call limit);
+  - renders test stills in a headless browser and checks them for errors, empty or frozen frames and layout problems (small, clipped, overlapping or off-stage text);
+  - reviews the stills with the model and revises each scene up to twice, keeping the best attempt. A scene that never works becomes a simple title card instead of failing the film.
+- Revising one code scene by instruction keeps its length and the rest of the film. Runs happen in the background with progress, Stop and an outcome message, so they are not cut off by Cloudflare's 100-second request limit. The writer's instructions are cached on Anthropic.
+- **Code editor in the studio.** A code scene opens with HTML, CSS and JavaScript tabs, Apply (Ctrl/⌘+Enter), Revert, validation, a kit reference and the errors the scene throws in the player. Any layered scene can be turned into a code scene from a working starter.
+- The composer says plainly that the demo director makes simple title slides and that an AI key enables the AI director.
+- Fix: the development render worker compiled its renderer bundle while the export storage meter was running. The compile held the event loop past the meter's five-second observation bound, so exports could fail with "Export storage needs operator review". The bundle is now ready before metering starts. Production uses its prepared bundle and was not affected.
+- AI concurrency: the service default is now 4 calls at once (`REELCHEMY_AI_CONCURRENT_CALLS`). A studio using its own key may run `REELCHEMY_AI_OWN_CALLS_PER_STUDIO` calls (default 3, range 1–8). Image inputs reserve 2,000 input tokens each.
+- The writer sees three reference scenes: a kit-built diagram (cache-aside with Redis and PostgreSQL), a portrait data story (compound growth) and a hand-drawn SVG diagram (a PostgreSQL index lookup). Each passes its own checks in the test suite.
+- Rings and connectors re-measure their elements when they start drawing, so a ring around a counter or typed code frames its final size.
+- Developer tool: `scripts/motion-preview.ts` writes a contact sheet of a scene (optionally at given times), with errors and layout notes.

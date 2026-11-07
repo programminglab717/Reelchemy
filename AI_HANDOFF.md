@@ -6,8 +6,30 @@ Read `AGENTS.md`, `PROJECT_STATUS.md`, `VALIDATION.md`, `PRODUCTION_PLAN.md`, `O
 
 ## Git state
 
-- `origin/work` contains the **0.69** application (own AI keys, Cloudflare Tunnel deployment helper, five-minute sources, animated rotation, masks, brand fonts, scene-length ripple); its verification is in VALIDATION.md. The last fully accepted release was **0.66** (accepted source `74b29e2`; 0.65 `33fa994`; 0.64 `a3941f4`; 0.63 `7eed554`; 0.62 `5b9b003`; 0.61 `5567641`), status report and this handoff. It includes the former `codex/render-budget` candidate history, which is now superseded.
+- `origin/work` contains the **0.71** application (animated code scenes, motion kit, AI director, code editor; see below). Before that, 0.70 added resumable uploads, and the **0.69** application (own AI keys, Cloudflare Tunnel deployment helper, five-minute sources, animated rotation, masks, brand fonts, scene-length ripple); its verification is in VALIDATION.md. The last fully accepted release was **0.66** (accepted source `74b29e2`; 0.65 `33fa994`; 0.64 `a3941f4`; 0.63 `7eed554`; 0.62 `5b9b003`; 0.61 `5567641`), status report and this handoff. It includes the former `codex/render-budget` candidate history, which is now superseded.
 - `main` mirrors `work` as of 0.70 (created 6 November from `work`); develop on `work` and fast-forward `main` when releasing. `codex/mail-reliability` is an older 0.51 copy with unrelated history, fully superseded by `work`; do not merge it. Fetch and inspect remote branches before work. Keep new candidates separate from accepted code until their acceptance checks pass. Do not force-push or rewrite existing history.
+
+## Motion engine and AI director (0.71)
+
+The owner's goal: the AI should produce sophisticated, motion-graphics explainer videos (for example a 15–30 second clip on how PostgreSQL works), not text slides. The audit found the original pipeline could not do this. The planner emitted a restricted layer DSL, so the output was always a handful of text cards. 0.71 adds:
+
+- **Code scenes** (`scene.code = {html, css, js, libraries?}`): `src/motion/` holds the runtime.
+  - `clock.ts` is the virtual clock injected into the scene document.
+  - `document.ts` builds the sandboxed scene document (CSP: no network; scripts, styles and fonts only from the allowlisted file server).
+  - `kit.ts` is the `R` helper kit; `libraries.ts` and `motion-files.ts` define and serve the allowlisted files.
+  - `preflight.ts` (headless stills and metrics) and `audit.ts` (in-scene layout checks) check scenes.
+  - `src/video/MotionScene.tsx` hosts a scene in Remotion with one `delayRender` per frame. Seeking backwards reloads the iframe.
+  - Exports serve the same files from each job's private asset server (`render-assets.ts`).
+- **Director** (`src/director/`):
+  - `prompts.ts` holds the planner and writer instructions and the three reference scenes from `src/motion/examples/`;
+  - `director.ts` runs plan → write → preflight → vision review → revise, keeping the best attempt with a title-card fallback;
+  - `jobs.ts` stores the background job state; `runner.ts` runs it in the web process;
+  - `llm.ts` makes image-capable multi-turn calls to Anthropic or OpenAI-compatible providers, with the same metering as planning.
+  - API: `/api/projects/[id]/direct` (POST start, GET latest, DELETE cancel). The UI pieces are `useDirector.ts` and `DirectorStatus.tsx`.
+- **Studio**: `CodeSceneEditor.tsx` edits code scenes and converts layered scenes.
+- Quality levers, in order of impact: the kit primitives, the reference scenes, the writer's design standards, and the review loop. To judge a change, render the references and real director output with `scripts/motion-preview.ts` and look at the contact sheets.
+- Not yet verified: a live run with a real model. The owner will run it with their own key. Mocked-model tests cover the pipeline (`tests/director*.test.ts`); kit and runtime tests render real frames.
+- Open ideas: transparent/alpha clip exports (ProRes 4444 or WebM), richer cross-scene transitions, Three.js/WebGL scenes, and more reference scenes for other genres.
 
 ## User instructions
 

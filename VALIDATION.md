@@ -1440,3 +1440,21 @@ Results:
   - staging and queued-input directories were empty afterwards.
 
   The deployment was removed.
+
+## Animated code scenes, motion kit and AI director — 0.71
+
+Audit finding: the director could only emit a restricted layer DSL (text, shapes, a few motion presets), so films were always a handful of title cards. 0.71 lets scenes be HTML/CSS/JavaScript animated with GSAP under a virtual clock, adds the `R` kit and the AI director agent, and adds a code editor to the studio.
+
+Results:
+
+- **Complete backend/native suite on the frozen 0.71 tree** (non-root, Node 24): **600/600** in 789 seconds (frozen after the code editor commit). The motion and director files were rerun on the final tree after the last kit change: **19/19**. It includes the new runtime checks:
+  - pixel-exact GSAP and animation-frame scenes through Remotion;
+  - the sandbox, against a live attacker server: zero requests, no parent, storage or cookie access;
+  - preflight error, empty-frame, frozen-frame and layout detection;
+  - a self-checking kit scene (routing, drawing, packets, typing, counters, camera framing, rings measured at draw time) that also renders identically twice;
+  - three reference scenes, each passing its own checks;
+  - the director with scripted models: plan, write, check, review with stills, fix, fallback;
+  - the director API: needs-key, busy, background completion, usage ledger, scene revision, cancel.
+- **Development-mode browser checks** on a frozen copy: **12/12** in 5.2 minutes. They cover the director's progress, Stop and live code-scene preview; writing, editing, error reporting, refusal and reload of a code scene, with an MP4 export whose frame shows the scene's own background colour (17, 52, 86 for #123456); the studio idea → MP4 flow; and typography.
+- **Regression found and fixed:** the studio idea → MP4 browser case failed deterministically with "Export storage needs operator review". Logging showed the export meter's five-second observation bound expiring while the development worker compiled its renderer bundle; the event loop was blocked for 5.6 seconds. The worker now prepares the bundle before metering. Production uses a prepared bundle and was not affected.
+- **Not verified:** a live run with a real model. The owner will run it with their own key. Visual quality was judged from contact sheets of the reference scenes, not from model output.
