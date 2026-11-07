@@ -54,6 +54,8 @@ import {
   type Layer,
 } from "@/lib/schema";
 import { previewMotionBaseUrl } from "@/motion/preview";
+import { useDirector } from "./useDirector";
+import { DirectorStatus } from "./DirectorStatus";
 const ideas: { icon: IconName; tag: string; title: string; prompt: string }[] =
   [
     {
@@ -162,6 +164,28 @@ export function Studio({
     [selection, setSelected] = useState(0),
     [revision, setRevision] = useState(""),
     [revisionScope, setRevisionScope] = useState("scene");
+  const openProjectId = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    openProjectId.current = project?.id;
+  }, [project?.id]);
+  // The AI director's background run for the open project. A finished run
+  // saved a new version: reload it if that project is still open.
+  const director = useDirector(accountFetch, project?.id, (finished) => {
+    if (finished.state !== "completed") return;
+    void accountFetch(`/api/projects/${finished.projectId}`, {
+      cache: "no-store",
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((latest: Project | null) => {
+        if (latest && openProjectId.current === latest.id) {
+          editor.open(latest);
+          setListRefresh((n) => n + 1);
+          setSelected(0);
+          setJob(null);
+        }
+      })
+      .catch(() => {});
+  });
   const selected = Math.min(
     selection,
     Math.max(0, (project?.timeline?.scenes.length || 1) - 1),
@@ -273,7 +297,13 @@ export function Studio({
         ...(templateId ? { templateId } : {}),
       });
       remember(p);
-      if (!blank && !templateId)
+      // The AI director animates the film in the background; without an AI
+      // key the demo director plans it immediately.
+      if (
+        !blank &&
+        !templateId &&
+        (await director.start(p.id, {})) === "needs-key"
+      )
         p = await api<Project>(`/api/projects/${p.id}/plan`, "POST", {});
       remember(p);
       setSelected(0);
@@ -809,6 +839,13 @@ export function Studio({
           </div>
         ) : (
           <div className="project-workspace">
+            {director.job && director.job.projectId === project.id && (
+              <DirectorStatus
+                job={director.job}
+                onCancel={() => void director.cancel()}
+                onDismiss={director.dismiss}
+              />
+            )}
             <div className="project-heading">
               <div>
                 <span className="eyebrow">CREATION WORKSPACE</span>
@@ -1084,7 +1121,7 @@ export function Studio({
                       <h2>
                         <Icon name="sparkle" /> Creative director
                       </h2>
-                      <span>DEMO / CONFIGURABLE</span>
+                      <span>AI DIRECTOR</span>
                     </div>
                     <CreativeConversation
                       key={`${project.id}:${project.messageCount ?? project.messages.length}`}
@@ -1095,20 +1132,32 @@ export function Studio({
                         e.preventDefault();
                         void run(async () => {
                           await save();
-                          const p = await api<Project>(
-                            `/api/projects/${project.id}/plan`,
-                            "POST",
-                            {
-                              revision,
-                              ...(revisionScope === "scene"
-                                ? { sceneId: timeline.scenes[selected].id }
-                                : {}),
-                            },
-                          );
-                          remember(p);
+                          const scene = timeline.scenes[selected];
+                          const sceneScope = revisionScope === "scene";
+                          // Animated code scenes and whole films go to the AI
+                          // director; layered scenes and the demo director
+                          // keep the quick planning path.
+                          const outcome =
+                            !sceneScope || scene.code
+                              ? await director.start(project.id, {
+                                  instruction: revision,
+                                  ...(sceneScope ? { sceneId: scene.id } : {}),
+                                })
+                              : "needs-key";
+                          if (outcome === "needs-key") {
+                            const p = await api<Project>(
+                              `/api/projects/${project.id}/plan`,
+                              "POST",
+                              {
+                                revision,
+                                ...(sceneScope ? { sceneId: scene.id } : {}),
+                              },
+                            );
+                            remember(p);
+                            setSelected(0);
+                            setJob(null);
+                          }
                           setRevision("");
-                          setSelected(0);
-                          setJob(null);
                         });
                       }}
                     >

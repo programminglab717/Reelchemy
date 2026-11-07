@@ -2542,3 +2542,41 @@ main.account-page {
 .ai-key-privacy {
   color: var(--muted);
 }
+.director-status {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  background: white;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--dark);
+  border-radius: 10px;
+}
+.director-status[role="alert"] {
+  border-left-color: #b4432f;
+}
+.director-status-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.director-status p {
+  margin: 0;
+}
+.director-status small {
+  color: var(--muted);
+}
+.director-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+.director-progress span {
+  display: block;
+  height: 100%;
+  background: var(--dark);
+  border-radius: inherit;
+  transition: width 0.6s ease;
+}

@@ -28,6 +28,7 @@ import { RenderQCError } from "../src/lib/layout-qc";
 import { transientRenderError } from "../src/lib/retry";
 import { renderFilm } from "../src/lib/render";
 import { preparedRenderer } from "../src/lib/prepared-renderer";
+import { rendererBundle } from "../src/lib/renderer-bundle";
 import { beginExportMeter } from "../src/lib/export-storage-meter";
 import { measureExportFiles } from "../src/lib/export-storage-files";
 import { processExportFileRemoval } from "../src/lib/export-file-cleanup";
@@ -297,6 +298,10 @@ async function main() {
         nativeClosed = true;
       };
       try {
+        // Development compiles the renderer on first use, which can hold the
+        // event loop for seconds; finish that before the storage meter's
+        // bounded observations start. Production returns its prepared bundle.
+        await rendererBundle();
         meter = await beginExportMeter(
           artifactDir,
           job.id,
