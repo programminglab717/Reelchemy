@@ -11,3 +11,9 @@ export function chromiumCrashArgs() {
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   return [`--crash-dumps-dir=${directory}`];
 }
+
+// Keeps sandboxed code-scene documents in the page's renderer process so a
+// screenshot taken after the scene reports a painted frame includes it.
+export const SAME_PROCESS_SANDBOXED_FRAMES = [
+  "--disable-features=IsolateSandboxedIframes",
+];

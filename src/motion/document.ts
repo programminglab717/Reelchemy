@@ -62,6 +62,7 @@ const KIT_SOURCE = String.raw`(() => {
   if (window.gsap) {
     gsap.registerPlugin(...${JSON.stringify(gsapPlugins)}.map((name) => window[name]).filter(Boolean));
     gsap.ticker.lagSmoothing(0);
+    window.__reelchemyFlush = () => gsap.ticker.tick();
   }
 })();`;
 

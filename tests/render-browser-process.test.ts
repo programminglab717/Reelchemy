@@ -217,6 +217,7 @@ test("the immutable launcher caps renderer processes and strips its private cont
       [
         `--user-agent="${launch.userAgent}"`,
         `--user-data-dir=${profile}`,
+        "--disable-features=Translate,site-per-process",
         "--headless",
         "about:blank",
       ],
@@ -229,7 +230,12 @@ test("the immutable launcher caps renderer processes and strips its private cont
       argv[1],
       `--crash-dumps-dir=${path.join(await realpath(tmpdir()), "reelchemy-chromium-crashes")}`,
     );
-    assert.deepEqual(argv.slice(2), [
+    // The renderer's feature list is kept and extended, not replaced.
+    assert.equal(
+      argv[2],
+      "--disable-features=Translate,site-per-process,IsolateSandboxedIframes",
+    );
+    assert.deepEqual(argv.slice(3), [
       `--user-data-dir=${profile}`,
       "--headless",
       "about:blank",

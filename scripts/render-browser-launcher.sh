@@ -43,4 +43,16 @@ esac
 # aborting the browser in read-only containers.
 crashes="$temporary_root/reelchemy-chromium-crashes"
 mkdir -m 700 "$crashes" 2>/dev/null || [ -d "$crashes" ]
-exec "$executable" --renderer-process-limit=4 "--crash-dumps-dir=$crashes" "$@"
+# Keep sandboxed code-scene documents in their page's renderer process, so a
+# captured frame always includes the scene's newly painted frame (an isolated
+# subframe can lag one frame behind the page's screenshot). Chromium keeps only
+# the last --disable-features value, so extend the renderer's list.
+features=IsolateSandboxedIframes
+for argument do
+  shift
+  case "$argument" in
+    --disable-features=*) features="${argument#--disable-features=},IsolateSandboxedIframes" ;;
+    *) set -- "$@" "$argument" ;;
+  esac
+done
+exec "$executable" --renderer-process-limit=4 "--crash-dumps-dir=$crashes" "--disable-features=$features" "$@"

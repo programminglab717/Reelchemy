@@ -120,6 +120,9 @@ export const CLOCK_SOURCE = String.raw`(() => {
     }
     // A time between frames (preview scrubbing) gets one partial step.
     if (target - now > 0.5) tick(target);
+    // Libraries may defer writing values until their next tick (GSAP renders
+    // a tween's starting state lazily); flush them without moving time.
+    if (typeof window.__reelchemyFlush === "function") call(window.__reelchemyFlush, []);
     // CSS and Web Animations follow the virtual clock too.
     if (document.getAnimations)
       for (const animation of document.getAnimations()) {
