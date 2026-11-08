@@ -1493,7 +1493,7 @@ Goal from the owner: output on par with AI motion-graphics tools that write ever
 
   Frames from the MP4s were inspected. WebGL renders in preflight, in the studio player and in exports.
 
-- **Complete backend/native suite on the frozen 0.73 tree:** running; the result will be recorded here.
-- **Browser checks:** pending; to run after the backend suite. New cases cover a 3D scene in the studio player, and an uploaded image inserted into a code scene whose colour reaches the exported MP4.
+- **Complete backend/native suite on the frozen 0.73 tree** (non-root): **613/613** in 938 seconds.
+- **Browser checks:** **16/16** in 7.5 minutes. New cases cover a 3D scene in the studio player, and an uploaded image inserted into a code scene whose colour reaches the exported MP4.
 - **Film grain** that changed every frame inflated a 10-second 1080p export to 41–51 MB. Changing it every 4 frames brought that to 16.7 MB.
 - **Not verified:** a live run with a real model. Whether a given model writes good 3D scenes from these instructions is unmeasured.
