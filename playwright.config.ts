@@ -12,12 +12,7 @@ export default defineConfig({
     launchOptions: {
       executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",
       // CI has no GPU: WebGL (3D code scenes) through the software renderer.
-      args: [
-        "--no-sandbox",
-        "--use-gl=angle",
-        "--use-angle=swiftshader",
-        "--enable-unsafe-swiftshader",
-      ],
+      args: ["--no-sandbox", "--enable-unsafe-swiftshader"],
     },
     screenshot: "only-on-failure",
   },

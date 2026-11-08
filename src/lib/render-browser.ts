@@ -13,12 +13,12 @@ export async function withRenderBrowser<T>(
   try {
     browser = await openBrowser("chrome", {
       browserExecutable: launch.executable,
-      // WebGL for 3D code scenes through ANGLE's software renderer, so it
-      // works the same on GPU-less servers (the launcher opts in).
-      chromiumOptions: {
-        gl: "swangle",
-        ...(launch.userAgent ? { userAgent: launch.userAgent } : {}),
-      },
+      // Chromium's default graphics backend: changing it alters how 2D
+      // frames are composited. The launcher only permits the software WebGL
+      // fallback that 3D code scenes need on GPU-less servers.
+      ...(launch.userAgent
+        ? { chromiumOptions: { userAgent: launch.userAgent } }
+        : {}),
     });
     return await operation(browser);
   } finally {

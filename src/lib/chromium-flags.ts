@@ -18,10 +18,7 @@ export const SAME_PROCESS_SANDBOXED_FRAMES = [
   "--disable-features=IsolateSandboxedIframes",
 ];
 
-// WebGL for 3D code scenes on GPU-less machines: ANGLE's software renderer,
-// which recent Chromium versions only use when asked.
-export const SOFTWARE_WEBGL = [
-  "--use-gl=angle",
-  "--use-angle=swiftshader",
-  "--enable-unsafe-swiftshader",
-];
+// WebGL for 3D code scenes on GPU-less machines: permit Chromium's software
+// (SwiftShader) fallback, which recent versions only use when asked. The
+// graphics backend itself is left at its default.
+export const SOFTWARE_WEBGL = ["--enable-unsafe-swiftshader"];
