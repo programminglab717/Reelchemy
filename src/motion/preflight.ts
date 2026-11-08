@@ -8,7 +8,7 @@ import {
 import { isMotionFile } from "./libraries";
 import { readMotionFile } from "./motion-files";
 import { motionDocument, motionStages, type MotionCode } from "./document";
-import { LAYOUT_AUDIT_SOURCE } from "./audit";
+import { CONTENT_BOUNDS_SOURCE, LAYOUT_AUDIT_SOURCE } from "./audit";
 
 // Runs one code scene headlessly and captures stills at chosen times, with
 // every uncaught error and simple pixel measurements. Used to check generated
@@ -27,6 +27,8 @@ export type MotionPreview = {
   loaded: boolean;
   // Layout notes from the in-scene audit, prefixed with their time.
   layout: string[];
+  // Box of the visible content at `boundsAt`, in stage pixels.
+  bounds: { x: number; y: number; w: number; h: number } | null;
 };
 export async function previewMotionScene(input: {
   code: MotionCode;
@@ -39,6 +41,9 @@ export async function previewMotionScene(input: {
   timeoutMs?: number;
   // Captured times at which to run the layout audit.
   auditAt?: number[];
+  // A time at which to measure the content's bounds (no still is captured
+  // unless it is also one of `times`).
+  boundsAt?: number;
 }): Promise<MotionPreview> {
   const stage = motionStages[input.format];
   const width = input.width ?? (input.format === "portrait" ? 540 : 960);
@@ -134,6 +139,14 @@ window.seekScene = (time) => new Promise((resolve) => {
     );
     const frames: MotionPreviewFrame[] = [];
     const layout: string[] = [];
+    let bounds: MotionPreview["bounds"] = null;
+    const clampTime = (t: number) =>
+      Math.max(0, Math.min(input.durationSeconds, t));
+    const stills = new Set(input.times.map((t) => clampTime(t).toFixed(3)));
+    const boundsKey =
+      input.boundsAt === undefined
+        ? undefined
+        : clampTime(input.boundsAt).toFixed(3);
     const audits = new Set(
       (input.auditAt ?? []).map((t) =>
         Math.max(0, Math.min(input.durationSeconds, t)).toFixed(3),
@@ -141,8 +154,15 @@ window.seekScene = (time) => new Promise((resolve) => {
     );
     if (loaded) {
       let previous: Buffer | undefined;
-      for (const time of [...input.times].sort((a, b) => a - b)) {
-        const clamped = Math.max(0, Math.min(input.durationSeconds, time));
+      const sequence = [
+        ...new Set([
+          ...stills,
+          ...(boundsKey === undefined ? [] : [boundsKey]),
+        ]),
+      ]
+        .map(Number)
+        .sort((a, b) => a - b);
+      for (const clamped of sequence) {
         const reply = await Promise.race([
           page.evaluate(
             (seconds) => (window as unknown as HostWindow).seekScene(seconds),
@@ -172,6 +192,15 @@ window.seekScene = (time) => new Promise((resolve) => {
               layout.push(`At ${clamped.toFixed(1)}s: ${note}`);
           }
         }
+        if (boundsKey === clamped.toFixed(3)) {
+          const sceneFrame = page.frames().find((f) => f !== page.mainFrame());
+          bounds = sceneFrame
+            ? ((await sceneFrame
+                .evaluate(CONTENT_BOUNDS_SOURCE)
+                .catch(() => null)) as MotionPreview["bounds"])
+            : null;
+        }
+        if (!stills.has(clamped.toFixed(3))) continue;
         const png = await page.screenshot({ type: "png" });
         const gray = await sharp(png).greyscale().raw().toBuffer();
         let sum = 0,
@@ -202,7 +231,7 @@ window.seekScene = (time) => new Promise((resolve) => {
         (window as unknown as HostWindow).sceneErrors.slice(0, 50),
       )),
     );
-    return { frames, errors, loaded, layout };
+    return { frames, errors, loaded, layout, bounds };
   } finally {
     await browser.close().catch(() => {});
     server.close();

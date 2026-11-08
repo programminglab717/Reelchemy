@@ -578,3 +578,18 @@ Add a selected-layer duplicate action to the canvas and advanced layer controls.
 - The writer sees three reference scenes: a kit-built diagram (cache-aside with Redis and PostgreSQL), a portrait data story (compound growth) and a hand-drawn SVG diagram (a PostgreSQL index lookup). Each passes its own checks in the test suite.
 - Rings and connectors re-measure their elements when they start drawing, so a ring around a counter or typed code frames its final size.
 - Developer tool: `scripts/motion-preview.ts` writes a contact sheet of a scene (optionally at given times), with errors and layout notes.
+
+## 0.72.0 — 2026-11-08
+
+- **Videos fit the frame.** Earlier AI-planned films could place content partly outside the video frame, so the preview and video showed only part of a scene.
+  - AI-planned layered scenes (new plans and scene revisions) are now fitted to the frame when they are saved:
+    - every layer's box and every keyframe position stays inside the frame;
+    - text too large for its box is shrunk to an estimated fit.
+
+    Previously the layout could extend up to a full frame past the edge, and only the export pulled static layers back in. Export still measures real text in the browser and adjusts further.
+
+  - Code scenes have a safety net. The director measures the scene's content (text, icons, images, canvases and drawn strokes) half a second before the scene ends. If it extends past the stage after the review rounds, the content is scaled and moved inside the text safe margins. The background still fills the frame. The film's summary says how many scenes were scaled.
+  - A fitted scene shows its scale in the code editor, with **Show at full size** to remove it. Archives mark fitted scenes with the `code-fit-v1` feature, so older readers refuse them instead of showing them unfitted.
+  - The layout audit no longer reports the fit wrapper itself as content off the stage.
+- The studio preview keeps the video's own shape. Portrait and square previews used to be stretched to the full width of the panel, which letterboxed the video inside a wide box.
+- Test fix: a studio browser case matched an export stage shown in two places at once.

@@ -121,6 +121,30 @@ test("archives carry code scenes under their own required feature", async () => 
       zipSync({ "project.json": strToU8(JSON.stringify(envelope)) }),
     ),
   );
+  // A fitted scene also requires the fit feature, so older readers refuse it.
+  const fitted = structuredClone(project);
+  fitted.timeline!.scenes[0].code = {
+    ...code,
+    fit: { scale: 0.8, x: 40, y: 20 },
+  };
+  const fittedArchive = await exportArchive(fitted);
+  const fittedEnvelope = JSON.parse(
+    strFromU8(unzipSync(fittedArchive)["project.json"]),
+  );
+  assert.deepEqual(fittedEnvelope.requiredFeatures, [
+    "code-scene-v1",
+    "code-fit-v1",
+  ]);
+  assert.deepEqual(
+    (await importArchive(fittedArchive)).timeline!.scenes[0].code!.fit,
+    { scale: 0.8, x: 40, y: 20 },
+  );
+  fittedEnvelope.requiredFeatures = ["code-scene-v1"];
+  await assert.rejects(
+    importArchive(
+      zipSync({ "project.json": strToU8(JSON.stringify(fittedEnvelope)) }),
+    ),
+  );
 });
 
 test("exports serve allowlisted motion files only for films with code scenes", async () => {

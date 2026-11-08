@@ -6,7 +6,7 @@ import {
   type Scene,
   type Timeline,
 } from "../lib/schema";
-import type { MotionCode } from "../motion/document";
+import { motionStages, type MotionCode } from "../motion/document";
 import { previewMotionScene, type MotionPreview } from "../motion/preflight";
 import type { Llm, LlmMessage } from "./llm";
 import {
@@ -27,6 +27,8 @@ export type SceneReport = {
   // Problems still present in the scene that was kept.
   remaining: string[];
   fallback: boolean;
+  // The scene's content was scaled to fit the frame.
+  fitted?: boolean;
 };
 export type DirectorResult = {
   timeline: Timeline;
@@ -49,6 +51,37 @@ export type DirectorOptions = {
 const PLAN_TOKENS = 6000;
 const SCENE_TOKENS = 16000;
 
+// The scale and offset (stage pixels) that bring content inside the stage
+// with a margin, or undefined when it already fits. Content keeps its place
+// where it can and is never enlarged.
+export function frameFit(
+  bounds: { x: number; y: number; w: number; h: number },
+  stage: { width: number; height: number },
+  // The layout audit's safe margins for text.
+  margin = { x: 64, y: 40 },
+) {
+  const inside =
+    bounds.x >= -1 &&
+    bounds.y >= -1 &&
+    bounds.x + bounds.w <= stage.width + 1 &&
+    bounds.y + bounds.h <= stage.height + 1;
+  if (inside) return undefined;
+  const scale = Math.max(
+    0.3,
+    Math.min(
+      1,
+      (stage.width - margin.x * 2) / bounds.w,
+      (stage.height - margin.y * 2) / bounds.h,
+    ),
+  );
+  const place = (start: number, size: number, room: number, edge: number) =>
+    Math.min(Math.max(start, edge), room - edge - size * scale) - start * scale;
+  return {
+    scale: Math.floor(scale * 1000) / 1000,
+    x: Math.round(place(bounds.x, bounds.w, stage.width, margin.x)),
+    y: Math.round(place(bounds.y, bounds.h, stage.height, margin.y)),
+  };
+}
 // Times to sample a scene of `seconds` for review stills.
 export function reviewTimes(seconds: number) {
   return [0.12, 0.28, 0.45, 0.62, 0.8, 1].map(
@@ -156,7 +189,9 @@ async function writeScene(
   const { llm, signal } = context;
   const scene = plan.scenes[index];
   let code: MotionCode | undefined;
-  let best: { code: MotionCode; problems: string[] } | undefined;
+  let best:
+    | { code: MotionCode; problems: string[]; bounds: MotionPreview["bounds"] }
+    | undefined;
   let approved = false,
     attempts = 0;
   context.step("Writing", 0);
@@ -196,10 +231,12 @@ async function writeScene(
       durationSeconds: scene.seconds,
       times,
       auditAt: times.slice(1),
+      // The finished composition, before any closing exit.
+      boundsAt: Math.max(0, scene.seconds - 0.5),
     });
     const problems = sceneProblems(result, scene.seconds);
     if (!best || problems.length <= best.problems.length)
-      best = { code, problems };
+      best = { code, problems, bounds: result.bounds ?? null };
     // Clean, and no images to judge by: accept without another call.
     if (
       round === context.maxRevisions ||
@@ -224,7 +261,16 @@ async function writeScene(
     });
     context.step("Reviewing", 0.7);
   }
-  const kept = best ?? { code: fallbackScene(plan, index), problems: [] };
+  const kept = best ?? {
+    code: fallbackScene(plan, index),
+    problems: [],
+    bounds: null,
+  };
+  // Whatever the model did, the finished composition fits the frame.
+  const fit = kept.bounds
+    ? frameFit(kept.bounds, motionStages[context.brief.format])
+    : undefined;
+  if (fit) kept.code = { ...kept.code, fit };
   return {
     code: kept.code,
     report: {
@@ -233,6 +279,7 @@ async function writeScene(
       approved: approved && !!best && !best.problems.length,
       remaining: kept.problems,
       fallback: !best,
+      fitted: !!fit,
     },
   };
 }

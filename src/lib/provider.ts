@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { fitLayersToFrame } from "./frame-fit";
 import {
   timelineSchema,
   type CreativeBrief,
@@ -115,7 +116,8 @@ export async function generatePlan(
   )
     throw new ProviderError("response");
   if (timeline.format !== brief.format) throw new ProviderError("response");
-  return { timeline, provider };
+  // Models misjudge fractions and text sizes; keep every layer in the frame.
+  return { timeline: fitLayersToFrame(timeline), provider };
 }
 
 function providerPayload(

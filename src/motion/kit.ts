@@ -8,7 +8,10 @@ import { gsapPlugins, motionFonts } from "./libraries";
 export const KIT_SOURCE = String.raw`(() => {
   const config = window.__REELCHEMY_CONFIG__;
   const icons = window.__reelchemyIcons || {};
-  const stage = document.getElementById("stage");
+  // The frame (background, theme) and the content root, which differ when the
+  // scene's content is scaled to fit the frame.
+  const frame = document.getElementById("stage");
+  const stage = document.getElementById("r-fit") || frame;
   const NS = "http://www.w3.org/2000/svg";
   const escape = (value) => String(value).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   const iconNode = ([tag, attributes]) =>
@@ -596,15 +599,15 @@ export const KIT_SOURCE = String.raw`(() => {
   // --r-muted, --r-accent, --r-accent-1…6, --r-display, --r-body) and the stage background.
   function theme(t) {
     const o = t || {};
-    const set = (k, v) => { if (v) stage.style.setProperty(k, v); };
+    const set = (k, v) => { if (v) frame.style.setProperty(k, v); };
     set("--r-bg", o.background); set("--r-surface", o.surface); set("--r-text", o.text); set("--r-muted", o.muted);
     (o.accents || []).forEach((c, i) => set("--r-accent-" + (i + 1), c));
     if (o.accents && o.accents[0]) set("--r-accent", o.accents[0]);
     if (o.displayFont) set("--r-display", "'" + o.displayFont + "'");
     if (o.bodyFont) set("--r-body", "'" + o.bodyFont + "'");
-    if (o.background) stage.style.background = o.background;
-    if (o.text) stage.style.color = o.text;
-    if (o.bodyFont) stage.style.fontFamily = "'" + o.bodyFont + "', sans-serif";
+    if (o.background) frame.style.background = o.background;
+    if (o.text) frame.style.color = o.text;
+    if (o.bodyFont) frame.style.fontFamily = "'" + o.bodyFont + "', sans-serif";
     return R;
   }
   function accent(i) {

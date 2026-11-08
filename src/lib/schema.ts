@@ -122,6 +122,17 @@ export const motionCodeSchema = z
       .array(z.enum(["d3"]))
       .max(4)
       .optional(),
+    // Scales and moves the scene's content (not its background) so it fits
+    // the frame; set by the director when a scene's finished composition
+    // would otherwise extend past the stage. Stage pixels.
+    fit: z
+      .object({
+        scale: z.number().min(0.3).max(1),
+        x: z.number().min(-4000).max(4000),
+        y: z.number().min(-4000).max(4000),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 export const MAX_SCENE_FRAMES = 600;

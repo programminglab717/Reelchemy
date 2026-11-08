@@ -2690,3 +2690,7 @@ main.account-page {
   margin: 0 6px 0 0;
   vertical-align: middle;
 }
+.layer-editor p.code-fit {
+  font-size: 13px;
+  color: var(--ink);
+}

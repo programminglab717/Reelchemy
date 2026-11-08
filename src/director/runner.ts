@@ -104,11 +104,15 @@ function summarize(scenes: SceneReport[], verb: string) {
   const fixed = scenes.filter((s) => s.attempts > 1).length;
   const open = scenes.filter((s) => s.remaining.length).length;
   const fallback = scenes.filter((s) => s.fallback).length;
+  const fitted = scenes.filter((s) => s.fitted).length;
   return [
     `AI director ${verb} ${scenes.length} ${scenes.length === 1 ? "scene" : "scenes"}: ${scenes.map((s) => s.title).join(" · ")}.`,
     fixed ? `${fixed} improved after reviewing test renders.` : "",
     open
       ? `${open} still ${open === 1 ? "has" : "have"} minor issues the checks noticed; preview before exporting.`
+      : "",
+    fitted
+      ? `${fitted} ${fitted === 1 ? "was" : "were"} scaled slightly to fit the frame.`
       : "",
     fallback
       ? `${fallback} could not be animated and ${fallback === 1 ? "is" : "are"} a simple title card; revise ${fallback === 1 ? "it" : "them"} with an instruction.`

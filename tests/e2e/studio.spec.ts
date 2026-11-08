@@ -416,7 +416,9 @@ test("scene-only preview and generic character/arrow/camera primitives render to
     .locator("summary")
     .filter({ hasText: /^Export activity$/ })
     .click();
+  // The stage can be listed both in the activity log and in the job's
+  // current-stage line at the same moment.
   await expect(
-    page.getByText(/Verifying encoded frames and scene previews/),
+    page.getByText(/Verifying encoded frames and scene previews/).first(),
   ).toBeVisible();
 });

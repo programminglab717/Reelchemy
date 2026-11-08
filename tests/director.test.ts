@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { directFilm, sceneProblems } from "../src/director/director";
+import { directFilm, frameFit, sceneProblems } from "../src/director/director";
+import { previewMotionScene } from "../src/motion/preflight";
 import { parsePlan, parseScene } from "../src/director/prompts";
 import type { Llm } from "../src/director/llm";
 import { timelineSchema, totalFrames } from "../src/lib/schema";
@@ -186,6 +187,7 @@ test("problems name errors, empty frames and frozen scenes", () => {
       loaded: true,
       errors: ["ReferenceError: x is not defined\n at line 1"],
       layout: ["At 2.0s: Text #a overlaps text #b."],
+      bounds: null,
       frames: [
         frame(1, 10, null),
         frame(4, 0.5, 0.01),
@@ -204,3 +206,62 @@ test("problems name errors, empty frames and frozen scenes", () => {
     "At 2.0s: Text #a overlaps text #b.",
   ]);
 });
+
+test("a fit brings overflowing content inside the stage and leaves fitting content alone", () => {
+  const stage = { width: 1920, height: 1080 };
+  assert.equal(frameFit({ x: 100, y: 100, w: 1600, h: 800 }, stage), undefined);
+  // 2400 px wide content, starting at 100: scaled to fit within the margins.
+  const fit = frameFit({ x: 100, y: 200, w: 2400, h: 600 }, stage)!;
+  assert(Math.abs(fit.scale - 1792 / 2400) < 0.002);
+  const left = 100 * fit.scale + fit.x,
+    right = (100 + 2400) * fit.scale + fit.x;
+  assert(left >= 63.5 && right <= 1920 - 63, `${left}..${right}`);
+  // Content that only sticks out at the bottom moves up without shrinking.
+  const shifted = frameFit({ x: 200, y: 700, w: 800, h: 500 }, stage)!;
+  assert.equal(shifted.scale, 1);
+  assert.equal(700 + shifted.y + 500, 1080 - 40);
+});
+
+test(
+  "the director scales a scene whose finished composition overflows the frame",
+  { timeout: 120000 },
+  async () => {
+    const wide = `<scene><html><div class="t">An extremely long headline that runs off the frame</div></html>
+<css>#stage{background:#0b1020}.t{position:absolute;left:300px;top:400px;white-space:nowrap;font:700 110px "Space Grotesk";color:#fff}</css>
+<js>gsap.from(".t",{opacity:0,duration:.5});</js></scene>`;
+    const llm: Llm = async ({ system }) =>
+      system.includes("creative director")
+        ? {
+            text: JSON.stringify({ ...plan, scenes: [plan.scenes[0]] }),
+            truncated: false,
+          }
+        : { text: wide, truncated: false };
+    const result = await directFilm({
+      brief: { prompt: "Explain caching", duration: 6, format: "landscape" },
+      llm,
+      vision: false,
+      maxRevisions: 0,
+    });
+    const code = result.timeline.scenes[0].code!;
+    assert(code.fit && code.fit.scale < 0.8, JSON.stringify(code.fit));
+    assert.equal(result.scenes[0].fitted, true);
+    const check = await previewMotionScene({
+      code,
+      format: "landscape",
+      durationSeconds: 6,
+      times: [5.5],
+      boundsAt: 5.5,
+      auditAt: [5.5],
+    });
+    assert.deepEqual(check.errors, []);
+    const b = check.bounds!;
+    assert(
+      b.x >= 0 && b.x + b.w <= 1920 && b.y >= 0 && b.y + b.h <= 1080,
+      JSON.stringify(b),
+    );
+    assert(
+      !check.layout.some((note) => /outside the stage/.test(note)),
+      check.layout.join(" / "),
+    );
+  },
+);

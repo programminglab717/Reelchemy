@@ -58,7 +58,8 @@ export function CodeSceneEditor({
     draft.html !== saved.html ||
     draft.css !== saved.css ||
     draft.js !== saved.js ||
-    !!draft.libraries?.length !== !!saved.libraries?.length;
+    !!draft.libraries?.length !== !!saved.libraries?.length ||
+    !!draft.fit !== !!saved.fit;
   function apply() {
     const parsed = motionCodeSchema.safeParse(draft);
     if (!parsed.success) {
@@ -147,6 +148,23 @@ export function CodeSceneEditor({
         />{" "}
         Load d3 for this scene
       </label>
+      {draft.fit && (
+        <p className="code-fit" aria-label="Fitted to frame">
+          Scaled to {Math.round(draft.fit.scale * 100)}% so the finished
+          composition fits the frame.{" "}
+          <button
+            type="button"
+            className="subtle"
+            onClick={() => {
+              const { fit: _omit, ...rest } = draft;
+              void _omit;
+              setDraft(rest);
+            }}
+          >
+            Show at full size
+          </button>
+        </p>
+      )}
       {problem && (
         <p className="error" role="alert">
           {problem}

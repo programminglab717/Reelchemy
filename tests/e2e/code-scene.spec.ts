@@ -107,3 +107,27 @@ test("a scene can be written in code, edited, checked for errors and kept", asyn
   expect(Math.abs(g - 0x34)).toBeLessThan(10);
   expect(Math.abs(b - 0x56)).toBeLessThan(10);
 });
+
+test("portrait and square previews keep the video's own shape", async ({
+  page,
+  request,
+}) => {
+  for (const [format, ratio] of [
+    ["portrait", 720 / 1280],
+    ["square", 1],
+    ["landscape", 1280 / 720],
+  ] as const) {
+    await request.post("/api/projects", {
+      data: { prompt: `Shape ${format}`, duration: 5, format, blank: true },
+    });
+    await page.goto("/");
+    await page
+      .getByRole("button", { name: `Shape ${format}`, exact: false })
+      .click();
+    const player = page.locator(".player-wrap > div").first();
+    await expect(player).toBeVisible();
+    const box = (await player.boundingBox())!;
+    expect(Math.abs(box.width / box.height - ratio)).toBeLessThan(0.02);
+    expect(box.height).toBeLessThanOrEqual(471);
+  }
+});

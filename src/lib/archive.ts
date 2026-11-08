@@ -167,15 +167,18 @@ const envelopeSchema = z.discriminatedUnion("version", [
           "layer-mask-v1",
           "custom-font-v1",
           "code-scene-v1",
+          "code-fit-v1",
         ]),
       )
       .min(1)
-      .max(8)
+      .max(9)
       .refine(
         (features) =>
           (features.includes("keyframe-rotation-v1") ||
             features.includes("layer-mask-v1") ||
             features.includes("custom-font-v1") ||
+            features.includes("code-scene-v1")) &&
+          (!features.includes("code-fit-v1") ||
             features.includes("code-scene-v1")) &&
           new Set(features).size === features.length,
       ),
@@ -185,6 +188,11 @@ const envelopeSchema = z.discriminatedUnion("version", [
 function hasCodeScene(project: Pick<Project, "timeline" | "revisions">) {
   return [project.timeline, ...project.revisions.map((r) => r.timeline)].some(
     (t) => t?.scenes.some((s) => !!s.code),
+  );
+}
+function hasCodeFit(project: Pick<Project, "timeline" | "revisions">) {
+  return [project.timeline, ...project.revisions.map((r) => r.timeline)].some(
+    (t) => t?.scenes.some((s) => !!s.code?.fit),
   );
 }
 function hasCustomFont(
@@ -346,6 +354,7 @@ export async function exportArchive(project: Project) {
               ...(layerMask ? ["layer-mask-v1"] : []),
               ...(customFont ? ["custom-font-v1"] : []),
               ...(codeScene ? ["code-scene-v1"] : []),
+              ...(hasCodeFit(input) ? ["code-fit-v1"] : []),
             ],
           }
         : {}),
@@ -463,6 +472,7 @@ export async function importArchive(
       ...(hasLayerMask(input) ? ["layer-mask-v1"] : []),
       ...(hasCustomFont(input) ? ["custom-font-v1"] : []),
       ...(hasCodeScene(input) ? ["code-scene-v1"] : []),
+      ...(hasCodeFit(input) ? ["code-fit-v1"] : []),
     ];
     if (
       required.length !== envelope.requiredFeatures.length ||

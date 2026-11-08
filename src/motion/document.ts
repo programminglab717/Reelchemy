@@ -14,6 +14,8 @@ export type MotionCode = {
   css: string;
   js: string;
   libraries?: OptionalMotionLibrary[];
+  // Content scale and offset (stage pixels) that keep it inside the frame.
+  fit?: { scale: number; x: number; y: number };
 };
 export const motionStages = {
   landscape: { width: 1920, height: 1080 },
@@ -41,6 +43,7 @@ export function motionDocument(options: MotionDocumentOptions) {
   const base = options.baseUrl.replace(/\/+$/, "");
   const origin = new URL(base).origin;
   const stage = motionStages[options.format];
+  const fit = options.code.fit;
   const scale = options.width / stage.width;
   const config = {
     fps: options.fps,
@@ -85,7 +88,11 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:$
 <script>window.__REELCHEMY_CONFIG__=${JSON.stringify(config)};</script>
 <script>${scriptSafe(CLOCK_SOURCE)}</script>
 ${scripts.map((file) => `<script src="${base}/${file}"></script>`).join("\n")}
-</head><body><div id="stage">${options.code.html}</div>
+</head><body><div id="stage">${
+    fit
+      ? `<div id="r-fit" style="position:absolute;left:0;top:0;width:${stage.width}px;height:${stage.height}px;transform-origin:0 0;transform:translate(${fit.x}px,${fit.y}px) scale(${fit.scale})">${options.code.html}</div>`
+      : options.code.html
+  }</div>
 <script>${scriptSafe(KIT_SOURCE)}</script>
 <script>window.__reelchemyGate(window.__reelchemyFonts.then(()=>{try{(function(R,gsap){${scriptSafe(options.code.js)}
 })(window.R,window.gsap);}catch(error){parent.postMessage({reelchemy:"error",message:String(error&&error.stack||error).slice(0,2000)},"*");}}));</script>

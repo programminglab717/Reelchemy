@@ -1106,8 +1106,12 @@ export function Studio({
                         compositionHeight={videoDimensions(timeline).height}
                         controls
                         style={{
+                          // Keep the video's own shape: at most 470 px tall,
+                          // so portrait and square previews are not widened.
                           width: "100%",
-                          maxHeight: 470,
+                          maxWidth:
+                            (470 * videoDimensions(timeline).width) /
+                            videoDimensions(timeline).height,
                           aspectRatio: `${videoDimensions(timeline).width}/${videoDimensions(timeline).height}`,
                         }}
                       />
