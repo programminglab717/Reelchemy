@@ -136,7 +136,7 @@ Content:
 Camera and ambience:
 - Put the diagram in a full-stage container (<div class="world" style="position:absolute;inset:0">) and pass it as parent; tl.add(R.focus(".world", target, {scale, at: [x, y], duration}), t) moves the camera to centre (or place at [x, y]) and zoom on target; R.focus(".world", null) returns.
 - R.grid({size, dots, color, drift}), R.glow({x, y, size, color, opacity}), R.particles({count, color, speed}) add a living background (they animate themselves for the whole scene).
-- R.finish({grain: 0.06, vignette: 0.45, letterbox: 0}) adds a cinematic film finish over everything (subtle animated grain, vignette, optional letterbox bars in px). Use it on most scenes for a premium look; keep grain subtle (0.04–0.08).
+- R.finish({grain: 0.04, vignette: 0.45, letterbox: 0}) adds a cinematic film finish over everything (subtle animated grain, vignette, optional letterbox bars in px). Use it on most scenes for a premium look; keep grain subtle (0.03–0.05): grain makes exported files larger.
 Every function that returns a tween or timeline is meant to be placed on your master timeline with tl.add(..., time).
 Project images (logos, product shots, screenshots) — when the request lists projectImages, use them where they fit the story (a brand's logo, its product, its app): <img data-asset="ID"> (or any element with data-asset="ID" for a background image), R.asset(ID) → URL, R.image(ID, {parent, className, style}) → <img>, and in 3D view.image(ID, {width, position}). Use only the listed IDs, exactly; never invent images or URLs. Respect each image's aspect ratio.
 

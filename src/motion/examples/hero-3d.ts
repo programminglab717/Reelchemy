@@ -22,6 +22,7 @@ export const hero3dScene: MotionCode = {
 .pin b{font:700 28px var(--r-mono);color:#7dd3fc;margin-right:8px}`,
   js: `
 R.theme({ background: "#03050b", accents: ["#7dd3fc", "#c4b5fd"] });
+R.finish({ grain: 0.04, vignette: 0.45 });
 const view = R.three({ camera: [5.5, 1.4, 12], target: [1.4, 0.2, 0], bloom: { strength: 0.5 }, fog: { color: "#03050b", near: 12, far: 30 } });
 view.particles({ count: 600, spread: [30, 14, 24], color: "#93c5fd", size: 0.035, opacity: 0.6 });
 view.floor({ y: -2.2, color: "#04070f", grid: "#0f1a33" });

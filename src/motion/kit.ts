@@ -853,7 +853,17 @@ export const KIT_SOURCE = String.raw`(() => {
         for (let i = 0; i < b.count; i++) for (let j = 0; j < 3; j++) positions[i * 3 + j] = (Math.random() - 0.5) * b.spread[j];
         const geometry = new T.BufferGeometry();
         geometry.setAttribute("position", new T.BufferAttribute(positions, 3));
-        return place(new T.Points(geometry, new T.PointsMaterial({ color: color(b.color), size: b.size, transparent: true, opacity: b.opacity, depthWrite: false, blending: T.AdditiveBlending })), b);
+        // A soft round dot (points are square without a sprite).
+        const dot = document.createElement("canvas");
+        dot.width = dot.height = 64;
+        const dc = dot.getContext("2d"), gradient = dc.createRadialGradient(32, 32, 0, 32, 32, 32);
+        gradient.addColorStop(0, "rgba(255,255,255,1)");
+        gradient.addColorStop(0.4, "rgba(255,255,255,0.6)");
+        gradient.addColorStop(1, "rgba(255,255,255,0)");
+        dc.fillStyle = gradient;
+        dc.fillRect(0, 0, 64, 64);
+        const sprite = new T.CanvasTexture(dot);
+        return place(new T.Points(geometry, new T.PointsMaterial({ color: color(b.color), size: b.size * 2, map: sprite, transparent: true, opacity: b.opacity, depthWrite: false, blending: T.AdditiveBlending })), b);
       },
       // A glossy floor with a faint grid, for objects to stand on.
       floor(q) {
@@ -895,7 +905,7 @@ export const KIT_SOURCE = String.raw`(() => {
   // letterbox bars. The grain moves with the frame time (not Math.random), so
   // preview and export match. R.finish({ grain: 0.06, vignette: 0.45, letterbox: 0 })
   function finish(options) {
-    const o = Object.assign({ grain: 0.06, vignette: 0.45, letterbox: 0 }, options || {});
+    const o = Object.assign({ grain: 0.04, vignette: 0.45, letterbox: 0 }, options || {});
     const layer = document.createElement("div");
     layer.className = "r-finish";
     css(layer, { position: "absolute", left: 0, top: 0, width: config.stage.width, height: config.stage.height, pointerEvents: "none", zIndex: 1000 });
@@ -918,12 +928,16 @@ export const KIT_SOURCE = String.raw`(() => {
       }
       ctx.putImageData(data, 0, 0);
       const g = document.createElement("div");
-      css(g, { position: "absolute", inset: 0, backgroundImage: 'url("' + c.toDataURL() + '")', backgroundSize: size + "px " + size + "px", opacity: o.grain, mixBlendMode: "overlay" });
+      // 2×2-pixel grain: as filmic, and it compresses far better than
+      // per-pixel noise.
+      css(g, { position: "absolute", inset: 0, backgroundImage: 'url("' + c.toDataURL() + '")', backgroundSize: size * 2 + "px " + size * 2 + "px", imageRendering: "pixelated", opacity: o.grain, mixBlendMode: "overlay" });
       layer.appendChild(g);
       (window.__reelchemyDraw = window.__reelchemyDraw || []).push((now) => {
-        const f = Math.round(now / (1000 / config.fps));
+        // A new grain pattern every 4 frames: still filmic, and far smaller
+        // files than noise that changes every frame.
+        const f = Math.floor(Math.round(now / (1000 / config.fps)) / 4);
         const h = Math.imul(f + 1, 2654435761) >>> 0;
-        g.style.backgroundPosition = (h % size) + "px " + ((h >>> 8) % size) + "px";
+        g.style.backgroundPosition = (h % size) * 2 + "px " + ((h >>> 8) % size) * 2 + "px";
       });
     }
     if (o.letterbox > 0) {

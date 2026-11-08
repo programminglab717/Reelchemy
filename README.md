@@ -23,7 +23,17 @@ Scene code runs on a fixed stage (1920×1080, 1080×1920 or 1080×1080) under a 
 - optional d3 7, Lucide icons, and the Inter, Space Grotesk and JetBrains Mono fonts;
 - the kit `R`: connectors routed between elements (`R.connect`), packets travelling along them (`R.flow`), diagram nodes (`R.node`), syntax-highlighted code that types itself (`R.code`), counters, bar charts, emphasis rings, a camera (`R.focus`), and backgrounds (`R.grid`, `R.glow`, `R.particles`).
 
-`src/motion/examples/` holds three reference scenes (two landscape diagrams and a portrait data story). To preview a scene from the command line, run `npx tsx scripts/motion-preview.ts scene.json sheet.png landscape 15`; it writes a contact sheet and reports errors and layout notes.
+`src/motion/examples/` holds four reference scenes: two landscape diagrams, a portrait data story and a 3D product hero shot.
+
+**3D, images, references and presets (0.73).**
+
+- A scene that lists `<libraries>three</libraries>` can use `R.three` for lit 3D: boxes, extruded logos, 3D text and icon cards, particles, bloom and camera moves, with HTML type on top.
+- Uploaded images can be used in code scenes (`<img data-asset="ID">`, `R.asset`, `R.image`, `view.image`).
+- A project video or image can be the style reference for a revision.
+- The composer offers style presets and **Extra polish**.
+- `R.finish` adds grain, a vignette and letterbox bars.
+
+To render a scene file through the real export pipeline, run `npx tsx scripts/render-showcase.ts --scene=scene.json --seconds=10`. To preview a scene from the command line, run `npx tsx scripts/motion-preview.ts scene.json sheet.png landscape 15`; it writes a contact sheet and reports errors and layout notes.
 
 In the studio, a code scene opens in a code editor (HTML, CSS and JavaScript, with Apply, Revert and the errors the scene throws in the player). A layered scene can be turned into code with **Write scene in code**. Revising a code scene by instruction sends it to the director, which keeps the scene's length.
 

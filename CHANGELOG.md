@@ -593,3 +593,21 @@ Add a selected-layer duplicate action to the canvas and advanced layer controls.
   - The layout audit no longer reports the fit wrapper itself as content off the stage.
 - The studio preview keeps the video's own shape. Portrait and square previews used to be stretched to the full width of the panel, which letterboxed the video inside a wide box.
 - Test fix: a studio browser case matched an export stage shown in two places at once.
+
+## 0.73.0 — 2026-11-08
+
+Closer to dedicated AI motion-graphics tools: 3D, the maker's own images, style references and presets.
+
+- **3D scenes.** A code scene may list `<libraries>three</libraries>` and use **R.three**.
+  - three.js 0.186.1 loads as ES modules through an import map. The served files are exactly its core and a few add-ons (rounded boxes, SVG shapes, studio lighting, bloom) with the files they import.
+  - R.three gives a lit WebGL scene behind the scene's HTML: environment lighting, ACES tone mapping, optional bloom, fog and shadows.
+  - Building blocks: rounded boxes, spheres and cylinders; extruded SVG logos; crisp 3D text and icon cards; soft particles; a floor; the project's images as pictures; an orbit tween; and screen() to pin HTML labels to 3D points.
+  - The clock draws WebGL once per captured frame. A 10-second 1080p 3D scene exports in about 5 minutes on the software renderer.
+- **The maker's images in code scenes.** Uploaded logos, product shots and screenshots can be used with `data-asset`, R.asset, R.image and view.image.
+  - Scenes declare their images; saving checks they belong to the project. The host page passes the bytes into the sandboxed scene, which cannot fetch them itself.
+  - The director gets the image catalog. The code editor lists images with Insert. Archives mark such scenes (`code-asset-v1`) and rename IDs inside code on import.
+- **Style reference.** A project video or image can be chosen as a style reference for a revision. The director builds a contact sheet of 8 frames and the video's cut rhythm, and asks the planner and writer to match its look and pacing, but not its content.
+- **Style presets** in the composer: tech explainer, product launch (3D), kinetic typography, data story, clean and light, social reel. **Extra polish** allows four review rounds per scene.
+- **Film finish:** R.finish adds subtle grain (a new pattern every 4 frames, which keeps files reasonable), a vignette and letterbox bars.
+- Stronger composition guidance (fill the frame, layered depth, tight camera framing), and a fourth reference scene: a 3D product hero shot.
+- Developer tool: `scripts/render-showcase.ts` renders the reference scenes, or one scene file, through the export pipeline.
