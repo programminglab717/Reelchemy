@@ -1496,6 +1496,51 @@ Goal from the owner: output on par with AI motion-graphics tools that write ever
 - **Complete backend/native suite on the frozen 0.73 tree** (non-root): **613/613** in 938 seconds.
 - **Browser checks:** **16/16** in 7.5 minutes. New cases cover a 3D scene in the studio player, and an uploaded image inserted into a code scene whose colour reaches the exported MP4.
 - **Film grain** that changed every frame inflated a 10-second 1080p export to 41–51 MB. Changing it every 4 frames brought that to 16.7 MB.
+- **Hosted CI failures and their real cause:**
+  1. The production image's browser check failed the 3D preview three times: first "three.js could not be loaded" (ES modules through an import map), then twice "R.three needs <libraries>three</libraries>" after three.js became one plain script.
+  2. The cause was in the browser test setup, not the app. The shared test fixture forced an `Origin` header onto every request of the browser context, so that direct API calls pass the server's origin check. That header also reached the sandboxed code-scene documents, whose real origin is opaque. The production image uses Debian's Chromium 156, which refuses such script requests (`net::ERR_INVALID_ARGUMENT`). The Chromium 153 used locally accepted them. Reproduced locally with Debian's Chromium 156 package: every scene script after the first failed, and the network log showed the forced header.
+  3. Fix: the fixture now adds `Origin` only to direct API calls. Real browsers never send a forged Origin, and the studio's writes already carry their own. With Chromium 156 in production HTTPS mode, the code-scene, director, account-switch, mail and health browser tests pass, including the 3D preview.
+  4. Along the way three.js became one plain script and is now pre-built and committed (`src/motion/vendor/three.js`, checked by a unit test), so the web server never runs a compiler. Scene script tags report a failed load by file name; that report is what exposed the real cause.
+  5. A first attempt also switched every export to software GL. That changed 2D compositing and failed five pixel-parity checks, so it was reverted. Only the flag permitting software WebGL remains.
+- **Not verified:** a live run with a real model. The owner will run it with their own key. Visual quality was judged from contact sheets of the reference scenes, not from model output.
+
+## Videos fit the frame — 0.72
+
+The owner reported that earlier videos extended past the video frame, so only part of each scene showed.
+
+**Causes found:**
+
+- AI-planned layered scenes could set a layer's position and size so their sum passed the edge (each was bounded, their sum was not), and could choose text too large for its box.
+- The preview showed these uncorrected; export pulled only static layers back in.
+- Code scenes relied on the model fixing layout notes.
+- Separately, the studio preview box was stretched for portrait and square videos. The video itself was letterboxed correctly inside it.
+
+**Results:**
+
+- **Complete backend/native suite** on the frozen 0.72 tree (non-root): **605/605** in 843 seconds. It adds:
+  - layer and keyframe fitting, and text shrinking;
+  - the fit computation, and a director run whose overflowing scene ends up inside the stage (checked again with a fresh preview);
+  - archives with fits (`code-fit-v1` required, refused without it).
+- **Development-mode browser checks:** **14/14** in 5.5 minutes. New cases cover the preview's shape in all three formats and **Fit to frame** on a scene with a layer past the edge.
+- No false alarms: the demo plans (all formats) and all starter templates are unchanged by the fitting.
+- Visual check: a scene with a 2,390 px content row (headline and six page cards) was cut off at the right edge; with the fit it showed whole at 75% scale, with the background still full-frame.
+
+## 3D, images, style references and presets — 0.73
+
+Goal from the owner: output on par with AI motion-graphics tools that write every frame as code, such as Higgsfield's Katana. The measured gaps were: no 3D or depth, no use of the maker's images, no style reference, no presets, and a flat 2D look with empty compositions.
+
+**Results:**
+
+- **Real exports through the pipeline** (frozen copies, non-root):
+  - the two 2D reference scenes as one 29-second 1080p film: about 6 minutes;
+  - a 6-second 3D test: 3.3 minutes;
+  - the 10-second 3D hero with film finish: 4.7 minutes and 16.7 MB.
+
+  Frames from the MP4s were inspected. WebGL renders in preflight, in the studio player and in exports.
+
+- **Complete backend/native suite on the frozen 0.73 tree** (non-root): **613/613** in 938 seconds.
+- **Browser checks:** **16/16** in 7.5 minutes. New cases cover a 3D scene in the studio player, and an uploaded image inserted into a code scene whose colour reaches the exported MP4.
+- **Film grain** that changed every frame inflated a 10-second 1080p export to 41–51 MB. Changing it every 4 frames brought that to 16.7 MB.
 - **Hosted CI found three problems:**
   1. The production image's browser check failed the 3D preview. The scene's log said "three.js could not be loaded": loading three.js as ES modules through an import map failed in the production HTTPS setup, while plain scripts worked. three.js is now bundled into one plain script.
   2. A first attempt also switched every export to software GL. That changed 2D compositing and failed five pixel-parity checks, so it was reverted.

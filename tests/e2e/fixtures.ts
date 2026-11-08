@@ -67,12 +67,37 @@ export async function mailLink(email: string, subject: string) {
     "Expected test email was not delivered to the private development mailbox.",
   );
 }
+// Direct API calls carry the site's Origin, as the studio's own writes do.
+// Only these calls: an Origin header forced onto every browser request also
+// reaches the sandboxed code-scene documents, whose real origin is opaque, and
+// current Chromium refuses those script loads (net::ERR_INVALID_ARGUMENT).
+const apiMethods = new Set(["get", "post", "put", "patch", "delete", "head"]);
+function withOrigin(request: APIRequestContext, origin: string) {
+  return new Proxy(request, {
+    get(target, property, receiver) {
+      const value = Reflect.get(target, property, receiver);
+      if (typeof value !== "function") return value;
+      if (!apiMethods.has(String(property)) && property !== "fetch")
+        return value.bind(target);
+      return (
+        url: unknown,
+        options: { headers?: Record<string, string> } = {},
+      ) =>
+        value.call(target, url, {
+          ...options,
+          headers: { origin, ...options.headers },
+        });
+    },
+  });
+}
 export const browserTest = base.extend({
   request: async ({ context }, runFixture) => {
-    await context.setExtraHTTPHeaders({
-      origin: process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3001",
-    });
-    await runFixture(context.request);
+    await runFixture(
+      withOrigin(
+        context.request,
+        process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3001",
+      ),
+    );
   },
 });
 export const test = browserTest.extend<{ signedIn: void }>({
