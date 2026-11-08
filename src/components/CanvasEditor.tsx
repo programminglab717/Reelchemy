@@ -10,6 +10,7 @@ import { layerCorners } from "@/lib/layer-geometry";
 import { LayerRotation } from "./LayerRotation";
 import { duplicateLayer } from "@/lib/layer-edit";
 import { previewMotionBaseUrl } from "@/motion/preview";
+import { fitLayersToFrame } from "@/lib/frame-fit";
 
 export function CanvasEditor({
   timeline,
@@ -122,6 +123,39 @@ export function CanvasEditor({
           Snap to canvas
         </label>
       </div>
+      {(() => {
+        // Layers past the frame's edge (or text likely cut off by its box).
+        const fitted = fitLayersToFrame({
+          ...timeline,
+          scenes: [scene],
+        }).scenes[0].layers.map((layer, i) =>
+          scene.layers[i].locked ? scene.layers[i] : layer,
+        );
+        if (JSON.stringify(fitted) === JSON.stringify(scene.layers))
+          return null;
+        return (
+          <div className="frame-fit-notice" role="status">
+            <span>
+              Some layers extend past the video frame, or their text may be cut
+              off by its box.
+            </span>
+            <button
+              type="button"
+              className="subtle"
+              onClick={() =>
+                onChange({
+                  ...timeline,
+                  scenes: timeline.scenes.map((s, i) =>
+                    i === selected ? { ...s, layers: fitted } : s,
+                  ),
+                })
+              }
+            >
+              Fit to frame
+            </button>
+          </div>
+        );
+      })()}
       <p>
         Drag to place a layer; use its corner to resize. Arrow keys move by one
         pixel, Shift by ten. Hold Alt to bypass snapping. Motion and camera

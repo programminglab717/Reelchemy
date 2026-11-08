@@ -131,3 +131,64 @@ test("portrait and square previews keep the video's own shape", async ({
     expect(box.height).toBeLessThanOrEqual(471);
   }
 });
+
+test("a layer past the frame's edge can be fitted back in one click", async ({
+  page,
+  request,
+}) => {
+  const project = await (
+    await request.post("/api/projects", {
+      data: {
+        prompt: "Edge case",
+        duration: 5,
+        format: "landscape",
+        blank: true,
+      },
+    })
+  ).json();
+  const current = await (
+    await request.get(`/api/projects/${project.id}`)
+  ).json();
+  const timeline = structuredClone(current.timeline);
+  timeline.scenes[0].layers = [
+    {
+      id: "wide",
+      kind: "text",
+      x: 0.7,
+      y: 0.4,
+      width: 0.6,
+      height: 0.2,
+      text: "Half of me is outside",
+      color: "#ffffff",
+      fontSize: 48,
+      animation: "none",
+    },
+  ];
+  expect(
+    (
+      await request.patch(`/api/projects/${project.id}`, {
+        data: { timeline, baseRevisionId: current.revisions.at(-1).id },
+      })
+    ).ok(),
+  ).toBe(true);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Edge case", exact: false }).click();
+  await expect(
+    page.getByText("Some layers extend past the video frame"),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Fit to frame" }).click();
+  await expect(
+    page.getByText("Some layers extend past the video frame"),
+  ).toHaveCount(0);
+  await expect
+    .poll(
+      async () => {
+        const saved = (
+          await (await request.get(`/api/projects/${project.id}`)).json()
+        ).timeline.scenes[0].layers[0];
+        return saved.x + saved.width <= 1;
+      },
+      { timeout: 20000 },
+    )
+    .toBe(true);
+});

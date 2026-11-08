@@ -1458,3 +1458,24 @@ Results:
 - **Development-mode browser checks** on a frozen copy: **12/12** in 5.2 minutes. They cover the director's progress, Stop and live code-scene preview; writing, editing, error reporting, refusal and reload of a code scene, with an MP4 export whose frame shows the scene's own background colour (17, 52, 86 for #123456); the studio idea → MP4 flow; and typography.
 - **Regression found and fixed:** the studio idea → MP4 browser case failed deterministically with "Export storage needs operator review". Logging showed the export meter's five-second observation bound expiring while the development worker compiled its renderer bundle; the event loop was blocked for 5.6 seconds. The worker now prepares the bundle before metering. Production uses a prepared bundle and was not affected.
 - **Not verified:** a live run with a real model. The owner will run it with their own key. Visual quality was judged from contact sheets of the reference scenes, not from model output.
+
+## Videos fit the frame — 0.72
+
+The owner reported that earlier videos extended past the video frame, so only part of each scene showed.
+
+**Causes found:**
+
+- AI-planned layered scenes could set a layer's position and size so their sum passed the edge (each was bounded, their sum was not), and could choose text too large for its box.
+- The preview showed these uncorrected; export pulled only static layers back in.
+- Code scenes relied on the model fixing layout notes.
+- Separately, the studio preview box was stretched for portrait and square videos. The video itself was letterboxed correctly inside it.
+
+**Results:**
+
+- **Complete backend/native suite** on the frozen 0.72 tree (non-root): **605/605** in 843 seconds. It adds:
+  - layer and keyframe fitting, and text shrinking;
+  - the fit computation, and a director run whose overflowing scene ends up inside the stage (checked again with a fresh preview);
+  - archives with fits (`code-fit-v1` required, refused without it).
+- **Development-mode browser checks:** **14/14** in 5.5 minutes. New cases cover the preview's shape in all three formats and **Fit to frame** on a scene with a layer past the edge.
+- No false alarms: the demo plans (all formats) and all starter templates are unchanged by the fitting.
+- Visual check: a scene with a 2,390 px content row (headline and six page cards) was cut off at the right edge; with the fit it showed whole at 75% scale, with the background still full-frame.

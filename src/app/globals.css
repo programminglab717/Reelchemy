@@ -2694,3 +2694,16 @@ main.account-page {
   font-size: 13px;
   color: var(--ink);
 }
+.frame-fit-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-left: 4px solid #c58a1d;
+  border-radius: 8px;
+  background: #fbf4e6;
+  font-size: 13px;
+}

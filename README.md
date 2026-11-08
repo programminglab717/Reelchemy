@@ -27,6 +27,12 @@ Scene code runs on a fixed stage (1920×1080, 1080×1920 or 1080×1080) under a 
 
 In the studio, a code scene opens in a code editor (HTML, CSS and JavaScript, with Apply, Revert and the errors the scene throws in the player). A layered scene can be turned into code with **Write scene in code**. Revising a code scene by instruction sends it to the director, which keeps the scene's length.
 
+**Everything stays in the frame.**
+
+- AI-planned layered scenes are fitted when saved: layers, their motion and their text stay inside the frame.
+- If a code scene's finished composition extends past the stage, the director scales and moves its content inside the safe margins; the background still fills the picture. The code editor shows the scale and can remove it.
+- An existing layered scene with layers past the edge shows **Fit to frame** in the canvas.
+
 The director runs inside the web process. A restart marks an unfinished run as failed, and the film is not changed. Its calls are metered like planning; a studio's own key may run `REELCHEMY_AI_OWN_CALLS_PER_STUDIO` calls at once (default 3), which is how many scenes are written in parallel.
 
 ## Run
