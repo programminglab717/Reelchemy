@@ -599,7 +599,7 @@ Add a selected-layer duplicate action to the canvas and advanced layer controls.
 Closer to dedicated AI motion-graphics tools: 3D, the maker's own images, style references and presets.
 
 - **3D scenes.** A code scene may list `<libraries>three</libraries>` and use **R.three**.
-  - three.js 0.186.1 loads as ES modules through an import map. The served files are exactly its core and a few add-ons (rounded boxes, SVG shapes, studio lighting, bloom) with the files they import.
+  - three.js 0.186.1 and a few add-ons (rounded boxes, SVG shapes, studio lighting, bloom) are bundled once on the server into a single plain script, loaded like GSAP and d3.
   - R.three gives a lit WebGL scene behind the scene's HTML: environment lighting, ACES tone mapping, optional bloom, fog and shadows.
   - Building blocks: rounded boxes, spheres and cylinders; extruded SVG logos; crisp 3D text and icon cards; soft particles; a floor; the project's images as pictures; an orbit tween; and screen() to pin HTML labels to 3D points.
   - The clock draws WebGL once per captured frame. A 10-second 1080p 3D scene exports in about 5 minutes on the software renderer.

@@ -1496,4 +1496,8 @@ Goal from the owner: output on par with AI motion-graphics tools that write ever
 - **Complete backend/native suite on the frozen 0.73 tree** (non-root): **613/613** in 938 seconds.
 - **Browser checks:** **16/16** in 7.5 minutes. New cases cover a 3D scene in the studio player, and an uploaded image inserted into a code scene whose colour reaches the exported MP4.
 - **Film grain** that changed every frame inflated a 10-second 1080p export to 41–51 MB. Changing it every 4 frames brought that to 16.7 MB.
+- **Hosted CI found three problems:**
+  1. The production image's browser check failed the 3D preview. The scene's log said "three.js could not be loaded": loading three.js as ES modules through an import map failed in the production HTTPS setup, while plain scripts worked. three.js is now bundled into one plain script.
+  2. A first attempt also switched every export to software GL. That changed 2D compositing and failed five pixel-parity checks, so it was reverted.
+  3. Only the flag permitting software WebGL remains.
 - **Not verified:** a live run with a real model. Whether a given model writes good 3D scenes from these instructions is unmeasured.
