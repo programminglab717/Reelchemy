@@ -17,3 +17,11 @@ export function chromiumCrashArgs() {
 export const SAME_PROCESS_SANDBOXED_FRAMES = [
   "--disable-features=IsolateSandboxedIframes",
 ];
+
+// WebGL for 3D code scenes on GPU-less machines: ANGLE's software renderer,
+// which recent Chromium versions only use when asked.
+export const SOFTWARE_WEBGL = [
+  "--use-gl=angle",
+  "--use-angle=swiftshader",
+  "--enable-unsafe-swiftshader",
+];

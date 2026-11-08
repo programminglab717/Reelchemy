@@ -4,6 +4,7 @@ import sharp from "sharp";
 import {
   chromiumCrashArgs,
   SAME_PROCESS_SANDBOXED_FRAMES,
+  SOFTWARE_WEBGL,
 } from "../lib/chromium-flags";
 import { serveMotionFile } from "./motion-files";
 import { motionDocument, motionStages, type MotionCode } from "./document";
@@ -125,6 +126,7 @@ window.seekScene = (time) => new Promise((resolve) => {
       "--no-sandbox",
       ...chromiumCrashArgs(),
       ...SAME_PROCESS_SANDBOXED_FRAMES,
+      ...SOFTWARE_WEBGL,
     ],
     timeout: 30000,
   });

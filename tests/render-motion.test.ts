@@ -98,3 +98,41 @@ requestAnimationFrame(function step() {
     }
   },
 );
+
+test(
+  "a 3D code scene exports through the renderer with software WebGL",
+  { timeout: 300000 },
+  async () => {
+    const { renderFilm } = await import("../src/lib/render");
+    const timeline = blankTimeline({
+      prompt: "3D scene",
+      duration: 5,
+      format: "landscape",
+    });
+    timeline.scenes = [
+      {
+        ...timeline.scenes[0],
+        id: "depth",
+        durationFrames: 30,
+        transition: "cut",
+        layers: [],
+        code: {
+          libraries: ["three"],
+          html: "",
+          css: "#stage{background:#000}",
+          // A bright emissive sphere in the centre that slides right.
+          js: `const view = R.three({ camera: [0, 0, 8], background: "#000000", environment: false });
+const ball = view.sphere({ r: 1.2, color: "#000000", emissive: "#ffffff", emissiveIntensity: 3 });
+gsap.to(ball.position, { x: 3, duration: 1, ease: "none" });`,
+        },
+      },
+    ];
+    const output = path.join(root, "export-3d");
+    await renderFilm(timelineSchema.parse(timeline), output);
+    const video = path.join(output, "video.mp4");
+    // Frame 0: the sphere fills the centre; by the last frame it has moved right.
+    assert(brightness(video, 0, 640, 360) > 200, "sphere drawn at the centre");
+    assert(brightness(video, 29, 640, 360) < 60, "the centre is clear later");
+    assert(brightness(video, 0, 40, 40) < 30, "the background stays black");
+  },
+);

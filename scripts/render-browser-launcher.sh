@@ -55,4 +55,6 @@ for argument do
     *) set -- "$@" "$argument" ;;
   esac
 done
-exec "$executable" --renderer-process-limit=4 "--crash-dumps-dir=$crashes" "--disable-features=$features" "$@"
+# 3D code scenes need WebGL on GPU-less servers: opt into Chromium's software
+# renderer (SwiftShader), which recent versions no longer fall back to alone.
+exec "$executable" --renderer-process-limit=4 "--crash-dumps-dir=$crashes" "--disable-features=$features" --enable-unsafe-swiftshader "$@"

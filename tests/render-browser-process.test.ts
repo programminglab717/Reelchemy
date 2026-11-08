@@ -235,7 +235,9 @@ test("the immutable launcher caps renderer processes and strips its private cont
       argv[2],
       "--disable-features=Translate,site-per-process,IsolateSandboxedIframes",
     );
-    assert.deepEqual(argv.slice(3), [
+    // GPU-less servers render 3D scenes' WebGL in software.
+    assert.equal(argv[3], "--enable-unsafe-swiftshader");
+    assert.deepEqual(argv.slice(4), [
       `--user-data-dir=${profile}`,
       "--headless",
       "about:blank",

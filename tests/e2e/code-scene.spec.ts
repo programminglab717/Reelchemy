@@ -224,10 +224,23 @@ test("a 3D scene previews live in the studio player", async ({
       })
     ).ok(),
   ).toBe(true);
+  // Errors the scene reports (for example no WebGL) explain a failure.
+  const sceneErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error" && message.text().startsWith("Code scene"))
+      sceneErrors.push(message.text());
+  });
   await page.goto("/");
   await page.getByRole("button", { name: "Depth", exact: false }).click();
   const scene = page.frameLocator(".player-wrap iframe[title^='Code scene']");
-  await expect(scene.locator("#t")).toHaveText(/^THREE \d+/);
+  try {
+    await expect(scene.locator("#t")).toHaveText(/^THREE \d+/);
+  } catch (error) {
+    throw new Error(
+      `${(error as Error).message}\nScene errors: ${sceneErrors.join(" | ") || "none"}`,
+    );
+  }
+  expect(sceneErrors).toEqual([]);
   await expect(scene.locator("canvas.r-three")).toHaveCount(1);
 });
 
