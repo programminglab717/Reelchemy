@@ -43,6 +43,8 @@ export async function previewMotionScene(input: {
   // A time at which to measure the content's bounds (no still is captured
   // unless it is also one of `times`).
   boundsAt?: number;
+  // Bytes of the project images the scene declares (code.assets).
+  assets?: Record<string, { bytes: Buffer; type: string }>;
 }): Promise<MotionPreview> {
   const stage = motionStages[input.format];
   const width = input.width ?? (input.format === "portrait" ? 540 : 960);
@@ -62,6 +64,16 @@ export async function previewMotionScene(input: {
       res.end(bytes);
       return;
     }
+    const image = /^\/asset\/([a-f0-9-]{36})$/.exec(req.url || "");
+    const file = image ? input.assets?.[image[1]] : undefined;
+    if (file) {
+      res.writeHead(200, {
+        "Content-Type": file.type,
+        "Cache-Control": "no-store",
+      });
+      res.end(file.bytes);
+      return;
+    }
     if (req.url === "/host") {
       // In-page helpers live here rather than in evaluate() callbacks.
       res.writeHead(200, { "Content-Type": "text/html" });
@@ -75,9 +87,21 @@ addEventListener("message", (event) => {
   if (event.source !== scene.contentWindow) return;
   const data = event.data || {};
   if (data.reelchemy === "error" && sceneErrors.length < 50) sceneErrors.push(String(data.message));
+  if (data.reelchemy === "assets" || data.reelchemy === "loaded") sendAssets(event.source);
   if (data.reelchemy === "loaded" && loaded) loaded(true);
   if (replies.has(data.id)) { replies.get(data.id)(data.reelchemy); replies.delete(data.id); }
 });
+let sentTo = null;
+const sendAssets = async (target) => {
+  if (sentTo === target) return;
+  sentTo = target;
+  const files = {};
+  for (const id of ${JSON.stringify(Object.keys(input.assets || {}))}) {
+    const response = await fetch("/asset/" + id);
+    files[id] = { bytes: await response.arrayBuffer(), type: response.headers.get("content-type") };
+  }
+  target.postMessage({ reelchemy: "assets", files }, "*");
+};
 window.loadScene = (doc, wait) => new Promise((resolve) => {
   loaded = resolve;
   setTimeout(() => resolve(false), wait);

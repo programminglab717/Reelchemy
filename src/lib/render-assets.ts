@@ -37,6 +37,8 @@ export async function serveRenderAssets(
           layer.assetId,
           layer.kind === "video" ? "video/mp4" : "image/png",
         );
+  for (const scene of timeline.scenes)
+    for (const id of scene.code?.assets || []) allow(id, "image/png");
   for (const track of timeline.audioTracks || [])
     allow(track.assetId, "audio/wav");
   // A font's served type comes from its verified signature when opened.

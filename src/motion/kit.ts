@@ -53,6 +53,38 @@ export const KIT_SOURCE = String.raw`(() => {
   ].join("\n");
   // First in <head>, so a scene's own CSS wins over these defaults.
   document.head.insertBefore(style, document.head.firstChild);
+  // Project images: the host sends their bytes (the scene cannot fetch them),
+  // and they become local blob URLs, decoded before scene code runs.
+  const assetUrls = {}, assetImages = {};
+  window.__reelchemyAssets = (config.assets || []).length
+    ? new Promise((resolve) => {
+        let received = false;
+        window.addEventListener("message", (event) => {
+          if (received || event.source !== parent || !event.data || event.data.reelchemy !== "assets") return;
+          received = true;
+          const files = event.data.files || {};
+          Promise.all(config.assets.map((id) => {
+            const file = files[id];
+            if (!file) return null;
+            const url = URL.createObjectURL(new Blob([file.bytes], { type: file.type || "image/png" }));
+            assetUrls[id] = url;
+            const image = new Image();
+            image.src = url;
+            assetImages[id] = image;
+            return image.decode().catch(() => {});
+          })).then(() => {
+            for (const el of document.querySelectorAll("[data-asset]")) {
+              const url = assetUrls[el.getAttribute("data-asset")];
+              if (!url) continue;
+              if (el.tagName === "IMG") el.src = url;
+              else el.style.backgroundImage = 'url("' + url + '")';
+            }
+            resolve();
+          });
+        });
+        parent.postMessage({ reelchemy: "assets", ids: config.assets }, "*");
+      })
+    : Promise.resolve();
   // A 3D scene waits for its three.js modules (see the document's module).
   window.__reelchemyThree = config.three
     ? new Promise((resolve) => { window.__reelchemyThreeReady = resolve; })
@@ -799,6 +831,21 @@ export const KIT_SOURCE = String.raw`(() => {
           }
         }, b);
       },
+      // A project image as a flat picture in 3D (screens, product shots, logos).
+      image(id, q) {
+        const b = Object.assign({ width: 3, radius: 0 }, q || {});
+        const img = assetImages[id];
+        if (!img) throw new Error("Image " + id + " is not attached to this scene.");
+        const texture = new T.Texture(img);
+        texture.colorSpace = T.SRGBColorSpace;
+        texture.anisotropy = 8;
+        texture.needsUpdate = true;
+        const ratio = (img.naturalHeight || 1) / (img.naturalWidth || 1);
+        const material = new T.MeshBasicMaterial({ map: texture, transparent: true, toneMapped: false, side: T.DoubleSide });
+        const tint = b.glow ? 1 : 0.9;
+        material.color.setRGB(tint, tint, tint);
+        return place(new T.Mesh(new T.PlaneGeometry(b.width, b.width * ratio), material), b);
+      },
       // Floating points of light (seeded): particles({ count: 400, spread: [20, 10, 20] })
       particles(q) {
         const b = Object.assign({ count: 300, spread: [20, 10, 20], size: 0.04, color: "#93c5fd", opacity: 0.8 }, q || {});
@@ -844,6 +891,17 @@ export const KIT_SOURCE = String.raw`(() => {
     return api;
   }
 
+  // A project image attached to this scene: its URL, or a new <img>.
+  function asset(id) {
+    if (!assetUrls[id]) throw new Error("Image " + id + " is not attached to this scene.");
+    return assetUrls[id];
+  }
+  function image(id, options) {
+    const o = options || {};
+    const img = el("img", { parent: o.parent, className: o.className, style: o.style, attrs: { src: asset(id), alt: "" } });
+    return img;
+  }
+
   const R = window.R = {
     width: config.stage.width,
     height: config.stage.height,
@@ -857,6 +915,7 @@ export const KIT_SOURCE = String.raw`(() => {
     iconNames: () => Object.keys(icons),
     theme, accent, el, node, box, point, layer,
     connect, line, ring, flow, code, highlight, count, bars, focus, grid, glow, particles,
+    asset, image, assetIds: (config.assets || []).slice(),
     three,
   };
   if (window.gsap) {

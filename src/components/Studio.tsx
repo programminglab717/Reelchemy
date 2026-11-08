@@ -1215,6 +1215,9 @@ export function Studio({
                     timeline={timeline}
                     selected={selected}
                     onChange={changeTimeline}
+                    images={(project.assets || []).filter(
+                      (a) => a.mime === "image/png",
+                    )}
                   />
                 ) : (
                   <CanvasEditor

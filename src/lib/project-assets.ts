@@ -21,6 +21,12 @@ export function validateProjectAssets(
           "Visual assets must belong to this project and match the layer type.",
         );
   for (const scene of t.scenes)
+    for (const id of scene.code?.assets || [])
+      if (!project.assets?.some((a) => a.id === id && a.mime === "image/png"))
+        throw new Error(
+          "Images in a code scene must be images uploaded to this project.",
+        );
+  for (const scene of t.scenes)
     for (const layer of scene.layers)
       if (
         layer.fontAssetId &&

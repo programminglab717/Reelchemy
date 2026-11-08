@@ -65,7 +65,11 @@ Reply with JSON only (no markdown), exactly this shape:
 }
 export function plannerUser(
   brief: CreativeBrief,
-  options: { instruction?: string; previous?: FilmPlan } = {},
+  options: {
+    instruction?: string;
+    previous?: FilmPlan;
+    images?: ProjectImage[];
+  } = {},
 ) {
   const stage = motionStages[brief.format];
   return JSON.stringify({
@@ -74,6 +78,12 @@ export function plannerUser(
     canvas: `${brief.format} ${stage.width}x${stage.height}`,
     ...(options.previous
       ? { currentPlan: options.previous, change: options.instruction }
+      : {}),
+    ...(options.images?.length
+      ? {
+          projectImages: options.images.map((i) => i.name),
+          note: "The maker uploaded these images (logos, products, screenshots); feature them where they fit.",
+        }
       : {}),
   });
 }
@@ -125,6 +135,7 @@ Camera and ambience:
 - Put the diagram in a full-stage container (<div class="world" style="position:absolute;inset:0">) and pass it as parent; tl.add(R.focus(".world", target, {scale, at: [x, y], duration}), t) moves the camera to centre (or place at [x, y]) and zoom on target; R.focus(".world", null) returns.
 - R.grid({size, dots, color, drift}), R.glow({x, y, size, color, opacity}), R.particles({count, color, speed}) add a living background (they animate themselves for the whole scene).
 Every function that returns a tween or timeline is meant to be placed on your master timeline with tl.add(..., time).
+Project images (logos, product shots, screenshots) — when the request lists projectImages, use them where they fit the story (a brand's logo, its product, its app): <img data-asset="ID"> (or any element with data-asset="ID" for a background image), R.asset(ID) → URL, R.image(ID, {parent, className, style}) → <img>, and in 3D view.image(ID, {width, position}). Use only the listed IDs, exactly; never invent images or URLs. Respect each image's aspect ratio.
 
 3D (three.js) — add <libraries>three</libraries> and use R.three for depth, product shots, hero moments, logos and objects in space:
 - const view = R.three({camera: [x, y, z], target: [x, y, z], fov, bloom: true | {strength, threshold}, fog: {color, near, far}, background, shadows, exposure}) creates a lit scene (studio environment lighting, ACES tone mapping) on a canvas behind your HTML; HTML you write stays on top, so headlines and labels can sit over the 3D view.
@@ -163,10 +174,17 @@ ${sceneMarkup(hero3dScene)}
 REFERENCE 4 — a 15-second landscape scene drawn by hand with SVG and GSAP plugins, for the craft of custom visuals:
 ${sceneMarkup(postgresIndexScene)}`;
 }
+export type ProjectImage = {
+  id: string;
+  name: string;
+  width?: number;
+  height?: number;
+};
 export function writerUser(
   plan: FilmPlan,
   index: number,
   format: CreativeBrief["format"],
+  images: ProjectImage[] = [],
 ) {
   const scene = plan.scenes[index];
   const stage = motionStages[format];
@@ -185,6 +203,15 @@ export function writerUser(
       stage: `${stage.width}x${stage.height}`,
       durationSeconds: scene.seconds,
     },
+    ...(images.length
+      ? {
+          projectImages: images.map(({ id, name, width, height }) => ({
+            id,
+            name,
+            ...(width && height ? { size: `${width}x${height}` } : {}),
+          })),
+        }
+      : {}),
   });
 }
 export function reviewUser(input: {

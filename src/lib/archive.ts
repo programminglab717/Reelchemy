@@ -168,10 +168,11 @@ const envelopeSchema = z.discriminatedUnion("version", [
           "custom-font-v1",
           "code-scene-v1",
           "code-fit-v1",
+          "code-asset-v1",
         ]),
       )
       .min(1)
-      .max(9)
+      .max(10)
       .refine(
         (features) =>
           (features.includes("keyframe-rotation-v1") ||
@@ -179,6 +180,8 @@ const envelopeSchema = z.discriminatedUnion("version", [
             features.includes("custom-font-v1") ||
             features.includes("code-scene-v1")) &&
           (!features.includes("code-fit-v1") ||
+            features.includes("code-scene-v1")) &&
+          (!features.includes("code-asset-v1") ||
             features.includes("code-scene-v1")) &&
           new Set(features).size === features.length,
       ),
@@ -193,6 +196,11 @@ function hasCodeScene(project: Pick<Project, "timeline" | "revisions">) {
 function hasCodeFit(project: Pick<Project, "timeline" | "revisions">) {
   return [project.timeline, ...project.revisions.map((r) => r.timeline)].some(
     (t) => t?.scenes.some((s) => !!s.code?.fit),
+  );
+}
+function hasCodeAsset(project: Pick<Project, "timeline" | "revisions">) {
+  return [project.timeline, ...project.revisions.map((r) => r.timeline)].some(
+    (t) => t?.scenes.some((s) => !!s.code?.assets?.length),
   );
 }
 function hasCustomFont(
@@ -355,6 +363,7 @@ export async function exportArchive(project: Project) {
               ...(customFont ? ["custom-font-v1"] : []),
               ...(codeScene ? ["code-scene-v1"] : []),
               ...(hasCodeFit(input) ? ["code-fit-v1"] : []),
+              ...(hasCodeAsset(input) ? ["code-asset-v1"] : []),
             ],
           }
         : {}),
@@ -473,6 +482,7 @@ export async function importArchive(
       ...(hasCustomFont(input) ? ["custom-font-v1"] : []),
       ...(hasCodeScene(input) ? ["code-scene-v1"] : []),
       ...(hasCodeFit(input) ? ["code-fit-v1"] : []),
+      ...(hasCodeAsset(input) ? ["code-asset-v1"] : []),
     ];
     if (
       required.length !== envelope.requiredFeatures.length ||
@@ -565,6 +575,19 @@ export async function importArchive(
               throw new Error("Invalid font reference in archived timeline.");
             layer.fontAssetId = id;
           }
+      // Code scenes name their images in code too: rename every mention.
+      for (const s of result.scenes)
+        if (s.code?.assets?.length) {
+          const code = s.code;
+          code.assets = code.assets!.map((old) => {
+            const id = mapping.get(old);
+            if (!id || assets.find((a) => a.id === id)?.mime !== "image/png")
+              throw new Error("Invalid image reference in archived timeline.");
+            for (const part of ["html", "css", "js"] as const)
+              code[part] = code[part].split(old).join(id);
+            return id;
+          });
+        }
       for (const track of result.audioTracks || []) {
         const id = mapping.get(track.assetId),
           asset = assets.find((a) => a.id === id);

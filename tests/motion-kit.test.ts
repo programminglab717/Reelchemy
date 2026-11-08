@@ -197,3 +197,57 @@ test(
     assert(result.frames.every((f) => f.detail > 8));
   },
 );
+
+test(
+  "project images reach code scenes as local URLs, in HTML and in 3D",
+  { timeout: 120000 },
+  async () => {
+    const id = "0b5c3a54-6a4f-4d3e-9f3e-2f1d9a6c7b10";
+    const png = await sharp({
+      create: { width: 200, height: 100, channels: 3, background: "#ff0000" },
+    })
+      .png()
+      .toBuffer();
+    const result = await previewMotionScene({
+      code: {
+        assets: [id],
+        libraries: ["three"],
+        html: `<img class="a" data-asset="${id}" style="position:absolute;left:0;top:0;width:400px;height:200px">`,
+        css: "#stage{background:#000}",
+        js: String.raw`
+const check = (ok, message) => { if (!ok) throw new Error("CHECK " + message); };
+check(R.asset("${id}").startsWith("blob:"), "assets are local blob URLs");
+check(document.querySelector(".a").complete && document.querySelector(".a").naturalWidth === 200, "data-asset images are loaded before scene code runs");
+const img = R.image("${id}", { style: { position: "absolute", left: 1520, top: 0, width: 400, height: 200 } });
+check(img.tagName === "IMG", "R.image makes an image element");
+const view = R.three({ camera: [0, 0, 6], environment: false, background: "#000000" });
+view.image("${id}", { width: 2 });
+let refused = false;
+try { R.asset("11111111-1111-4111-8111-111111111111"); } catch { refused = true; }
+check(refused, "undeclared images are refused");
+`,
+      },
+      assets: { [id]: { bytes: png, type: "image/png" } },
+      format: "landscape",
+      durationSeconds: 1,
+      times: [0.5],
+      width: 960,
+    });
+    assert.deepEqual(result.errors, []);
+    const at = async (x: number, y: number) => [
+      ...(await sharp(result.frames[0].png)
+        .extract({ left: x, top: y, width: 1, height: 1 })
+        .raw()
+        .toBuffer()),
+    ];
+    // Top-left HTML image, top-right R.image, centre 3D picture: all red.
+    for (const [x, y] of [
+      [100, 50],
+      [860, 50],
+      [480, 270],
+    ]) {
+      const [r, g, b] = await at(x, y);
+      assert(r > 180 && g < 60 && b < 60, `${x},${y}: ${r},${g},${b}`);
+    }
+  },
+);

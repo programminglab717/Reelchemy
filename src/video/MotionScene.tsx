@@ -30,6 +30,7 @@ export function MotionScene({
   durationFrames,
   frame,
   baseUrl,
+  assetSources = {},
 }: {
   code: MotionCode;
   sceneId: string;
@@ -39,6 +40,9 @@ export function MotionScene({
   durationFrames: number;
   frame: number;
   baseUrl: string;
+  // URLs of the project's assets; the scene receives the bytes of the images
+  // it declares (it cannot fetch them from its opaque origin).
+  assetSources?: Record<string, string>;
 }) {
   const fps = 30;
   const frameRef = useRef<HTMLIFrameElement>(null);
@@ -67,8 +71,50 @@ export function MotionScene({
     // Frame holds carried across a reload, released once a frame is ready.
     carried: [] as number[],
   });
+  const assetKey = (code.assets || [])
+    .map((id) => `${id}=${assetSources[id] || ""}`)
+    .join("|");
+  const assetFiles = useMemo(() => {
+    const ids = code.assets || [];
+    if (!ids.length) return undefined;
+    return Promise.all(
+      ids.map(async (id) => {
+        const url = assetSources[id];
+        if (!url) return [id, undefined] as const;
+        const response = await fetch(url);
+        if (!response.ok) return [id, undefined] as const;
+        return [
+          id,
+          {
+            bytes: await response.arrayBuffer(),
+            type: response.headers.get("content-type") || "image/png",
+          },
+        ] as const;
+      }),
+    );
+    // The key captures the ids and their URLs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assetKey]);
   useEffect(() => {
     const current = state.current;
+    let sentTo: Window | null = null;
+    const sendAssets = (target: Window) => {
+      if (!assetFiles || sentTo === target) return;
+      sentTo = target;
+      void assetFiles
+        .then((entries) => {
+          const files: Record<string, { bytes: ArrayBuffer; type: string }> =
+            {};
+          for (const [id, file] of entries)
+            // Each window gets its own copy (a reload asks again).
+            if (file)
+              files[id] = { bytes: file.bytes.slice(0), type: file.type };
+          target.postMessage({ reelchemy: "assets", files }, "*");
+        })
+        .catch(() =>
+          target.postMessage({ reelchemy: "assets", files: {} }, "*"),
+        );
+    };
     const onMessage = (event: MessageEvent) => {
       if (event.source !== frameRef.current?.contentWindow) return;
       const data = event.data as {
@@ -76,7 +122,11 @@ export function MotionScene({
         id?: number;
         message?: string;
       };
-      if (data?.reelchemy === "loaded") {
+      if (data?.reelchemy === "assets") {
+        sendAssets(event.source as Window);
+      } else if (data?.reelchemy === "loaded") {
+        // In case the scene asked before this listener existed.
+        sendAssets(event.source as Window);
         current.loaded = true;
         for (const resolve of current.waiting.splice(0)) resolve();
       } else if (data?.reelchemy === "error") {
@@ -100,7 +150,7 @@ export function MotionScene({
       window.removeEventListener("message", onMessage);
       for (const carried of current.carried.splice(0)) continueRender(carried);
     };
-  }, [sceneId]);
+  }, [sceneId, assetFiles]);
   useLayoutEffect(() => {
     if (!document) return;
     const current = state.current;

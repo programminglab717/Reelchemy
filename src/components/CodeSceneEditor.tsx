@@ -27,10 +27,13 @@ export function CodeSceneEditor({
   timeline,
   selected,
   onChange,
+  images = [],
 }: {
   timeline: Timeline;
   selected: number;
   onChange: (timeline: Timeline) => void;
+  // The project's uploaded images, which the scene's code may use.
+  images?: { id: string; name: string }[];
 }) {
   const scene = timeline.scenes[selected];
   const saved = scene.code!;
@@ -61,7 +64,18 @@ export function CodeSceneEditor({
     !!draft.libraries?.length !== !!saved.libraries?.length ||
     !!draft.fit !== !!saved.fit;
   function apply() {
-    const parsed = motionCodeSchema.safeParse(draft);
+    // Declare exactly the project images the code mentions.
+    const used = images
+      .filter((image) =>
+        [draft.html, draft.css, draft.js].some((p) => p.includes(image.id)),
+      )
+      .map((image) => image.id)
+      .slice(0, 12);
+    const { assets: _previous, ...rest } = draft;
+    void _previous;
+    const parsed = motionCodeSchema.safeParse(
+      used.length ? { ...rest, assets: used } : rest,
+    );
     if (!parsed.success) {
       setProblem(
         parsed.error.issues
@@ -202,6 +216,37 @@ export function CodeSceneEditor({
         </button>
         <small>Ctrl/⌘ + Enter applies. Version history keeps every save.</small>
       </div>
+      {images.length > 0 && (
+        <details className="code-images">
+          <summary>Project images ({images.length})</summary>
+          <ul>
+            {images.map((image) => (
+              <li key={image.id}>
+                <span>{image.name}</span>
+                <button
+                  type="button"
+                  className="subtle"
+                  aria-label={`Insert ${image.name}`}
+                  onClick={() => {
+                    setDraft({
+                      ...draft,
+                      html: `${draft.html}\n<img data-asset="${image.id}" class="asset" alt="" style="position:absolute;left:760px;top:340px;width:400px">`,
+                    });
+                    setPart("html");
+                  }}
+                >
+                  Insert
+                </button>
+              </li>
+            ))}
+          </ul>
+          <p>
+            Inserted images are placed in the HTML; move them with CSS or
+            animate them like any element. In code, R.asset(id) gives an
+            image&apos;s URL and 3D scenes can use view.image(id).
+          </p>
+        </details>
+      )}
       <details className="code-reference">
         <summary>Kit reference</summary>
         <ul>

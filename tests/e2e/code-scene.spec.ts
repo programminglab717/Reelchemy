@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import sharp from "sharp";
 import { test, expect } from "./fixtures";
 
 test("a scene can be written in code, edited, checked for errors and kept", async ({
@@ -228,4 +229,91 @@ test("a 3D scene previews live in the studio player", async ({
   const scene = page.frameLocator(".player-wrap iframe[title^='Code scene']");
   await expect(scene.locator("#t")).toHaveText(/^THREE \d+/);
   await expect(scene.locator("canvas.r-three")).toHaveCount(1);
+});
+
+test("an uploaded image can be used in a code scene and reaches the export", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(240000);
+  await request.post("/api/projects", {
+    data: {
+      prompt: "Brand film",
+      duration: 5,
+      format: "landscape",
+      blank: true,
+    },
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Brand film", exact: false }).click();
+  await page.getByLabel("Upload image").setInputFiles({
+    name: "logo.png",
+    mimeType: "image/png",
+    buffer: await sharp({
+      create: { width: 400, height: 200, channels: 3, background: "#ff0000" },
+    })
+      .png()
+      .toBuffer(),
+  });
+  await page.getByPlaceholder("I own this image").fill("Our own logo");
+  await page.getByRole("button", { name: "Upload asset", exact: true }).click();
+  await expect(page.getByText("logo.png", { exact: true })).toBeVisible();
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page.getByRole("button", { name: "Write scene in code" }).click();
+  const editor = page.getByRole("region", { name: "Code of scene 1" });
+  await editor.getByText("Project images (1)").click();
+  await editor.getByRole("button", { name: "Insert logo.png" }).click();
+  // Full-frame, so the export can be checked anywhere.
+  const html = editor.getByLabel("Scene HTML");
+  await html.fill(
+    (await html.inputValue()).replace(
+      'style="position:absolute;left:760px;top:340px;width:400px"',
+      'style="position:absolute;left:0;top:0;width:1920px;height:1080px"',
+    ),
+  );
+  await editor.getByRole("button", { name: "Apply code" }).click();
+  const scene = page.frameLocator(".player-wrap iframe[title^='Code scene']");
+  await expect
+    .poll(() =>
+      scene
+        .locator("img.asset")
+        .evaluate((img) => (img as HTMLImageElement).naturalWidth),
+    )
+    .toBe(400);
+  await expect(page.getByRole("status", { name: "Save status" })).toHaveText(
+    "All changes saved",
+  );
+  await page.getByRole("button", { name: "Approve & export MP4" }).click();
+  await expect(page.getByText("Your film is ready.")).toBeVisible({
+    timeout: 200000,
+  });
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("link", { name: "Download MP4" }).click();
+  await (await downloadPromise).saveAs("artifacts/e2e-code-image.mp4");
+  const [r, g, b] = [
+    ...execFileSync(
+      "ffmpeg",
+      [
+        "-v",
+        "error",
+        "-ss",
+        "2",
+        "-i",
+        "artifacts/e2e-code-image.mp4",
+        "-frames:v",
+        "1",
+        "-vf",
+        "format=rgb24,crop=1:1:iw/2:ih/2",
+        "-f",
+        "rawvideo",
+        "-pix_fmt",
+        "rgb24",
+        "-",
+      ],
+      { maxBuffer: 1024 },
+    ),
+  ];
+  expect(r).toBeGreaterThan(200);
+  expect(g).toBeLessThan(50);
+  expect(b).toBeLessThan(50);
 });

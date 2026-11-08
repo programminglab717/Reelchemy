@@ -115,6 +115,7 @@ function SceneView({
             durationFrames={scene.durationFrames}
             frame={frame}
             baseUrl={motionBaseUrl}
+            assetSources={assetSources}
           />
         </AbsoluteFill>
       )}

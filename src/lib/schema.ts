@@ -122,6 +122,12 @@ export const motionCodeSchema = z
       .array(z.enum(["d3", "three"]))
       .max(4)
       .optional(),
+    // Project images the scene uses (R.asset / R.image / data-asset); each
+    // must be an image uploaded to the same project.
+    assets: z
+      .array(z.string().regex(/^[a-f0-9-]{36}$/))
+      .max(12)
+      .optional(),
     // Scales and moves the scene's content (not its background) so it fits
     // the frame; set by the director when a scene's finished composition
     // would otherwise extend past the stage. Stage pixels.

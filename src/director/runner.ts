@@ -6,7 +6,10 @@ import {
   studioAiCredentials,
   studioAiEntitlements,
 } from "../lib/db";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { authSigningSecret } from "../lib/auth";
+import { assetDir } from "../lib/assets";
 import { resolveStudioAi } from "../lib/studio-ai-access";
 import { ProviderError } from "../lib/provider-error";
 import { RevisionConflict } from "../lib/editor";
@@ -169,8 +172,33 @@ async function runJob(
         providerUsage.accounting(workspaceId, studioAi.policy, studioAi.access),
       ),
     );
+    // Up to eight uploaded images (logos, products, screenshots) for scenes.
+    const images = (
+      await Promise.all(
+        (project.assets || [])
+          .filter(
+            (a) => a.mime === "image/png" && (a.bytes ?? 0) <= 12 * 1024 ** 2,
+          )
+          .slice(-8)
+          .map(async (a) => {
+            try {
+              const bytes = await readFile(path.join(assetDir, a.id));
+              return {
+                id: a.id,
+                name: a.name,
+                width: a.width,
+                height: a.height,
+                bytes,
+              };
+            } catch {
+              return null;
+            }
+          }),
+      )
+    ).filter((image) => image !== null);
     const common = {
       llm,
+      images,
       vision: supportsImages(studioAi.configuration),
       signal,
       concurrency: studioAi.policy.studioConcurrency,

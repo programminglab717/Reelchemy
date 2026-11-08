@@ -18,6 +18,7 @@ import {
   writerSystem,
   writerUser,
   type FilmPlan,
+  type ProjectImage,
 } from "./prompts";
 
 export type SceneReport = {
@@ -44,6 +45,8 @@ export type DirectorOptions = {
   signal?: AbortSignal;
   concurrency?: number;
   maxRevisions?: number;
+  // The project's images the scenes may use, with their bytes for previews.
+  images?: (ProjectImage & { bytes: Buffer })[];
   // Injectable for tests.
   preview?: typeof previewMotionScene;
 };
@@ -174,6 +177,7 @@ type SceneContext = {
   signal?: AbortSignal;
   preview: typeof previewMotionScene;
   maxRevisions: number;
+  images: (ProjectImage & { bytes: Buffer })[];
   // Reports a step within this scene (0 = started, 1 = done).
   step: (stage: string, within: number) => void;
 };
@@ -222,7 +226,16 @@ async function writeScene(
       if (code) approved = true;
       break;
     }
-    code = parsed;
+    // The scene declares exactly the project images its code mentions.
+    const used = context.images
+      .filter((image) =>
+        [parsed.html, parsed.css, parsed.js].some((part) =>
+          part.includes(image.id),
+        ),
+      )
+      .map((image) => image.id)
+      .slice(0, 12);
+    code = used.length ? { ...parsed, assets: used } : parsed;
     context.step("Checking", 0.5);
     const times = reviewTimes(scene.seconds);
     const result = await context.preview({
@@ -233,6 +246,14 @@ async function writeScene(
       auditAt: times.slice(1),
       // The finished composition, before any closing exit.
       boundsAt: Math.max(0, scene.seconds - 0.5),
+      assets: Object.fromEntries(
+        context.images
+          .filter((image) => code!.assets?.includes(image.id))
+          .map((image) => [
+            image.id,
+            { bytes: image.bytes, type: "image/png" },
+          ]),
+      ),
     });
     const problems = sceneProblems(result, scene.seconds);
     if (!best || problems.length <= best.problems.length)
@@ -291,6 +312,7 @@ function sceneContext(options: DirectorOptions): Omit<SceneContext, "step"> {
     signal: options.signal,
     preview: options.preview ?? previewMotionScene,
     maxRevisions: options.maxRevisions ?? 2,
+    images: options.images ?? [],
   };
 }
 async function planFilm(
@@ -303,6 +325,7 @@ async function planFilm(
       content: plannerUser(brief, {
         previous: options.previous,
         instruction: options.instruction,
+        images: options.images,
       }),
     },
   ];
@@ -382,7 +405,12 @@ export async function directFilm(
         [
           {
             role: "user",
-            content: writerUser(film, index, options.brief.format),
+            content: writerUser(
+              film,
+              index,
+              options.brief.format,
+              options.images,
+            ),
           },
         ],
       );
@@ -421,7 +449,7 @@ export async function directScene(
     [
       {
         role: "user",
-        content: `${writerUser(options.plan, options.index, options.brief.format)}
+        content: `${writerUser(options.plan, options.index, options.brief.format, options.images)}
 
 Current version of this scene:
 <scene>

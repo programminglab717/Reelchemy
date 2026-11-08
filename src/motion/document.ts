@@ -14,6 +14,8 @@ export type MotionCode = {
   css: string;
   js: string;
   libraries?: OptionalMotionLibrary[];
+  // Project image asset IDs the scene uses.
+  assets?: string[];
   // Content scale and offset (stage pixels) that keep it inside the frame.
   fit?: { scale: number; x: number; y: number };
 };
@@ -51,6 +53,7 @@ export function motionDocument(options: MotionDocumentOptions) {
     duration: options.durationSeconds,
     stage,
     three: !!options.code.libraries?.includes("three"),
+    assets: options.code.assets || [],
   };
   const scripts = [
     "gsap.js",
@@ -120,7 +123,7 @@ ${three}
       : options.code.html
   }</div>
 <script>${scriptSafe(KIT_SOURCE)}</script>
-<script>window.__reelchemyGate(Promise.all([window.__reelchemyFonts,window.__reelchemyThree]).then(()=>{try{(function(R,gsap){${scriptSafe(options.code.js)}
+<script>window.__reelchemyGate(Promise.all([window.__reelchemyFonts,window.__reelchemyThree,window.__reelchemyAssets]).then(()=>{try{(function(R,gsap){${scriptSafe(options.code.js)}
 })(window.R,window.gsap);}catch(error){parent.postMessage({reelchemy:"error",message:String(error&&error.stack||error).slice(0,2000)},"*");}}));</script>
 <script>window.addEventListener("load",()=>parent.postMessage({reelchemy:"loaded"},"*"));</script>
 </body></html>`;
