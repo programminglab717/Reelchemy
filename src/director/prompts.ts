@@ -69,6 +69,7 @@ export function plannerUser(
     instruction?: string;
     previous?: FilmPlan;
     images?: ProjectImage[];
+    direction?: string;
   } = {},
 ) {
   const stage = motionStages[brief.format];
@@ -79,6 +80,7 @@ export function plannerUser(
     ...(options.previous
       ? { currentPlan: options.previous, change: options.instruction }
       : {}),
+    ...(options.direction ? { styleDirection: options.direction } : {}),
     ...(options.images?.length
       ? {
           projectImages: options.images.map((i) => i.name),
@@ -134,6 +136,7 @@ Content:
 Camera and ambience:
 - Put the diagram in a full-stage container (<div class="world" style="position:absolute;inset:0">) and pass it as parent; tl.add(R.focus(".world", target, {scale, at: [x, y], duration}), t) moves the camera to centre (or place at [x, y]) and zoom on target; R.focus(".world", null) returns.
 - R.grid({size, dots, color, drift}), R.glow({x, y, size, color, opacity}), R.particles({count, color, speed}) add a living background (they animate themselves for the whole scene).
+- R.finish({grain: 0.06, vignette: 0.45, letterbox: 0}) adds a cinematic film finish over everything (subtle animated grain, vignette, optional letterbox bars in px). Use it on most scenes for a premium look; keep grain subtle (0.04–0.08).
 Every function that returns a tween or timeline is meant to be placed on your master timeline with tl.add(..., time).
 Project images (logos, product shots, screenshots) — when the request lists projectImages, use them where they fit the story (a brand's logo, its product, its app): <img data-asset="ID"> (or any element with data-asset="ID" for a background image), R.asset(ID) → URL, R.image(ID, {parent, className, style}) → <img>, and in 3D view.image(ID, {width, position}). Use only the listed IDs, exactly; never invent images or URLs. Respect each image's aspect ratio.
 
@@ -146,7 +149,7 @@ Project images (logos, product shots, screenshots) — when the request lists pr
 
 DESIGN STANDARDS
 - Show, don't tell: express the idea with diagrams that build, flows with things travelling along paths, transformations, metaphors and data. Text labels and headlines only; never paragraphs. At most ~12 words of body text on screen at once; headlines ≤ 8 words.
-- Composition: a clear focal point, strong hierarchy, generous spacing, alignment to a grid. Keep text at least 64px from the stage edges. Use the space; avoid one small cluster in a big empty frame.
+- Composition: fill the frame. The main visual should span most of the stage (a diagram at least ~60% of its width, a hero object or headline commanding the centre of attention); never a small cluster in a big empty frame. Build depth in layers: a living background (glow, grid, particles or 3D environment), a midground with the story, and foreground labels or type. Align to a grid, keep text at least 64px from the edges, and use the camera (R.focus or a 3D camera move) to frame tightly on what matters now.
 - Type sizes on the 1920-wide stage: headlines 64–120px, labels 26–40px, never below 22px. High contrast. Never put text on top of text.
 - Motion with intent: stagger entrances, use expressive easing (power3.out, expo.out, back.out(1.7) for pops, sine.inOut for drifts), draw connectors with drawSVG, send glowing packets along paths with motionPath, reveal text with SplitText (chars/words/lines) or scrambleText, emphasise key moments (glow, scale punch, colour change), add depth with gentle parallax or camera moves on a container. Keep something subtly alive in the background. Give viewers ~1.5–2 s to read each new label.
 - Follow the film's style guide (palette, fonts, motion language, motifs) so all scenes feel like one film.
@@ -185,11 +188,17 @@ export function writerUser(
   index: number,
   format: CreativeBrief["format"],
   images: ProjectImage[] = [],
+  direction?: string,
 ) {
   const scene = plan.scenes[index];
   const stage = motionStages[format];
   return JSON.stringify({
-    film: { title: plan.title, logline: plan.logline, style: plan.style },
+    film: {
+      title: plan.title,
+      logline: plan.logline,
+      style: plan.style,
+      ...(direction ? { styleDirection: direction } : {}),
+    },
     storyContext: plan.scenes.map((s, i) => ({
       scene: i + 1,
       title: s.title,

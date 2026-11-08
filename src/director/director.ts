@@ -46,6 +46,8 @@ export type DirectorOptions = {
   signal?: AbortSignal;
   concurrency?: number;
   maxRevisions?: number;
+  // A creative direction from a style preset.
+  direction?: string;
   // A style reference to match (frames and pacing notes).
   reference?: DirectorReference;
   // The project's images the scenes may use, with their bytes for previews.
@@ -345,6 +347,7 @@ async function planFilm(
           previous: options.previous,
           instruction: options.instruction,
           images: options.images,
+          direction: options.direction,
         }),
         options,
       ),
@@ -427,7 +430,13 @@ export async function directFilm(
           {
             role: "user",
             content: withReference(
-              writerUser(film, index, options.brief.format, options.images),
+              writerUser(
+                film,
+                index,
+                options.brief.format,
+                options.images,
+                options.direction,
+              ),
               options,
             ),
           },
@@ -469,7 +478,7 @@ export async function directScene(
       {
         role: "user",
         content: withReference(
-          `${writerUser(options.plan, options.index, options.brief.format, options.images)}
+          `${writerUser(options.plan, options.index, options.brief.format, options.images, options.direction)}
 
 Current version of this scene:
 <scene>

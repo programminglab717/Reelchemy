@@ -891,6 +891,51 @@ export const KIT_SOURCE = String.raw`(() => {
     return api;
   }
 
+  // A film finish over everything: animated grain, a vignette and optional
+  // letterbox bars. The grain moves with the frame time (not Math.random), so
+  // preview and export match. R.finish({ grain: 0.06, vignette: 0.45, letterbox: 0 })
+  function finish(options) {
+    const o = Object.assign({ grain: 0.06, vignette: 0.45, letterbox: 0 }, options || {});
+    const layer = document.createElement("div");
+    layer.className = "r-finish";
+    css(layer, { position: "absolute", left: 0, top: 0, width: config.stage.width, height: config.stage.height, pointerEvents: "none", zIndex: 1000 });
+    frame.appendChild(layer);
+    if (o.vignette > 0) {
+      const v = document.createElement("div");
+      css(v, { position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 52%, rgba(0,0,0," + o.vignette + ") 100%)" });
+      layer.appendChild(v);
+    }
+    if (o.grain > 0) {
+      const size = 256, c = document.createElement("canvas");
+      c.width = c.height = size;
+      const ctx = c.getContext("2d"), data = ctx.createImageData(size, size);
+      let seed = 1234567;
+      for (let i = 0; i < data.data.length; i += 4) {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        const v = seed >>> 24;
+        data.data[i] = data.data[i + 1] = data.data[i + 2] = v;
+        data.data[i + 3] = 255;
+      }
+      ctx.putImageData(data, 0, 0);
+      const g = document.createElement("div");
+      css(g, { position: "absolute", inset: 0, backgroundImage: 'url("' + c.toDataURL() + '")', backgroundSize: size + "px " + size + "px", opacity: o.grain, mixBlendMode: "overlay" });
+      layer.appendChild(g);
+      (window.__reelchemyDraw = window.__reelchemyDraw || []).push((now) => {
+        const f = Math.round(now / (1000 / config.fps));
+        const h = Math.imul(f + 1, 2654435761) >>> 0;
+        g.style.backgroundPosition = (h % size) + "px " + ((h >>> 8) % size) + "px";
+      });
+    }
+    if (o.letterbox > 0) {
+      for (const top of [true, false]) {
+        const bar = document.createElement("div");
+        css(bar, { position: "absolute", left: 0, right: 0, height: o.letterbox, background: "#000", top: top ? 0 : "auto", bottom: top ? "auto" : 0 });
+        layer.appendChild(bar);
+      }
+    }
+    return layer;
+  }
+
   // A project image attached to this scene: its URL, or a new <img>.
   function asset(id) {
     if (!assetUrls[id]) throw new Error("Image " + id + " is not attached to this scene.");
@@ -915,7 +960,7 @@ export const KIT_SOURCE = String.raw`(() => {
     iconNames: () => Object.keys(icons),
     theme, accent, el, node, box, point, layer,
     connect, line, ring, flow, code, highlight, count, bars, focus, grid, glow, particles,
-    asset, image, assetIds: (config.assets || []).slice(),
+    asset, image, assetIds: (config.assets || []).slice(), finish,
     three,
   };
   if (window.gsap) {

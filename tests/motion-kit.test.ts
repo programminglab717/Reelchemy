@@ -13,6 +13,7 @@ const selfChecking = {
   css: "",
   js: String.raw`
 R.theme({ background: "#050816", accents: ["#38bdf8", "#f472b6"] });
+R.finish({ grain: 0.06, vignette: 0.4 });
 const check = (ok, message) => { if (!ok) throw new Error("CHECK " + message); };
 const near = (a, b, tolerance) => Math.abs(a - b) <= (tolerance || 2);
 const world = document.querySelector(".world");

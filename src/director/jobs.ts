@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
+import { directorPresetIds } from "./presets";
 
 // Director runs: generating a film takes minutes, longer than a proxy keeps a
 // request open, so it runs in the background and is polled. One active run
@@ -10,13 +11,25 @@ const reference = z
   .string()
   .regex(/^[a-f0-9-]{36}$/)
   .optional();
+// A style preset and a quality level (high: more review rounds per scene).
+const preset = z.enum(directorPresetIds).optional();
+const quality = z.enum(["standard", "high"]).optional();
 export const directorRequestSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("film"), referenceAssetId: reference }).strict(),
+  z
+    .object({
+      kind: z.literal("film"),
+      referenceAssetId: reference,
+      preset,
+      quality,
+    })
+    .strict(),
   z
     .object({
       kind: z.literal("film-revision"),
       instruction: z.string(),
       referenceAssetId: reference,
+      preset,
+      quality,
     })
     .strict(),
   z
@@ -25,6 +38,7 @@ export const directorRequestSchema = z.discriminatedUnion("kind", [
       sceneId: z.string().max(80),
       instruction: z.string(),
       referenceAssetId: reference,
+      quality,
     })
     .strict(),
 ]);

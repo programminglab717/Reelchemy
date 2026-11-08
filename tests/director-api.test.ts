@@ -181,8 +181,12 @@ test(
     });
     assert.equal(foreign.status, 400);
     assert.match((await foreign.json()).error, /style reference/);
-    const accepted = await start({});
+    assert.equal((await start({ preset: "not-a-preset" })).status, 400);
+    const accepted = await start({ preset: "tech-explainer", quality: "high" });
     assert.equal(accepted.status, 202);
+    const acceptedJob = (await accepted.json()).job;
+    assert.equal(acceptedJob.request.preset, "tech-explainer");
+    assert.equal(acceptedJob.request.quality, "high");
     const busy = await start({});
     assert.equal(busy.status, 409);
     assert.equal((await busy.json()).code, "DIRECTOR_BUSY");

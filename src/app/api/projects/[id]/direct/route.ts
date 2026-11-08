@@ -11,6 +11,7 @@ import { resolveStudioAi } from "@/lib/studio-ai-access";
 import { body, failure } from "@/lib/http";
 import { privateProjectHeaders } from "@/lib/project-http";
 import { DirectorBusy, type DirectorRequest } from "@/director/jobs";
+import { directorPresetIds } from "@/director/presets";
 import {
   cancelDirectorJob,
   recoverDirector,
@@ -37,6 +38,8 @@ async function POSTHandler(req: Request, { params }: Context, access: Access) {
           .string()
           .regex(/^[a-f0-9-]{36}$/)
           .optional(),
+        preset: z.enum(directorPresetIds).optional(),
+        quality: z.enum(["standard", "high"]).optional(),
       })
       .strict()
       .parse(await body(req));
@@ -51,9 +54,13 @@ async function POSTHandler(req: Request, { params }: Context, access: Access) {
       throw new Error(
         "A style reference must be a video or image uploaded to this project.",
       );
-    const reference = input.referenceAssetId
-      ? { referenceAssetId: input.referenceAssetId }
-      : {};
+    const reference = {
+      ...(input.referenceAssetId
+        ? { referenceAssetId: input.referenceAssetId }
+        : {}),
+      ...(input.quality ? { quality: input.quality } : {}),
+    };
+    const style = input.preset ? { preset: input.preset } : {};
     if (input.sceneId && !input.instruction)
       throw new Error("Describe how the scene should change.");
     if (!ownedPlanningStorageAvailable(project.id, access.workspace.id, 2))
@@ -85,8 +92,9 @@ async function POSTHandler(req: Request, { params }: Context, access: Access) {
               kind: "film-revision",
               instruction: input.instruction,
               ...reference,
+              ...style,
             }
-          : { kind: "film", ...reference };
+          : { kind: "film", ...reference, ...style };
     const job = directorJobs.create(access.workspace.id, project.id, request);
     startDirectorJob(job, access.workspace.id);
     return json({ job }, 202);

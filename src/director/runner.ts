@@ -11,6 +11,7 @@ import path from "node:path";
 import { authSigningSecret } from "../lib/auth";
 import { assetDir } from "../lib/assets";
 import { buildReference } from "./reference";
+import { directorPresets } from "./presets";
 import { resolveStudioAi } from "../lib/studio-ai-access";
 import { ProviderError } from "../lib/provider-error";
 import { RevisionConflict } from "../lib/editor";
@@ -211,10 +212,16 @@ async function runJob(
           () => signal.aborted,
         )
       : undefined;
+    const preset =
+      "preset" in job.request && job.request.preset
+        ? directorPresets[job.request.preset]
+        : undefined;
     const common = {
       llm,
       images,
       reference,
+      direction: preset?.direction,
+      maxRevisions: job.request.quality === "high" ? 4 : 2,
       vision: supportsImages(studioAi.configuration),
       signal,
       concurrency: studioAi.policy.studioConcurrency,

@@ -71,6 +71,8 @@ export function useDirector(
         instruction?: string;
         sceneId?: string;
         referenceAssetId?: string;
+        preset?: string;
+        quality?: "standard" | "high";
       },
     ): Promise<"started" | "needs-key"> => {
       const response = await transport(`/api/projects/${id}/direct`, {

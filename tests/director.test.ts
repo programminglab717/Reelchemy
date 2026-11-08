@@ -2,7 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { directFilm, frameFit, sceneProblems } from "../src/director/director";
 import { previewMotionScene } from "../src/motion/preflight";
-import { parsePlan, parseScene } from "../src/director/prompts";
+import {
+  parsePlan,
+  parseScene,
+  plannerUser,
+  writerUser,
+} from "../src/director/prompts";
 import type { Llm } from "../src/director/llm";
 import { timelineSchema, totalFrames } from "../src/lib/schema";
 
@@ -265,3 +270,22 @@ test(
     );
   },
 );
+
+test("a style preset's direction reaches the planner and the writer", () => {
+  const direction = "Typography is the visual.";
+  assert.equal(
+    JSON.parse(
+      plannerUser(
+        { prompt: "x", duration: 10, format: "landscape" },
+        { direction },
+      ),
+    ).styleDirection,
+    direction,
+  );
+  const film = parsePlan(JSON.stringify(plan), 14);
+  assert.equal(
+    JSON.parse(writerUser(film, 0, "landscape", [], direction)).film
+      .styleDirection,
+    direction,
+  );
+});

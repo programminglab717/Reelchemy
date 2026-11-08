@@ -2724,3 +2724,9 @@ main.account-page {
   border-bottom: 1px solid var(--line);
   font-size: 13px;
 }
+.composer-footer .options label.polish {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}

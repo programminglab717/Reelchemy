@@ -57,6 +57,11 @@ import { previewMotionBaseUrl } from "@/motion/preview";
 import { useDirector } from "./useDirector";
 import { DirectorStatus } from "./DirectorStatus";
 import {
+  directorPresetIds,
+  directorPresets,
+  type DirectorPreset,
+} from "@/director/presets";
+import {
   CodeSceneEditor,
   CodeSceneConvert,
   codeVersion,
@@ -129,7 +134,9 @@ export function Studio({
   const [projects, setProjects] = useState<ProjectSummary[]>([]),
     [prompt, setPrompt] = useState(""),
     [duration, setDuration] = useState(15),
-    [format, setFormat] = useState<Timeline["format"]>("landscape");
+    [format, setFormat] = useState<Timeline["format"]>("landscape"),
+    [preset, setPreset] = useState<DirectorPreset | "">(""),
+    [polish, setPolish] = useState(false);
   const [ready, setReady] = useState(false);
   const [projectQuery, setProjectQuery] = useState("");
   const [listedQuery, setListedQuery] = useState<string | null>(null);
@@ -308,7 +315,10 @@ export function Studio({
       if (
         !blank &&
         !templateId &&
-        (await director.start(p.id, {})) === "needs-key"
+        (await director.start(p.id, {
+          ...(preset ? { preset } : {}),
+          ...(polish ? { quality: "high" as const } : {}),
+        })) === "needs-key"
       )
         p = await api<Project>(`/api/projects/${p.id}/plan`, "POST", {});
       remember(p);
@@ -679,6 +689,35 @@ export function Studio({
                       ))}
                     </select>
                   </label>
+                  {directorSource && directorSource !== "demo" && (
+                    <>
+                      <label>
+                        <Icon name="sparkle" size={14} />
+                        <select
+                          aria-label="Style"
+                          value={preset}
+                          onChange={(e) =>
+                            setPreset(e.target.value as DirectorPreset | "")
+                          }
+                        >
+                          <option value="">Director&apos;s choice</option>
+                          {directorPresetIds.map((id) => (
+                            <option key={id} value={id}>
+                              {directorPresets[id].label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="polish">
+                        <input
+                          type="checkbox"
+                          checked={polish}
+                          onChange={(e) => setPolish(e.target.checked)}
+                        />{" "}
+                        Extra polish
+                      </label>
+                    </>
+                  )}
                 </div>
                 <button
                   className="primary"
