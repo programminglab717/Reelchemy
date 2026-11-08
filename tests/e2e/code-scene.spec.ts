@@ -192,3 +192,40 @@ test("a layer past the frame's edge can be fitted back in one click", async ({
     )
     .toBe(true);
 });
+
+test("a 3D scene previews live in the studio player", async ({
+  page,
+  request,
+}) => {
+  const project = await (
+    await request.post("/api/projects", {
+      data: { prompt: "Depth", duration: 5, format: "landscape", blank: true },
+    })
+  ).json();
+  const current = await (
+    await request.get(`/api/projects/${project.id}`)
+  ).json();
+  const timeline = structuredClone(current.timeline);
+  timeline.scenes[0] = {
+    ...timeline.scenes[0],
+    layers: [],
+    code: {
+      libraries: ["three"],
+      html: '<div id="t">3D</div>',
+      css: "#t{position:absolute;left:100px;top:100px;font:700 80px Inter;color:#fff}",
+      js: 'const view = R.three({ background: "#000000" }); view.sphere({ r: 1.5, emissive: "#22d3ee", emissiveIntensity: 2 }); document.getElementById("t").textContent = "THREE " + view.THREE.REVISION;',
+    },
+  };
+  expect(
+    (
+      await request.patch(`/api/projects/${project.id}`, {
+        data: { timeline, baseRevisionId: current.revisions.at(-1).id },
+      })
+    ).ok(),
+  ).toBe(true);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Depth", exact: false }).click();
+  const scene = page.frameLocator(".player-wrap iframe[title^='Code scene']");
+  await expect(scene.locator("#t")).toHaveText(/^THREE \d+/);
+  await expect(scene.locator("canvas.r-three")).toHaveCount(1);
+});

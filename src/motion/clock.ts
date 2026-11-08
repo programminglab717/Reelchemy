@@ -123,6 +123,9 @@ export const CLOCK_SOURCE = String.raw`(() => {
     // Libraries may defer writing values until their next tick (GSAP renders
     // a tween's starting state lazily); flush them without moving time.
     if (typeof window.__reelchemyFlush === "function") call(window.__reelchemyFlush, []);
+    // Expensive drawing (WebGL) happens once per seek, at the final time,
+    // rather than at every intermediate frame step.
+    for (const draw of window.__reelchemyDraw || []) call(draw, [now]);
     // CSS and Web Animations follow the virtual clock too.
     if (document.getAnimations)
       for (const animation of document.getAnimations()) {

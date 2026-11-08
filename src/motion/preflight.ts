@@ -5,8 +5,7 @@ import {
   chromiumCrashArgs,
   SAME_PROCESS_SANDBOXED_FRAMES,
 } from "../lib/chromium-flags";
-import { isMotionFile } from "./libraries";
-import { readMotionFile } from "./motion-files";
+import { serveMotionFile } from "./motion-files";
 import { motionDocument, motionStages, type MotionCode } from "./document";
 import { CONTENT_BOUNDS_SOURCE, LAYOUT_AUDIT_SOURCE } from "./audit";
 
@@ -52,8 +51,9 @@ export async function previewMotionScene(input: {
   const errors: string[] = [];
   const server: Server = createServer((req, res) => {
     const match = /^\/motion\/([A-Za-z0-9./-]+)$/.exec(req.url || "");
-    if (match && isMotionFile(match[1])) {
-      const { bytes, type } = readMotionFile(match[1]);
+    const served = match ? serveMotionFile(match[1]) : null;
+    if (served) {
+      const { bytes, type } = served;
       res.writeHead(200, {
         "Content-Type": type,
         "Access-Control-Allow-Origin": "*",

@@ -3,6 +3,7 @@ import { motionStages, type MotionCode } from "../motion/document";
 import { postgresIndexScene } from "../motion/examples/postgres-index";
 import { cacheAsideScene } from "../motion/examples/cache-aside";
 import { compoundGrowthScene } from "../motion/examples/compound-growth";
+import { hero3dScene } from "../motion/examples/hero-3d";
 import type { CreativeBrief } from "../lib/schema";
 
 // ---------------------------------------------------------------- plan
@@ -88,7 +89,7 @@ ${code.css.trim()}
 </css>
 <js>
 ${code.js.trim()}
-</js>
+</js>${code.libraries?.length ? `\n<libraries>${code.libraries.join(" ")}</libraries>` : ""}
 </scene>`;
 }
 export function writerSystem() {
@@ -98,7 +99,7 @@ RUNTIME CONTRACT (exact — anything else will not work)
 - You write three parts: HTML (placed inside <div id="stage">), CSS, and JavaScript.
 - The stage has a fixed logical size given in the request (landscape 1920×1080, portrait 1080×1920, square 1080×1080), origin top-left, scaled to the output. Position elements absolutely in stage pixels. Never use vw/vh, media queries or the window size.
 - Time is virtual: Date, performance.now, requestAnimationFrame, setTimeout/setInterval and Math.random (seeded) are driven by the renderer, so every exported frame shows exactly the state at that time. Build ONE master GSAP timeline that starts at time 0 (const tl = gsap.timeline(); ...). It plays automatically; do not pause it or wait for events. Its total length must not exceed the scene duration; finish the scene's story so a complete, readable composition is on screen for at least 0.5–1 s before the end (a quick exit in the final 0.3 s is allowed for scenes that are not last; see below). A requestAnimationFrame loop is fine for continuous effects (particles, canvas).
-- Globals: gsap (GSAP 3.15) with these plugins already registered: SplitText, DrawSVGPlugin (drawSVG), MorphSVGPlugin (morphSVG), MotionPathPlugin (motionPath), ScrambleTextPlugin (scrambleText), TextPlugin (text), CustomEase. Optional: d3 v7 — only if you add <libraries>d3</libraries>. Nothing else exists: no imports, no other libraries, no fetch or network, no external images or fonts.
+- Globals: gsap (GSAP 3.15) with these plugins already registered: SplitText, DrawSVGPlugin (drawSVG), MorphSVGPlugin (morphSVG), MotionPathPlugin (motionPath), ScrambleTextPlugin (scrambleText), TextPlugin (text), CustomEase. Optional: d3 v7 and three.js (see 3D below) — only if you list them, e.g. <libraries>three</libraries> or <libraries>d3 three</libraries>. Nothing else exists: no imports, no other libraries, no fetch or network, no external images or fonts.
 - Fonts available: "Space Grotesk" (display), "Inter" (body), "JetBrains Mono" (code, numbers, data); weights 100–900.
 - Draw everything with HTML/CSS, inline SVG, canvas, icons and the kit below. Prefer the kit's connectors over hand-computed SVG coordinates: they are routed from the elements' real layout boxes, so arrows always meet their boxes.
 - Keep it reasonably light: up to a few hundred elements; large blurred glows only for 1–3 background shapes.
@@ -125,6 +126,13 @@ Camera and ambience:
 - R.grid({size, dots, color, drift}), R.glow({x, y, size, color, opacity}), R.particles({count, color, speed}) add a living background (they animate themselves for the whole scene).
 Every function that returns a tween or timeline is meant to be placed on your master timeline with tl.add(..., time).
 
+3D (three.js) — add <libraries>three</libraries> and use R.three for depth, product shots, hero moments, logos and objects in space:
+- const view = R.three({camera: [x, y, z], target: [x, y, z], fov, bloom: true | {strength, threshold}, fog: {color, near, far}, background, shadows, exposure}) creates a lit scene (studio environment lighting, ACES tone mapping) on a canvas behind your HTML; HTML you write stays on top, so headlines and labels can sit over the 3D view.
+- Building blocks (each takes position: [x, y, z], rotation, scale, parent: group, and material options color, metalness, roughness, clearcoat, emissive, emissiveIntensity, glass: true, opacity): view.box({w, h, d, radius}) rounded boxes for devices, cards, servers; view.sphere({r}); view.cylinder({r, h}); view.extrude(svgPathData, {size, depth}) extruded logos and shapes (filled paths, holes cut automatically); view.label(text, {size, weight, font, color, background, padding, width, align, glow}) crisp text cards in 3D; view.icon(name, {background, color, width}) Lucide icons in 3D; view.particles({count, spread: [x, y, z], color, size}); view.floor({y, color, grid}); view.group({position}) to move things together; view.THREE, view.scene, view.camera for anything else.
+- Animate with GSAP like any object: gsap.to(mesh.rotation, {y: Math.PI}), gsap.to(view.camera.position, {z: 6}) (the camera always looks at view.target, which you can tween too), gsap.to(mesh.material, {emissiveIntensity: 3}); tl.add(view.orbit({from: -30, to: 30, duration: 6}), 0) circles the camera.
+- view.screen(meshOr[x, y, z]) → {x, y} stage pixels: pin HTML labels to 3D objects inside gsap.ticker.add(() => gsap.set(label, {left, top})).
+- The scene is drawn once per frame for you: never call renderer.render or start your own render loop. Keep it to tens of meshes; emissive edges with bloom read as "premium tech". 3D renders slowly, so use it where it adds depth, not for flat diagrams.
+
 DESIGN STANDARDS
 - Show, don't tell: express the idea with diagrams that build, flows with things travelling along paths, transformations, metaphors and data. Text labels and headlines only; never paragraphs. At most ~12 words of body text on screen at once; headlines ≤ 8 words.
 - Composition: a clear focal point, strong hierarchy, generous spacing, alignment to a grid. Keep text at least 64px from the stage edges. Use the space; avoid one small cluster in a big empty frame.
@@ -141,7 +149,7 @@ Reply with the scene only, exactly in this form (no markdown fences, no commenta
 <css>...</css>
 <js>...</js>
 </scene>
-Add <libraries>d3</libraries> inside <scene> only if you use d3.
+Add <libraries>…</libraries> (d3 and/or three) inside <scene> only if you use them.
 
 REFERENCE 1 — a 14-second landscape scene built with the kit (study how it composes, times and narrates; do not copy its content):
 ${sceneMarkup(cacheAsideScene)}
@@ -149,7 +157,10 @@ ${sceneMarkup(cacheAsideScene)}
 REFERENCE 2 — a 12-second PORTRAIT (1080×1920) data story for short-form video: kinetic type, a curve that draws with the counter in step, and a closing comparison:
 ${sceneMarkup(compoundGrowthScene)}
 
-REFERENCE 3 — a 15-second landscape scene drawn by hand with SVG and GSAP plugins, for the craft of custom visuals:
+REFERENCE 3 — a 10-second landscape 3D hero shot with R.three, HTML type composited over it and labels pinned to 3D points:
+${sceneMarkup(hero3dScene)}
+
+REFERENCE 4 — a 15-second landscape scene drawn by hand with SVG and GSAP plugins, for the craft of custom visuals:
 ${sceneMarkup(postgresIndexScene)}`;
 }
 export function writerUser(
@@ -207,7 +218,10 @@ export function parseScene(text: string): MotionCode | "approved" {
     throw new Error("The reply did not contain a <js> part.");
   const libraries = (lastTag(scene, "libraries") ?? "")
     .split(/[\s,]+/)
-    .filter((name) => name === "d3") as MotionCode["libraries"];
+    .filter((name) => name === "d3" || name === "three")
+    .filter(
+      (name, i, all) => all.indexOf(name) === i,
+    ) as MotionCode["libraries"];
   return {
     html: (lastTag(scene, "html") ?? "").trim(),
     css: (lastTag(scene, "css") ?? "").trim(),

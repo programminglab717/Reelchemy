@@ -50,13 +50,38 @@ export function motionDocument(options: MotionDocumentOptions) {
     seed: options.seed >>> 0,
     duration: options.durationSeconds,
     stage,
+    three: !!options.code.libraries?.includes("three"),
   };
   const scripts = [
     "gsap.js",
     ...gsapPlugins.map((plugin) => `${plugin}.js`),
     "icons.js",
-    ...(options.code.libraries || []).map((library) => `${library}.js`),
+    ...(options.code.libraries || [])
+      .filter((library) => library !== "three")
+      .map((library) => `${library}.js`),
   ];
+  // three.js is ES modules: an import map names them, and a module exposes
+  // the core and chosen add-ons as the global THREE before scene code runs.
+  const three = config.three
+    ? `<script type="importmap">${JSON.stringify({
+        imports: {
+          three: `${base}/three/build/three.module.js`,
+          "three/addons/": `${base}/three/examples/jsm/`,
+        },
+      })}</script>
+<script type="module" onerror="parent.postMessage({reelchemy:'error',message:'three.js could not be loaded.'},'*');window.__reelchemyThreeReady&&window.__reelchemyThreeReady()">
+import * as core from "three";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { SVGLoader } from "three/addons/loaders/SVGLoader.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+window.THREE = Object.assign({}, core, { RoundedBoxGeometry, SVGLoader, RoomEnvironment, EffectComposer, RenderPass, UnrealBloomPass, OutputPass });
+window.__reelchemyThreeReady && window.__reelchemyThreeReady();
+</script>`
+    : "";
   const fonts = Object.entries(motionFonts)
     .map(
       ([family, file]) =>
@@ -88,13 +113,14 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:$
 <script>window.__REELCHEMY_CONFIG__=${JSON.stringify(config)};</script>
 <script>${scriptSafe(CLOCK_SOURCE)}</script>
 ${scripts.map((file) => `<script src="${base}/${file}"></script>`).join("\n")}
+${three}
 </head><body><div id="stage">${
     fit
       ? `<div id="r-fit" style="position:absolute;left:0;top:0;width:${stage.width}px;height:${stage.height}px;transform-origin:0 0;transform:translate(${fit.x}px,${fit.y}px) scale(${fit.scale})">${options.code.html}</div>`
       : options.code.html
   }</div>
 <script>${scriptSafe(KIT_SOURCE)}</script>
-<script>window.__reelchemyGate(window.__reelchemyFonts.then(()=>{try{(function(R,gsap){${scriptSafe(options.code.js)}
+<script>window.__reelchemyGate(Promise.all([window.__reelchemyFonts,window.__reelchemyThree]).then(()=>{try{(function(R,gsap){${scriptSafe(options.code.js)}
 })(window.R,window.gsap);}catch(error){parent.postMessage({reelchemy:"error",message:String(error&&error.stack||error).slice(0,2000)},"*");}}));</script>
 <script>window.addEventListener("load",()=>parent.postMessage({reelchemy:"loaded"},"*"));</script>
 </body></html>`;

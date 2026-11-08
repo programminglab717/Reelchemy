@@ -7,8 +7,7 @@ import { randomBytes, createHash } from "node:crypto";
 import { assetDir } from "./assets";
 import { validAssetId } from "./project-assets";
 import { sniffFontMime } from "./fonts";
-import { isMotionFile } from "../motion/libraries";
-import { readMotionFile } from "../motion/motion-files";
+import { serveMotionFile } from "../motion/motion-files";
 import { byteRange } from "./media-range";
 import { CommandCancelledError } from "./process";
 import type { Timeline } from "./schema";
@@ -121,7 +120,8 @@ export async function serveRenderAssets(
       req.url || "",
     );
     if (library) {
-      if (!motion || !isMotionFile(library[1])) {
+      const served = motion ? serveMotionFile(library[1]) : null;
+      if (!served) {
         res.writeHead(404).end();
         return;
       }
@@ -129,7 +129,7 @@ export async function serveRenderAssets(
         res.writeHead(405, { Allow: "GET, HEAD" }).end();
         return;
       }
-      const { bytes, type } = readMotionFile(library[1]);
+      const { bytes, type } = served;
       res.writeHead(200, {
         "Content-Type": type,
         "Content-Length": String(bytes.length),

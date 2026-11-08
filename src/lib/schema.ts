@@ -119,7 +119,7 @@ export const motionCodeSchema = z
     css: z.string().max(40000),
     js: z.string().min(1).max(80000),
     libraries: z
-      .array(z.enum(["d3"]))
+      .array(z.enum(["d3", "three"]))
       .max(4)
       .optional(),
     // Scales and moves the scene's content (not its background) so it fits

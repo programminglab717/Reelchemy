@@ -108,6 +108,7 @@ async function fingerprint() {
   for (const f of [
     "node_modules/gsap/package.json",
     "node_modules/d3/package.json",
+    "node_modules/three/package.json",
     "node_modules/lucide-static/package.json",
     "node_modules/@fontsource-variable/inter/package.json",
     "node_modules/@fontsource-variable/space-grotesk/package.json",

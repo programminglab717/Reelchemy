@@ -53,6 +53,10 @@ export const KIT_SOURCE = String.raw`(() => {
   ].join("\n");
   // First in <head>, so a scene's own CSS wins over these defaults.
   document.head.insertBefore(style, document.head.firstChild);
+  // A 3D scene waits for its three.js modules (see the document's module).
+  window.__reelchemyThree = config.three
+    ? new Promise((resolve) => { window.__reelchemyThreeReady = resolve; })
+    : Promise.resolve();
   // Scene code measures layout, so it runs once the fonts are ready.
   window.__reelchemyFonts = Promise.all(
     ${JSON.stringify(Object.keys(motionFonts))}.map((family) => document.fonts.load('400 32px "' + family + '"').catch(() => [])),
@@ -624,6 +628,222 @@ export const KIT_SOURCE = String.raw`(() => {
       (o.className ? ' class="' + escape(o.className) + '"' : "") + ">" + nodes.map(iconNode).join("") + "</svg>";
   }
 
+
+  // ------------------------------------------------------------ 3D (three.js)
+  // A lit 3D scene drawn into a canvas on the stage, once per frame. Needs
+  // <libraries>three</libraries>. Animate meshes, lights and the camera with
+  // GSAP like any object: gsap.to(mesh.rotation, { y: Math.PI, duration: 3 }).
+  function three(options) {
+    const T = window.THREE;
+    if (!T) throw new Error("R.three needs <libraries>three</libraries> in the scene.");
+    const o = Object.assign({ fov: 35, camera: [0, 1.2, 9], target: [0, 0, 0], environment: true, exposure: 1, light: 1.2, bloom: false, background: null, shadows: false }, options || {});
+    const host = resolve(o.parent || stage, "R.three");
+    const w = o.w || (host === stage ? config.stage.width : host.offsetWidth);
+    const h = o.h || (host === stage ? config.stage.height : host.offsetHeight);
+    const canvas = document.createElement("canvas");
+    canvas.className = "r-three";
+    css(canvas, { position: "absolute", left: o.x || 0, top: o.y || 0, width: w, height: h, pointerEvents: "none" });
+    if (o.front) host.appendChild(canvas); else host.insertBefore(canvas, host.firstChild);
+    const renderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: !o.background, preserveDrawingBuffer: true });
+    // Draw at the output's resolution (the stage is scaled to the output).
+    const ratio = Math.min(1, frame.getBoundingClientRect().width / config.stage.width || 1);
+    renderer.setPixelRatio(ratio);
+    renderer.setSize(w, h, false);
+    renderer.toneMapping = T.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = o.exposure;
+    renderer.outputColorSpace = T.SRGBColorSpace;
+    if (o.shadows) { renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap; }
+    const scene = new T.Scene();
+    if (o.background) scene.background = new T.Color(o.background);
+    if (o.fog) scene.fog = new T.Fog(new T.Color(o.fog.color || o.background || "#000000"), o.fog.near || 8, o.fog.far || 40);
+    if (o.environment) {
+      const pmrem = new T.PMREMGenerator(renderer);
+      scene.environment = pmrem.fromScene(new T.RoomEnvironment(), 0.04).texture;
+      scene.environmentIntensity = o.environmentIntensity === undefined ? 0.45 : o.environmentIntensity;
+      pmrem.dispose();
+    }
+    const camera = new T.PerspectiveCamera(o.fov, w / h, 0.1, 400);
+    camera.position.set(o.camera[0], o.camera[1], o.camera[2]);
+    const target = new T.Vector3(o.target[0], o.target[1], o.target[2]);
+    const key = new T.DirectionalLight(0xffffff, o.light);
+    key.position.set(5, 8, 6);
+    if (o.shadows) { key.castShadow = true; key.shadow.mapSize.set(2048, 2048); key.shadow.camera.left = key.shadow.camera.bottom = -12; key.shadow.camera.right = key.shadow.camera.top = 12; }
+    scene.add(key);
+    const rim = new T.DirectionalLight(0x88aaff, o.light * 0.6);
+    rim.position.set(-6, 3, -6);
+    scene.add(rim);
+    scene.add(new T.AmbientLight(0xffffff, 0.2));
+    let composer = null;
+    if (o.bloom) {
+      const b = o.bloom === true ? {} : o.bloom;
+      composer = new T.EffectComposer(renderer);
+      composer.setPixelRatio(ratio);
+      composer.setSize(w, h);
+      composer.addPass(new T.RenderPass(scene, camera));
+      composer.addPass(new T.UnrealBloomPass(new T.Vector2(w, h), b.strength === undefined ? 0.6 : b.strength, b.radius === undefined ? 0.5 : b.radius, b.threshold === undefined ? 0.85 : b.threshold));
+      composer.addPass(new T.OutputPass());
+    }
+    const draw = () => { camera.lookAt(target); if (composer) composer.render(); else renderer.render(scene, camera); };
+    (window.__reelchemyDraw = window.__reelchemyDraw || []).push(draw);
+    const color = (c) => new T.Color(c && c.startsWith && c.startsWith("var(") ? getComputedStyle(frame).getPropertyValue(c.slice(4, -1)).trim() || "#ffffff" : c || "#ffffff");
+    const material = (m) => {
+      const q = m || {};
+      return new T.MeshPhysicalMaterial({
+        color: color(q.color || "#e2e8f0"), metalness: q.metalness === undefined ? 0.2 : q.metalness, roughness: q.roughness === undefined ? 0.35 : q.roughness,
+        clearcoat: q.clearcoat === undefined ? 0.6 : q.clearcoat, clearcoatRoughness: 0.2,
+        emissive: color(q.emissive || "#000000"), emissiveIntensity: q.emissiveIntensity === undefined ? 1 : q.emissiveIntensity,
+        transmission: q.glass ? 1 : 0, thickness: q.glass ? 0.6 : 0, ior: 1.4,
+        transparent: q.opacity !== undefined && q.opacity < 1, opacity: q.opacity === undefined ? 1 : q.opacity,
+        side: q.doubleSide ? T.DoubleSide : T.FrontSide,
+      });
+    };
+    const place = (mesh, q) => {
+      if (q.position) mesh.position.set(q.position[0], q.position[1], q.position[2]);
+      if (q.rotation) mesh.rotation.set(q.rotation[0], q.rotation[1], q.rotation[2]);
+      if (q.scale !== undefined) mesh.scale.setScalar(q.scale);
+      if (o.shadows) { mesh.castShadow = true; mesh.receiveShadow = true; }
+      (q.parent || scene).add(mesh);
+      return mesh;
+    };
+    // A canvas-drawn texture at 4x the stage resolution for crisp text.
+    const canvasPlane = (pxWidth, pxHeight, paint, q) => {
+      const k = 2;
+      const c = document.createElement("canvas");
+      c.width = Math.ceil(pxWidth * k); c.height = Math.ceil(pxHeight * k);
+      const ctx = c.getContext("2d");
+      ctx.scale(k, k);
+      paint(ctx);
+      const texture = new T.CanvasTexture(c);
+      texture.colorSpace = T.SRGBColorSpace;
+      texture.anisotropy = 8;
+      const worldWidth = q.width || pxWidth / 160;
+      // Kept just under the bloom threshold unless the card should glow.
+      const tint = q.glow ? 1 : 0.82;
+      const mesh = new T.Mesh(new T.PlaneGeometry(worldWidth, worldWidth * pxHeight / pxWidth), new T.MeshBasicMaterial({ map: texture, color: new T.Color(tint, tint, tint), transparent: true, toneMapped: false, side: T.DoubleSide }));
+      return place(mesh, q);
+    };
+    const roundRect = (ctx, x, y, w, h, r) => { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); };
+    const api = {
+      THREE: T, scene, camera, renderer, canvas, target, draw,
+      add(obj) { scene.add(obj); return obj; },
+      group(q) { return place(new T.Group(), q || {}); },
+      material,
+      // A rounded box (cards, devices, servers): R.three(...).box({ w: 3, h: 2, d: 0.3, radius: 0.12, color: "#1e293b" })
+      box(q) {
+        const b = Object.assign({ w: 1, h: 1, d: 1, radius: 0.08 }, q || {});
+        return place(new T.Mesh(new T.RoundedBoxGeometry(b.w, b.h, b.d, 6, Math.min(b.radius, b.w / 2, b.h / 2, b.d / 2)), material(b)), b);
+      },
+      sphere(q) {
+        const b = Object.assign({ r: 0.5 }, q || {});
+        return place(new T.Mesh(new T.SphereGeometry(b.r, 64, 32), material(b)), b);
+      },
+      cylinder(q) {
+        const b = Object.assign({ r: 0.5, h: 1 }, q || {});
+        return place(new T.Mesh(new T.CylinderGeometry(b.rTop === undefined ? b.r : b.rTop, b.r, b.h, 64), material(b)), b);
+      },
+      // Extrudes filled SVG path data (a logo or shape), centred, "size" world units wide.
+      extrude(d, q) {
+        const b = Object.assign({ depth: 0.25, size: 2, bevel: 0.03 }, q || {});
+        // Even-odd filling cuts holes whatever the subpaths' direction.
+        const data = new T.SVGLoader().parse('<svg xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="' + escape(d) + '"/></svg>');
+        const shapes = data.paths.flatMap((p) => T.SVGLoader.createShapes(p));
+        const geometry = new T.ExtrudeGeometry(shapes, { depth: 1, bevelEnabled: b.bevel > 0, bevelThickness: 0.06, bevelSize: 0.04, bevelSegments: 4, curveSegments: 24 });
+        geometry.computeBoundingBox();
+        const bb = geometry.boundingBox, width = bb.max.x - bb.min.x || 1;
+        geometry.translate(-(bb.min.x + bb.max.x) / 2, -(bb.min.y + bb.max.y) / 2, -0.5);
+        const k = b.size / width;
+        geometry.scale(k, k, b.depth);
+        // SVG y points down: turn it over (a negative scale would flip faces).
+        geometry.rotateX(Math.PI);
+        return place(new T.Mesh(geometry, material(b)), b);
+      },
+      // A crisp text card in 3D space (canvas texture): label("PostgreSQL", { size: 64, width: 3 })
+      label(text, q) {
+        const b = Object.assign({ size: 64, weight: 700, font: "Space Grotesk", color: "#ffffff", padding: 0, radius: 24 }, q || {});
+        const measure = document.createElement("canvas").getContext("2d");
+        const font = b.weight + " " + b.size + 'px "' + b.font + '"';
+        measure.font = font;
+        const lines = String(text).split("\n");
+        const tw = Math.max(...lines.map((l) => measure.measureText(l).width)) + b.padding * 2;
+        const lh = b.size * 1.15, th = lh * lines.length + b.padding * 2;
+        return canvasPlane(tw, th, (ctx) => {
+          if (b.background) { ctx.fillStyle = b.background; roundRect(ctx, 0, 0, tw, th, b.radius); ctx.fill(); }
+          ctx.font = font; ctx.fillStyle = b.color; ctx.textBaseline = "middle"; ctx.textAlign = b.align || "left";
+          const x = b.align === "center" ? tw / 2 : b.align === "right" ? tw - b.padding : b.padding;
+          lines.forEach((l, i) => ctx.fillText(l, x, b.padding + lh * (i + 0.5)));
+        }, Object.assign({ width: tw / 160 }, b));
+      },
+      // A Lucide icon on a card (or bare) in 3D space.
+      icon(name, q) {
+        const b = Object.assign({ px: 256, color: "#ffffff", strokeWidth: 1.6, width: 1 }, q || {});
+        const nodes = icons[name];
+        if (!nodes) throw new Error("Unknown icon: " + name);
+        return canvasPlane(b.px, b.px, (ctx) => {
+          if (b.background) { ctx.fillStyle = b.background; roundRect(ctx, 0, 0, b.px, b.px, b.px * 0.22); ctx.fill(); }
+          const pad = b.background ? b.px * 0.2 : 0, k = (b.px - pad * 2) / 24;
+          ctx.translate(pad, pad); ctx.scale(k, k);
+          ctx.strokeStyle = b.color; ctx.lineWidth = b.strokeWidth; ctx.lineCap = "round"; ctx.lineJoin = "round";
+          for (const [tag, a] of nodes) {
+            ctx.beginPath();
+            if (tag === "path") { ctx.stroke(new Path2D(a.d)); continue; }
+            if (tag === "circle") ctx.arc(+a.cx, +a.cy, +a.r, 0, Math.PI * 2);
+            else if (tag === "ellipse") ctx.ellipse(+a.cx, +a.cy, +a.rx, +a.ry, 0, 0, Math.PI * 2);
+            else if (tag === "rect") roundRect(ctx, +a.x, +a.y, +a.width, +a.height, +(a.rx || 0));
+            else if (tag === "line") { ctx.moveTo(+a.x1, +a.y1); ctx.lineTo(+a.x2, +a.y2); }
+            else if (tag === "polyline" || tag === "polygon") {
+              const pts = String(a.points).trim().split(/[\s,]+/).map(Number);
+              for (let i = 0; i < pts.length; i += 2) i ? ctx.lineTo(pts[i], pts[i + 1]) : ctx.moveTo(pts[i], pts[i + 1]);
+              if (tag === "polygon") ctx.closePath();
+            }
+            ctx.stroke();
+          }
+        }, b);
+      },
+      // Floating points of light (seeded): particles({ count: 400, spread: [20, 10, 20] })
+      particles(q) {
+        const b = Object.assign({ count: 300, spread: [20, 10, 20], size: 0.04, color: "#93c5fd", opacity: 0.8 }, q || {});
+        const positions = new Float32Array(b.count * 3);
+        for (let i = 0; i < b.count; i++) for (let j = 0; j < 3; j++) positions[i * 3 + j] = (Math.random() - 0.5) * b.spread[j];
+        const geometry = new T.BufferGeometry();
+        geometry.setAttribute("position", new T.BufferAttribute(positions, 3));
+        return place(new T.Points(geometry, new T.PointsMaterial({ color: color(b.color), size: b.size, transparent: true, opacity: b.opacity, depthWrite: false, blending: T.AdditiveBlending })), b);
+      },
+      // A glossy floor with a faint grid, for objects to stand on.
+      floor(q) {
+        const b = Object.assign({ size: 60, y: -1, color: "#0b1020", grid: "#1e293b" }, q || {});
+        const g = new T.Group();
+        const plane = new T.Mesh(new T.PlaneGeometry(b.size, b.size), new T.MeshStandardMaterial({ color: color(b.color), roughness: b.roughness === undefined ? 0.8 : b.roughness, metalness: 0, envMapIntensity: 0.25 }));
+        plane.rotation.x = -Math.PI / 2;
+        if (o.shadows) plane.receiveShadow = true;
+        g.add(plane);
+        if (b.grid) { const grid = new T.GridHelper(b.size, b.size, color(b.grid), color(b.grid)); grid.position.y = 0.002; grid.material.transparent = true; grid.material.opacity = 0.5; g.add(grid); }
+        g.position.y = b.y;
+        scene.add(g);
+        return g;
+      },
+      // Tween that circles the camera around the target: tl.add(view.orbit({ from: -30, to: 30, duration: 6 }), 0)
+      orbit(q) {
+        const b = Object.assign({ from: 0, to: 360, duration: 8, ease: "sine.inOut" }, q || {});
+        const dx = camera.position.x - target.x, dz = camera.position.z - target.z;
+        const radius = b.radius || Math.hypot(dx, dz), height = b.height === undefined ? camera.position.y : b.height;
+        const proxy = { a: b.from };
+        const set = () => { const r = proxy.a * Math.PI / 180; camera.position.set(target.x + Math.sin(r) * radius, height, target.z + Math.cos(r) * radius); };
+        set();
+        return gsap.to(proxy, { a: b.to, duration: b.duration, ease: b.ease, onUpdate: set });
+      },
+      // Where a 3D point (or object) appears on the stage, in stage pixels, to
+      // pin HTML labels to 3D objects.
+      screen(p) {
+        const v = p && p.isObject3D ? p.getWorldPosition(new T.Vector3()) : new T.Vector3(p[0], p[1], p[2]);
+        camera.updateMatrixWorld();
+        camera.lookAt(target);
+        v.project(camera);
+        return { x: (o.x || 0) + (v.x + 1) / 2 * w, y: (o.y || 0) + (1 - v.y) / 2 * h };
+      },
+    };
+    return api;
+  }
+
   const R = window.R = {
     width: config.stage.width,
     height: config.stage.height,
@@ -637,6 +857,7 @@ export const KIT_SOURCE = String.raw`(() => {
     iconNames: () => Object.keys(icons),
     theme, accent, el, node, box, point, layer,
     connect, line, ring, flow, code, highlight, count, bars, focus, grid, glow, particles,
+    three,
   };
   if (window.gsap) {
     gsap.registerPlugin(...${JSON.stringify(gsapPlugins)}.map((name) => window[name]).filter(Boolean));

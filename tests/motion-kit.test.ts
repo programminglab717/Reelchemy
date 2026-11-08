@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { previewMotionScene } from "../src/motion/preflight";
 import { cacheAsideScene } from "../src/motion/examples/cache-aside";
 import { compoundGrowthScene } from "../src/motion/examples/compound-growth";
+import { hero3dScene } from "../src/motion/examples/hero-3d";
+import sharp from "sharp";
 
 // A scene that checks the kit from inside: each check runs at a moment on the
 // timeline and throws (reported as a scene error) when the kit misbehaves.
@@ -131,5 +133,67 @@ test(
     assert.deepEqual(result.errors, []);
     assert.deepEqual(result.layout, []);
     assert(result.frames.slice(1, -1).every((f) => f.change! > 0.1));
+  },
+);
+
+test(
+  "3D scenes render with three.js: lit meshes, projection to the stage, drawn once per frame",
+  { timeout: 120000 },
+  async () => {
+    const result = await previewMotionScene({
+      code: {
+        libraries: ["three"],
+        html: "",
+        css: "",
+        js: String.raw`
+const check = (ok, message) => { if (!ok) throw new Error("CHECK " + message); };
+const view = R.three({ camera: [0, 0, 8], target: [0, 0, 0], background: "#000000", environment: true });
+const ball = view.sphere({ r: 1, color: "#ffffff", emissive: "#ff2020", emissiveIntensity: 2 });
+const logo = view.extrude("M0 0 H100 V100 H0 Z M30 30 V70 H70 V30 Z", { size: 1, position: [3, 0, 0] });
+const card = view.label("Hello", { size: 48, position: [-3, 0, 0] });
+const centre = view.screen([0, 0, 0]);
+check(Math.abs(centre.x - 960) < 1 && Math.abs(centre.y - 540) < 1, "the target projects to the stage centre: " + JSON.stringify(centre));
+check(view.screen(logo).x > 1200, "objects to the right project right of centre");
+check(window.__reelchemyDraw.length === 1, "one draw hook is registered");
+check(logo.geometry.attributes.position.count > 0 && card.material.map, "meshes are built");
+gsap.to(ball.position, { x: 2.5, duration: 2, ease: "none" });
+`,
+      },
+      format: "landscape",
+      durationSeconds: 2,
+      times: [0, 2],
+      width: 480,
+    });
+    assert.deepEqual(result.errors, []);
+    // The emissive ball is drawn: red at the centre at 0 s, then it moves right.
+    const pixel = async (png: Buffer, x: number, y: number) => [
+      ...(await sharp(png)
+        .extract({ left: x, top: y, width: 1, height: 1 })
+        .raw()
+        .toBuffer()),
+    ];
+    const [r0, g0] = await pixel(result.frames[0].png, 240, 135);
+    assert(r0 > 150 && g0 < r0, `centre at 0 s: ${r0},${g0}`);
+    const [r1] = await pixel(result.frames[1].png, 240, 135);
+    assert(r1 < r0, "the ball has moved away from the centre");
+    assert(result.frames[1].change! > 1);
+  },
+);
+
+test(
+  "the 3D reference scene meets its own checks",
+  { timeout: 180000 },
+  async () => {
+    const times = [0.6, 2.6, 4.5, 6.5, 9.5];
+    const result = await previewMotionScene({
+      code: hero3dScene,
+      format: "landscape",
+      durationSeconds: 10,
+      times,
+      auditAt: times.slice(1),
+    });
+    assert.deepEqual(result.errors, []);
+    assert.deepEqual(result.layout, []);
+    assert(result.frames.every((f) => f.detail > 8));
   },
 );

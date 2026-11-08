@@ -1,5 +1,4 @@
-import { isMotionFile } from "@/motion/libraries";
-import { readMotionFile } from "@/motion/motion-files";
+import { serveMotionFile } from "@/motion/motion-files";
 
 // Public, allowlisted libraries and fonts for code-scene previews. Scene
 // documents run in an opaque-origin sandbox, so these are cross-origin loads.
@@ -8,12 +7,13 @@ export async function GET(
   { params }: { params: Promise<{ file: string[] }> },
 ) {
   const name = (await params).file.join("/");
-  if (!isMotionFile(name))
+  const file = serveMotionFile(name);
+  if (!file)
     return new Response("Not found", {
       status: 404,
       headers: { "Cache-Control": "no-store" },
     });
-  const { bytes, type } = readMotionFile(name);
+  const { bytes, type } = file;
   return new Response(new Uint8Array(bytes), {
     headers: {
       "Content-Type": type,

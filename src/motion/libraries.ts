@@ -32,13 +32,26 @@ export const gsapPlugins = [
 ] as const;
 // Optional libraries a scene declares; GSAP, its plugins, icons and fonts are
 // always available.
-export const optionalMotionLibraries = ["d3"] as const;
+export const optionalMotionLibraries = ["d3", "three"] as const;
 export type OptionalMotionLibrary = (typeof optionalMotionLibraries)[number];
 export const motionFonts = {
   Inter: "fonts/inter.woff2",
   "Space Grotesk": "fonts/space-grotesk.woff2",
   "JetBrains Mono": "fonts/jetbrains-mono.woff2",
 } as const;
+// three.js modules a 3D scene may import (with everything they import): the
+// core, rounded boxes, SVG shapes for extruded logos, a studio lighting
+// environment and bloom post-processing.
+export const threeEntries = [
+  "three/build/three.module.js",
+  "three/examples/jsm/geometries/RoundedBoxGeometry.js",
+  "three/examples/jsm/loaders/SVGLoader.js",
+  "three/examples/jsm/environments/RoomEnvironment.js",
+  "three/examples/jsm/postprocessing/EffectComposer.js",
+  "three/examples/jsm/postprocessing/RenderPass.js",
+  "three/examples/jsm/postprocessing/UnrealBloomPass.js",
+  "three/examples/jsm/postprocessing/OutputPass.js",
+] as const;
 export function isMotionFile(name: string): name is MotionFile {
   return Object.hasOwn(motionFiles, name);
 }
