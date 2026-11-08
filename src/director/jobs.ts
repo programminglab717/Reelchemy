@@ -5,16 +5,26 @@ import { z } from "zod";
 // Director runs: generating a film takes minutes, longer than a proxy keeps a
 // request open, so it runs in the background and is polled. One active run
 // per studio.
+// An uploaded video or image of the project whose style the director matches.
+const reference = z
+  .string()
+  .regex(/^[a-f0-9-]{36}$/)
+  .optional();
 export const directorRequestSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("film") }).strict(),
+  z.object({ kind: z.literal("film"), referenceAssetId: reference }).strict(),
   z
-    .object({ kind: z.literal("film-revision"), instruction: z.string() })
+    .object({
+      kind: z.literal("film-revision"),
+      instruction: z.string(),
+      referenceAssetId: reference,
+    })
     .strict(),
   z
     .object({
       kind: z.literal("scene-revision"),
       sceneId: z.string().max(80),
       instruction: z.string(),
+      referenceAssetId: reference,
     })
     .strict(),
 ]);

@@ -8,6 +8,7 @@ import {
 } from "../lib/schema";
 import { motionStages, type MotionCode } from "../motion/document";
 import { previewMotionScene, type MotionPreview } from "../motion/preflight";
+import type { DirectorReference } from "./reference";
 import type { Llm, LlmMessage } from "./llm";
 import {
   parsePlan,
@@ -45,12 +46,27 @@ export type DirectorOptions = {
   signal?: AbortSignal;
   concurrency?: number;
   maxRevisions?: number;
+  // A style reference to match (frames and pacing notes).
+  reference?: DirectorReference;
   // The project's images the scenes may use, with their bytes for previews.
   images?: (ProjectImage & { bytes: Buffer })[];
   // Injectable for tests.
   preview?: typeof previewMotionScene;
 };
 
+// A request's first message, with the style reference when there is one:
+// its frames for models that see images, and its pacing notes for all.
+function withReference(
+  text: string,
+  options: Pick<DirectorOptions, "reference" | "vision">,
+): LlmMessage["content"] {
+  const reference = options.reference;
+  if (!reference) return text;
+  const note = `\n\nSTYLE REFERENCE (match its look, typography, palette, materials, motion language and pacing; never copy its content, logos or words): ${reference.notes}`;
+  return options.vision
+    ? [{ png: reference.sheet }, { text: text + note }]
+    : text + note.replace(/ The attached sheet[^.]*\./, "");
+}
 const PLAN_TOKENS = 6000;
 const SCENE_TOKENS = 16000;
 
@@ -178,6 +194,7 @@ type SceneContext = {
   preview: typeof previewMotionScene;
   maxRevisions: number;
   images: (ProjectImage & { bytes: Buffer })[];
+  reference?: DirectorReference;
   // Reports a step within this scene (0 = started, 1 = done).
   step: (stage: string, within: number) => void;
 };
@@ -313,6 +330,7 @@ function sceneContext(options: DirectorOptions): Omit<SceneContext, "step"> {
     preview: options.preview ?? previewMotionScene,
     maxRevisions: options.maxRevisions ?? 2,
     images: options.images ?? [],
+    reference: options.reference,
   };
 }
 async function planFilm(
@@ -322,11 +340,14 @@ async function planFilm(
   const messages: LlmMessage[] = [
     {
       role: "user",
-      content: plannerUser(brief, {
-        previous: options.previous,
-        instruction: options.instruction,
-        images: options.images,
-      }),
+      content: withReference(
+        plannerUser(brief, {
+          previous: options.previous,
+          instruction: options.instruction,
+          images: options.images,
+        }),
+        options,
+      ),
     },
   ];
   for (let attempt = 0; ; attempt++) {
@@ -405,11 +426,9 @@ export async function directFilm(
         [
           {
             role: "user",
-            content: writerUser(
-              film,
-              index,
-              options.brief.format,
-              options.images,
+            content: withReference(
+              writerUser(film, index, options.brief.format, options.images),
+              options,
             ),
           },
         ],
@@ -449,7 +468,8 @@ export async function directScene(
     [
       {
         role: "user",
-        content: `${writerUser(options.plan, options.index, options.brief.format, options.images)}
+        content: withReference(
+          `${writerUser(options.plan, options.index, options.brief.format, options.images)}
 
 Current version of this scene:
 <scene>
@@ -467,6 +487,8 @@ ${options.current.js}
 Requested change: ${options.instruction}
 
 Reply with the complete updated scene in the <scene> format, keeping its duration and the film's style.`,
+          options,
+        ),
       },
     ],
   );

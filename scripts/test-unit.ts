@@ -125,6 +125,7 @@ try {
       "motion-kit.test.ts",
       "director.test.ts",
       "director-api.test.ts",
+      "director-reference.test.ts",
       "shared-media-worker.test.ts",
     ].includes(path.basename(arg)),
   );

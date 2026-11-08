@@ -33,9 +33,27 @@ async function POSTHandler(req: Request, { params }: Context, access: Access) {
       .object({
         instruction: z.string().trim().min(3).max(1200).optional(),
         sceneId: z.string().max(80).optional(),
+        referenceAssetId: z
+          .string()
+          .regex(/^[a-f0-9-]{36}$/)
+          .optional(),
       })
       .strict()
       .parse(await body(req));
+    if (
+      input.referenceAssetId &&
+      !project.assets?.some(
+        (a) =>
+          a.id === input.referenceAssetId &&
+          (a.mime === "video/mp4" || a.mime === "image/png"),
+      )
+    )
+      throw new Error(
+        "A style reference must be a video or image uploaded to this project.",
+      );
+    const reference = input.referenceAssetId
+      ? { referenceAssetId: input.referenceAssetId }
+      : {};
     if (input.sceneId && !input.instruction)
       throw new Error("Describe how the scene should change.");
     if (!ownedPlanningStorageAvailable(project.id, access.workspace.id, 2))
@@ -60,10 +78,15 @@ async function POSTHandler(req: Request, { params }: Context, access: Access) {
             kind: "scene-revision",
             sceneId: input.sceneId,
             instruction: input.instruction,
+            ...reference,
           }
         : input.instruction && project.timeline
-          ? { kind: "film-revision", instruction: input.instruction }
-          : { kind: "film" };
+          ? {
+              kind: "film-revision",
+              instruction: input.instruction,
+              ...reference,
+            }
+          : { kind: "film", ...reference };
     const job = directorJobs.create(access.workspace.id, project.id, request);
     startDirectorJob(job, access.workspace.id);
     return json({ job }, 202);

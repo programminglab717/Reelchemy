@@ -168,7 +168,8 @@ export function Studio({
     [job, setJob] = useState<RenderJob | null>(null),
     [selection, setSelected] = useState(0),
     [revision, setRevision] = useState(""),
-    [revisionScope, setRevisionScope] = useState("scene");
+    [revisionScope, setRevisionScope] = useState("scene"),
+    [reference, setReference] = useState("");
   const openProjectId = useRef<string | undefined>(undefined);
   useEffect(() => {
     openProjectId.current = project?.id;
@@ -1154,6 +1155,12 @@ export function Studio({
                               ? await director.start(project.id, {
                                   instruction: revision,
                                   ...(sceneScope ? { sceneId: scene.id } : {}),
+                                  ...(reference &&
+                                  project.assets?.some(
+                                    (a) => a.id === reference,
+                                  )
+                                    ? { referenceAssetId: reference }
+                                    : {}),
                                 })
                               : "needs-key";
                           if (outcome === "needs-key") {
@@ -1182,6 +1189,28 @@ export function Studio({
                         <option value="scene">Selected scene only</option>
                         <option value="story">Whole storyboard</option>
                       </select>
+                      {(project.assets || []).some(
+                        (a) => a.mime === "video/mp4" || a.mime === "image/png",
+                      ) && (
+                        <select
+                          aria-label="Style reference"
+                          value={reference}
+                          onChange={(e) => setReference(e.target.value)}
+                        >
+                          <option value="">No style reference</option>
+                          {(project.assets || [])
+                            .filter(
+                              (a) =>
+                                a.mime === "video/mp4" ||
+                                a.mime === "image/png",
+                            )
+                            .map((a) => (
+                              <option key={a.id} value={a.id}>
+                                Match the style of {a.name}
+                              </option>
+                            ))}
+                        </select>
+                      )}
                       <textarea
                         id="revision"
                         placeholder="Describe a new direction…"

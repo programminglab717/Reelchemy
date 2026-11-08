@@ -67,7 +67,11 @@ export function useDirector(
   const start = useCallback(
     async (
       id: string,
-      body: { instruction?: string; sceneId?: string },
+      body: {
+        instruction?: string;
+        sceneId?: string;
+        referenceAssetId?: string;
+      },
     ): Promise<"started" | "needs-key"> => {
       const response = await transport(`/api/projects/${id}/direct`, {
         method: "POST",

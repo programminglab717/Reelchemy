@@ -175,6 +175,12 @@ test(
       },
       authSigningSecret(),
     );
+    // A style reference must be one of this project's videos or images.
+    const foreign = await start({
+      referenceAssetId: "11111111-1111-4111-8111-111111111111",
+    });
+    assert.equal(foreign.status, 400);
+    assert.match((await foreign.json()).error, /style reference/);
     const accepted = await start({});
     assert.equal(accepted.status, 202);
     const busy = await start({});

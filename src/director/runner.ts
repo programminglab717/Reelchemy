@@ -10,6 +10,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { authSigningSecret } from "../lib/auth";
 import { assetDir } from "../lib/assets";
+import { buildReference } from "./reference";
 import { resolveStudioAi } from "../lib/studio-ai-access";
 import { ProviderError } from "../lib/provider-error";
 import { RevisionConflict } from "../lib/editor";
@@ -196,9 +197,24 @@ async function runJob(
           }),
       )
     ).filter((image) => image !== null);
+    // A style reference (a video or image of the project), if one was chosen.
+    const referenceAsset = job.request.referenceAssetId
+      ? project.assets?.find((a) => a.id === job.request.referenceAssetId)
+      : undefined;
+    if (job.request.referenceAssetId && !referenceAsset)
+      throw new Error("The style reference is no longer in this project.");
+    if (referenceAsset) progress("Studying the reference", 0.02);
+    const reference = referenceAsset
+      ? await buildReference(
+          path.join(assetDir, referenceAsset.id),
+          referenceAsset.mime === "video/mp4" ? "video" : "image",
+          () => signal.aborted,
+        )
+      : undefined;
     const common = {
       llm,
       images,
+      reference,
       vision: supportsImages(studioAi.configuration),
       signal,
       concurrency: studioAi.policy.studioConcurrency,
