@@ -85,10 +85,6 @@ export const KIT_SOURCE = String.raw`(() => {
         parent.postMessage({ reelchemy: "assets", ids: config.assets }, "*");
       })
     : Promise.resolve();
-  // A 3D scene waits for its three.js modules (see the document's module).
-  window.__reelchemyThree = config.three
-    ? new Promise((resolve) => { window.__reelchemyThreeReady = resolve; })
-    : Promise.resolve();
   // Scene code measures layout, so it runs once the fonts are ready.
   window.__reelchemyFonts = Promise.all(
     ${JSON.stringify(Object.keys(motionFonts))}.map((family) => document.fonts.load('400 32px "' + family + '"').catch(() => [])),

@@ -170,25 +170,20 @@ test("exports serve allowlisted motion files only for films with code scenes", a
     );
     const font = await fetch(`${served.motionBaseUrl}/fonts/inter.woff2`);
     assert.equal(font.headers.get("content-type"), "font/woff2");
-    // three.js: its core and the chosen add-ons with everything they import.
-    for (const name of [
-      "three/build/three.module.js",
-      "three/build/three.core.js",
-      "three/examples/jsm/postprocessing/UnrealBloomPass.js",
-      "three/examples/jsm/postprocessing/Pass.js",
-      "three/examples/jsm/shaders/CopyShader.js",
-    ]) {
-      const file = await fetch(`${served.motionBaseUrl}/${name}`);
-      assert.equal(file.status, 200, name);
-      assert.match(file.headers.get("content-type")!, /javascript/);
-    }
+    // three.js: one generated script with the core and the chosen add-ons.
+    const three = await fetch(`${served.motionBaseUrl}/three.js`);
+    assert.equal(three.status, 200);
+    assert.match(three.headers.get("content-type")!, /javascript/);
+    const bundle = await three.text();
+    assert.match(bundle, /window\.THREE=/);
+    assert(!/^\s*(import|export)\s/m.test(bundle), "a classic script");
     for (const name of [
       "package.json",
       "../package.json",
       "gsap/dist/gsap.js",
       "three/package.json",
+      "three/build/three.module.js",
       "three/examples/jsm/loaders/GLTFLoader.js",
-      "three/build/../../gsap/dist/gsap.min.js",
     ])
       assert.equal(
         (await fetch(`${served.motionBaseUrl}/${name}`)).status,
@@ -220,7 +215,7 @@ test("the studio serves the same files for previews and refuses anything else", 
   assert.equal(refused.status, 404);
 });
 
-test("3D scenes load three.js as modules through an import map, only when asked", () => {
+test("3D scenes load three.js as a plain script, only when asked", () => {
   const options = {
     baseUrl: "http://127.0.0.1:4000/token/motion",
     format: "landscape" as const,
@@ -231,22 +226,16 @@ test("3D scenes load three.js as modules through an import map, only when asked"
     seed: 1,
   };
   const flat = motionDocument({ ...options, code });
-  assert(!flat.includes("importmap"));
-  assert.match(flat, /"three":false/);
+  assert(!flat.includes('/three.js"></script>'));
   const deep = motionDocument({
     ...options,
     code: { ...code, libraries: ["three"] },
   });
-  const map = JSON.parse(
-    /<script type="importmap">([^<]+)<\/script>/.exec(deep)![1],
+  assert(
+    deep.includes(
+      '<script src="http://127.0.0.1:4000/token/motion/three.js"></script>',
+    ),
   );
-  assert.deepEqual(map.imports, {
-    three: "http://127.0.0.1:4000/token/motion/three/build/three.module.js",
-    "three/addons/": "http://127.0.0.1:4000/token/motion/three/examples/jsm/",
-  });
-  assert.match(deep, /window\.THREE = Object\.assign/);
-  assert.match(deep, /"three":true/);
-  // No classic three.js script tag; the policy is unchanged.
-  assert(!deep.includes('src="http://127.0.0.1:4000/token/motion/three.js"'));
+  assert(!deep.includes("importmap") && !deep.includes('type="module"'));
   assert(deep.includes("script-src 'unsafe-inline' http://127.0.0.1:4000"));
 });

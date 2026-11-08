@@ -19,6 +19,8 @@ export const motionFiles = {
     "@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2",
   // Generated from lucide-static's icon data (see motion-files.ts).
   "icons.js": "lucide-static/icon-nodes.json",
+  // Generated: three.js and chosen add-ons bundled as one classic script.
+  "three.js": "three/package.json",
 } as const;
 export type MotionFile = keyof typeof motionFiles;
 export const gsapPlugins = [
@@ -39,19 +41,6 @@ export const motionFonts = {
   "Space Grotesk": "fonts/space-grotesk.woff2",
   "JetBrains Mono": "fonts/jetbrains-mono.woff2",
 } as const;
-// three.js modules a 3D scene may import (with everything they import): the
-// core, rounded boxes, SVG shapes for extruded logos, a studio lighting
-// environment and bloom post-processing.
-export const threeEntries = [
-  "three/build/three.module.js",
-  "three/examples/jsm/geometries/RoundedBoxGeometry.js",
-  "three/examples/jsm/loaders/SVGLoader.js",
-  "three/examples/jsm/environments/RoomEnvironment.js",
-  "three/examples/jsm/postprocessing/EffectComposer.js",
-  "three/examples/jsm/postprocessing/RenderPass.js",
-  "three/examples/jsm/postprocessing/UnrealBloomPass.js",
-  "three/examples/jsm/postprocessing/OutputPass.js",
-] as const;
 export function isMotionFile(name: string): name is MotionFile {
   return Object.hasOwn(motionFiles, name);
 }
