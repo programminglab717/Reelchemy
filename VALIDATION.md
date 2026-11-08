@@ -1479,3 +1479,21 @@ The owner reported that earlier videos extended past the video frame, so only pa
 - **Development-mode browser checks:** **14/14** in 5.5 minutes. New cases cover the preview's shape in all three formats and **Fit to frame** on a scene with a layer past the edge.
 - No false alarms: the demo plans (all formats) and all starter templates are unchanged by the fitting.
 - Visual check: a scene with a 2,390 px content row (headline and six page cards) was cut off at the right edge; with the fit it showed whole at 75% scale, with the background still full-frame.
+
+## 3D, images, style references and presets — 0.73
+
+Goal from the owner: output on par with AI motion-graphics tools that write every frame as code, such as Higgsfield's Katana. The measured gaps were: no 3D or depth, no use of the maker's images, no style reference, no presets, and a flat 2D look with empty compositions.
+
+**Results:**
+
+- **Real exports through the pipeline** (frozen copies, non-root):
+  - the two 2D reference scenes as one 29-second 1080p film: about 6 minutes;
+  - a 6-second 3D test: 3.3 minutes;
+  - the 10-second 3D hero with film finish: 4.7 minutes and 16.7 MB.
+
+  Frames from the MP4s were inspected. WebGL renders in preflight, in the studio player and in exports.
+
+- **Complete backend/native suite on the frozen 0.73 tree:** running; the result will be recorded here.
+- **Browser checks:** pending; to run after the backend suite. New cases cover a 3D scene in the studio player, and an uploaded image inserted into a code scene whose colour reaches the exported MP4.
+- **Film grain** that changed every frame inflated a 10-second 1080p export to 41–51 MB. Changing it every 4 frames brought that to 16.7 MB.
+- **Not verified:** a live run with a real model. Whether a given model writes good 3D scenes from these instructions is unmeasured.
