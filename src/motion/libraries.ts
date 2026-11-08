@@ -19,7 +19,8 @@ export const motionFiles = {
     "@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2",
   // Generated from lucide-static's icon data (see motion-files.ts).
   "icons.js": "lucide-static/icon-nodes.json",
-  // Generated: three.js and chosen add-ons bundled as one classic script.
+  // three.js and chosen add-ons, bundled ahead of time as one plain script
+  // (served from src/motion/vendor/three.js; see three-bundle.ts).
   "three.js": "three/package.json",
 } as const;
 export type MotionFile = keyof typeof motionFiles;

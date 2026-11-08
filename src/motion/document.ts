@@ -91,7 +91,7 @@ html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:$
 <style>${styleSafe(options.code.css)}</style>
 <script>window.__REELCHEMY_CONFIG__=${JSON.stringify(config)};</script>
 <script>${scriptSafe(CLOCK_SOURCE)}</script>
-${scripts.map((file) => `<script src="${base}/${file}"></script>`).join("\n")}
+${scripts.map((file) => `<script src="${base}/${file}" onerror="parent.postMessage({reelchemy:'error',message:'${file} could not be loaded.'},'*')"></script>`).join("\n")}
 </head><body><div id="stage">${
     fit
       ? `<div id="r-fit" style="position:absolute;left:0;top:0;width:${stage.width}px;height:${stage.height}px;transform-origin:0 0;transform:translate(${fit.x}px,${fit.y}px) scale(${fit.scale})">${options.code.html}</div>`

@@ -11,6 +11,7 @@ export default defineConfig([
     ".data/**",
     "private-auth/**",
     "next-env.d.ts",
+    "src/motion/vendor/**",
   ]),
   { rules: { "@next/next/no-img-element": "off" } },
 ]);

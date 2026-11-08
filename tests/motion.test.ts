@@ -9,6 +9,11 @@ import { blankTimeline } from "../src/lib/editor";
 import { timelineSchema, type Project, type Timeline } from "../src/lib/schema";
 import { motionDocument } from "../src/motion/document";
 import { staticScenePlan } from "../src/lib/static-scene";
+import { readFileSync } from "node:fs";
+import {
+  buildThreeBundle,
+  THREE_BUNDLE_PATH,
+} from "../src/motion/three-bundle";
 import { videoCompositePlan } from "../src/lib/video-composite-plan";
 
 const root = await mkdtemp(path.join(tmpdir(), "reelchemy-motion-"));
@@ -226,16 +231,29 @@ test("3D scenes load three.js as a plain script, only when asked", () => {
     seed: 1,
   };
   const flat = motionDocument({ ...options, code });
-  assert(!flat.includes('/three.js"></script>'));
+  assert(!flat.includes("/three.js"));
   const deep = motionDocument({
     ...options,
     code: { ...code, libraries: ["three"] },
   });
   assert(
     deep.includes(
-      '<script src="http://127.0.0.1:4000/token/motion/three.js"></script>',
+      '<script src="http://127.0.0.1:4000/token/motion/three.js" onerror=',
     ),
   );
+  // A library that fails to load is reported by name instead of surfacing
+  // later as a missing global.
+  assert(deep.includes("message:'three.js could not be loaded.'"));
   assert(!deep.includes("importmap") && !deep.includes('type="module"'));
   assert(deep.includes("script-src 'unsafe-inline' http://127.0.0.1:4000"));
+});
+
+test("the committed three.js bundle matches the installed three.js and add-ons", () => {
+  // Served without compiling anything at run time. Regenerate with
+  // npm run vendor:three after changing three.js or the add-on list.
+  const committed = readFileSync(THREE_BUNDLE_PATH);
+  assert(
+    committed.equals(buildThreeBundle()),
+    `${THREE_BUNDLE_PATH} is out of date: run npm run vendor:three`,
+  );
 });

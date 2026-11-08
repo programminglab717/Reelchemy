@@ -30,7 +30,7 @@ The owner's goal: the AI should produce sophisticated, motion-graphics explainer
 - Quality levers, in order of impact: the kit primitives, the reference scenes, the writer's design standards, and the review loop. To judge a change, render the references and real director output with `scripts/motion-preview.ts` and look at the contact sheets.
 - Not yet verified: a live run with a real model. The owner will run it with their own key. Mocked-model tests cover the pipeline (`tests/director*.test.ts`); kit and runtime tests render real frames.
 - 0.73 added:
-  - 3D (`R.three`; three.js and add-ons bundled at run time by esbuild into one classic script, `three.js`; drawn by the clock's once-per-frame draw hooks);
+  - 3D (`R.three`; three.js and add-ons pre-built into one classic script committed at `src/motion/vendor/three.js` (regenerate with `npm run vendor:three`; `tests/motion.test.ts` checks it is current), served as `three.js`; drawn by the clock's once-per-frame draw hooks);
   - the maker's images in code scenes (declared `code.assets`, bytes posted in by the host);
   - style references (`src/director/reference.ts`), presets (`src/director/presets.ts`), `R.finish` and an extra-polish mode.
 - Open ideas: transparent/alpha clip exports (ProRes 4444 or WebM), a whole-film critique pass, sound design (music bed and synced effects), richer cross-scene transitions, and more reference scenes for other genres.
