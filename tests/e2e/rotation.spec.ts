@@ -188,7 +188,6 @@ test("mobile rotation uses keyboard/numeric controls and invalid or cancelled in
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  await openTool(page, "Design");
   await page.getByRole("button", { name: "Start from a blank canvas" }).click();
   const controls = page.getByRole("group", {
     name: "Canvas rotation title controls",
@@ -200,6 +199,7 @@ test("mobile rotation uses keyboard/numeric controls and invalid or cancelled in
   const slider = controls.getByLabel("Canvas rotation title slider", {
     exact: true,
   });
+  await openTool(page, "Design");
   await slider.focus();
   await slider.press("ArrowRight");
   await expect(slider).toHaveValue("1");

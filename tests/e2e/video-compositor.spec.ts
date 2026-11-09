@@ -39,7 +39,6 @@ test("native-HD footage, fixed title and caption gaps use compositing and yield 
     );
     await page.goto("/");
     await page.getByLabel("Duration", { exact: true }).selectOption("5");
-    await openTool(page, "Design");
     await page
       .getByRole("button", { name: "Start from a blank canvas" })
       .click();

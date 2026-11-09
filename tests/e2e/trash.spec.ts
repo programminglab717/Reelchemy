@@ -52,7 +52,6 @@ test("Trash hides private routes/cancels jobs and restores the saved editor, med
   await page
     .getByRole("button", { name: "Move project to Trash", exact: true })
     .click();
-  await openTool(page, "Design");
   await expect(
     page.getByRole("button", {
       name: "Start from a blank canvas",

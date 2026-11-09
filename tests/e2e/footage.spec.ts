@@ -49,7 +49,6 @@ test("uploaded footage trims/splits with exact source pictures and audible inter
     ]);
     await page.goto("/");
     await page.getByLabel("Duration", { exact: true }).selectOption("5");
-    await openTool(page, "Design");
     await page
       .getByRole("button", { name: "Start from a blank canvas" })
       .click();

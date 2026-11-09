@@ -219,7 +219,6 @@ test("synthetic microphone take can be reviewed, recovered after failed upload, 
     await page
       .getByRole("button", { name: "New creation", exact: false })
       .click();
-    await openTool(page, "Design");
     await expect(
       page.getByRole("button", {
         name: "Start from a blank canvas",
@@ -267,7 +266,6 @@ test("denied microphone permission explains recovery without blocking manual edi
   await page
     .getByRole("button", { name: "New creation", exact: false })
     .click();
-  await openTool(page, "Design");
   await expect(
     page.getByRole("button", {
       name: "Start from a blank canvas",

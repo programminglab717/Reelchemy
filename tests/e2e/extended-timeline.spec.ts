@@ -20,14 +20,12 @@ test("a five-minute film survives editing and archive transfer and exports its l
       (r) =>
         r.url().endsWith("/api/projects") && r.request().method() === "POST",
     );
-    await openTool(page, "Design");
     await page
       .getByRole("button", { name: "Start from a blank canvas" })
       .click();
     const project = await (await created).json();
     expect(project.timeline.scenes).toHaveLength(15);
     const saved = page.getByRole("status", { name: "Save status" });
-    await openTool(page, "Scene & layers");
     await expect(
       page.getByRole("button", { name: "Duplicate scene", exact: true }),
     ).toBeDisabled();

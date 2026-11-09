@@ -164,9 +164,7 @@ test("Studio exports can recover from an unavailable check without blocking manu
   await expect(
     panel.getByRole("alert", { name: "Studio exports error" }),
   ).toContainText("Temporary export queue outage");
-  await openTool(page, "Design");
   await page.getByRole("button", { name: "Start from a blank canvas" }).click();
-  await openTool(page, "Scene & layers");
   await expect(page.getByLabel("Scene title", { exact: true })).toBeVisible();
   unavailable = false;
   await panel

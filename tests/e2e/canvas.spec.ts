@@ -6,9 +6,9 @@ test("canvas gestures, locks, visibility, stacking and timeline work without JSO
 }) => {
   await page.goto("/");
   await page.getByLabel("Duration", { exact: true }).selectOption("5");
-  await openTool(page, "Design");
   await page.getByRole("button", { name: "Start from a blank canvas" }).click();
   const stage = page.locator(".canvas-stage");
+  await openTool(page, "Design");
   await stage.scrollIntoViewIfNeeded();
   const bounds = (await stage.boundingBox())!;
   const title = page.getByRole("button", {

@@ -6,7 +6,6 @@ test("a downloaded recovery copy can be loaded after browser storage is cleared 
   request,
 }) => {
   await page.goto("/");
-  await openTool(page, "Design");
   await page.getByRole("button", { name: "Start from a blank canvas" }).click();
   await page.route("**/api/projects/*", async (route) => {
     if (route.request().method() === "PATCH")
@@ -17,7 +16,6 @@ test("a downloaded recovery copy can be loaded after browser storage is cleared 
       });
     else await route.continue();
   });
-  await openTool(page, "Scene & layers");
   await page
     .getByLabel("Scene title", { exact: true })
     .fill("My downloaded story");
@@ -76,7 +74,6 @@ test("invalid, oversized and different-project recovery files cannot overwrite s
   request,
 }) => {
   await page.goto("/");
-  await openTool(page, "Design");
   await page.getByRole("button", { name: "Start from a blank canvas" }).click();
   const [p] = await (await request.get("/api/projects")).json();
   const input = page.getByLabel("Recover a downloaded draft", { exact: true });

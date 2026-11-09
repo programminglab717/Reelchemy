@@ -1,4 +1,4 @@
-import { test, expect, openTool } from "./fixtures";
+import { test, expect } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 async function blockSaves(page: Page) {
@@ -25,10 +25,8 @@ test("failed saves survive reload and explicit recovery saves a version and clea
   request,
 }) => {
   await page.goto("/");
-  await openTool(page, "Design");
   await page.getByRole("button", { name: "Start from a blank canvas" }).click();
   await blockSaves(page);
-  await openTool(page, "Scene & layers");
   await page
     .getByLabel("Scene title", { exact: true })
     .fill("Recover this unsaved story");
@@ -88,10 +86,8 @@ test("stale recovery requires a deliberate choice and preserves the intervening 
   request,
 }) => {
   await page.goto("/");
-  await openTool(page, "Design");
   await page.getByRole("button", { name: "Start from a blank canvas" }).click();
   await blockSaves(page);
-  await openTool(page, "Scene & layers");
   await page
     .getByLabel("Scene title", { exact: true })
     .fill("My older unsaved edit");
@@ -153,7 +149,6 @@ test("concurrent tabs keep distinct recovery copies and sign-out clears only thi
   context,
 }) => {
   await page.goto("/");
-  await openTool(page, "Design");
   await page.getByRole("button", { name: "Start from a blank canvas" }).click();
   const other = await context.newPage();
   await other.goto("/");
@@ -162,7 +157,6 @@ test("concurrent tabs keep distinct recovery copies and sign-out clears only thi
     .click();
   await blockSaves(page);
   await blockSaves(other);
-  await openTool(page, "Scene & layers");
   await page.getByLabel("Scene title", { exact: true }).fill("First tab copy");
   await other
     .getByLabel("Scene title", { exact: true })
@@ -235,10 +229,8 @@ test("unavailable browser recovery storage offers a download and never blocks sa
     };
   });
   await page.goto("/");
-  await openTool(page, "Design");
   await page.getByRole("button", { name: "Start from a blank canvas" }).click();
   await blockSaves(page);
-  await openTool(page, "Scene & layers");
   await page
     .getByLabel("Scene title", { exact: true })
     .fill("Keep this work without local storage");

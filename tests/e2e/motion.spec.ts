@@ -1,13 +1,11 @@
-import { test, expect, openTool } from "./fixtures";
+import { test, expect } from "./fixtures";
 test("layer and camera motion can be authored and reset with visual controls", async ({
   page,
   request,
 }) => {
   await page.goto("/");
-  await openTool(page, "Design");
   await page.getByRole("button", { name: "Start from a blank canvas" }).click();
   const row = page.locator(".layer-row").filter({ hasText: "text · title" });
-  await openTool(page, "Scene & layers");
   await row.locator("summary").first().click();
   await row.getByText("Custom keyframes", { exact: true }).click();
   await page
