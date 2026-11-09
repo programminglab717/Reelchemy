@@ -309,6 +309,7 @@ test("audio upload, timed mix and captions produce AAC and downloadable subtitle
   await page
     .getByRole("button", { name: "Upload audio asset", exact: true })
     .click();
+  await openTool(page, "Sound & captions");
   await expect(
     page.getByRole("button", { name: "Add audio: tone.wav" }),
   ).toBeVisible();

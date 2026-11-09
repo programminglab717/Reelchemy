@@ -66,6 +66,7 @@ test("a file larger than one request uploads in pieces from the browser and beco
     await page
       .getByRole("button", { name: "Upload audio asset", exact: true })
       .click();
+    await openTool(page, "Sound & captions");
     await expect(
       page.getByRole("button", {
         name: "Add audio: long-narration.wav",

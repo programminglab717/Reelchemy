@@ -242,6 +242,7 @@ test("scene notes and captions save as undoable edits while a live microphone ta
     name: "Add audio: Narration.wav",
     exact: true,
   });
+  await openTool(page, "Sound & captions");
   await expect(add).toBeVisible({ timeout: 120000 });
   await add.click();
   await expect(saved).toHaveText("All changes saved");

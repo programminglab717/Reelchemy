@@ -160,6 +160,7 @@ test("synthetic microphone take can be reviewed, recovered after failed upload, 
       name: "Add audio: Narration.wav",
       exact: true,
     });
+    await openTool(page, "Sound & captions");
     await expect(add).toBeVisible();
     await add.click();
     await expect(

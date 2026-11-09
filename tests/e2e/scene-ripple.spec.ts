@@ -59,6 +59,7 @@ test("a captioned starter closes a deleted scene's gap through undo, reload and 
     await page
       .getByRole("button", { name: "Upload audio asset", exact: true })
       .click();
+    await openTool(page, "Sound & captions");
     await page
       .getByRole("button", { name: "Add audio: three-tones.wav", exact: true })
       .click();
