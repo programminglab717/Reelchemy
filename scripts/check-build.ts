@@ -11,6 +11,7 @@ for (const page of [
   "/api/account/deletion",
   "/api/account/mcp-tokens",
   "/api/mcp",
+  "/oauth/authorize",
   "/api/projects",
   "/api/workspace/storage",
   "/api/workspace/export-storage",

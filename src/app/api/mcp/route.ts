@@ -12,14 +12,14 @@ const headers = {
   "Cache-Control": "no-store",
   "X-Content-Type-Options": "nosniff",
 };
-const challenge = (error: string, status = 401) =>
+const challenge = (request: Request, error: string, status = 401) =>
   Response.json(
     { error },
     {
       status,
       headers: {
         ...headers,
-        "WWW-Authenticate": 'Bearer realm="reelchemy", error="invalid_token"',
+        "WWW-Authenticate": `Bearer realm="reelchemy", error="invalid_token", resource_metadata="${publicOrigin(request)}/.well-known/oauth-protected-resource"`,
       },
     },
   );
@@ -52,19 +52,26 @@ export async function POST(request: Request) {
   const match = /^Bearer\s+(\S+)$/i.exec(authorization);
   if (!match)
     return challenge(
+      request,
       "Connect with a Reelchemy assistant token (Account settings → AI assistants) in an Authorization: Bearer header.",
     );
   const token = mcpTokens.resolve(match[1]);
   if (!token)
-    return challenge("This assistant token is not valid or was revoked.");
+    return challenge(
+      request,
+      "This assistant token is not valid or was revoked.",
+    );
   let workspace;
   try {
     workspace = ensureWorkspace(token.userId, token.name);
   } catch {
-    return challenge("This studio is not available.", 403);
+    return challenge(request, "This studio is not available.", 403);
   }
   if (workspace.id !== token.workspaceId)
-    return challenge("This assistant token is not valid or was revoked.");
+    return challenge(
+      request,
+      "This assistant token is not valid or was revoked.",
+    );
   let payload: unknown;
   try {
     payload = JSON.parse(

@@ -115,7 +115,12 @@ export function AccountForm() {
                     result.error.message ||
                       "Could not complete your request. Try again.",
                   );
-                router.replace("/");
+                // Return to an app-connection approval that sent the owner
+                // here; nothing else (no open redirects).
+                const next = search.get("next");
+                router.replace(
+                  next && next.startsWith("/oauth/authorize?") ? next : "/",
+                );
                 router.refresh();
               }
             } catch (e) {

@@ -5,7 +5,7 @@ import {
   type CreatorTemplateId,
 } from "@/lib/creator-templates";
 import { captionSceneNotes } from "@/lib/scene-notes";
-import { EditorToolsNav } from "./EditorToolsNav";
+import { EditorToolsNav, type StudioTool } from "./EditorToolsNav";
 import { DURATION_PRESETS } from "@/lib/timeline-limits";
 import type { EditorProject as Project } from "@/lib/project-view";
 import { clipAudioTracks } from "@/lib/clip-audio";
@@ -204,6 +204,8 @@ export function Studio({
     Math.max(0, (project?.timeline?.scenes.length || 1) - 1),
   );
   const [scenePreview, setScenePreview] = useState(false);
+  // The editing tool open below the player and timeline.
+  const [tool, setTool] = useState<StudioTool>("scene");
   const [recordingPending, setRecordingPending] = useState(false);
   const [recordingActive, setRecordingActive] = useState(false);
   const player = useRef<PlayerRef>(null);
@@ -921,13 +923,6 @@ export function Studio({
               <div className="project-heading-actions">
                 <button
                   className="subtle"
-                  disabled={busy || editor.saving}
-                  onClick={() => void trashCurrentProject()}
-                >
-                  Move project to Trash
-                </button>
-                <button
-                  className="subtle"
                   onClick={() => void navigate(null)}
                   disabled={busy || editor.saving}
                 >
@@ -937,48 +932,7 @@ export function Studio({
             </div>
             {timeline && (
               <fieldset className="editor-content" disabled={busy}>
-                <EditorToolsNav />
                 <div className="editor-actions">
-                  {timeline.format === "square" ? (
-                    <span>Export size: 1080 × 1080</span>
-                  ) : (
-                    <label className="export-resolution">
-                      Export resolution
-                      <select
-                        aria-label="Export resolution"
-                        value={timeline.exportResolution || "standard"}
-                        onChange={(event) =>
-                          changeTimeline({
-                            ...timeline,
-                            exportResolution: event.target.value as
-                              "standard" | "1080p",
-                          })
-                        }
-                      >
-                        <option value="standard">
-                          Standard ·{" "}
-                          {videoDimensions({ format: timeline.format }).width} ×{" "}
-                          {videoDimensions({ format: timeline.format }).height}
-                        </option>
-                        <option value="1080p">
-                          Full HD ·{" "}
-                          {
-                            videoDimensions({
-                              format: timeline.format,
-                              exportResolution: "1080p",
-                            }).width
-                          }{" "}
-                          ×{" "}
-                          {
-                            videoDimensions({
-                              format: timeline.format,
-                              exportResolution: "1080p",
-                            }).height
-                          }
-                        </option>
-                      </select>
-                    </label>
-                  )}
                   <button
                     className="subtle"
                     disabled={!editor.canUndo || busy}
@@ -1013,11 +967,43 @@ export function Studio({
                   >
                     Save now
                   </button>
-                  <small>
-                    Device recovery protects unsaved edits when storage is
-                    available. Download a copy if recovery is unavailable.
-                    Signing out clears this account’s device copies.
-                  </small>
+                  <button
+                    className="primary"
+                    disabled={busy || !!active}
+                    onClick={() =>
+                      void run(async () => {
+                        setTool("export");
+                        await save();
+                        const saved = editor.getCurrent();
+                        if (!saved || saved.id !== project.id)
+                          throw new Error(
+                            "Open the project again before exporting.",
+                          );
+                        const version = revisionId(saved);
+                        if (
+                          pendingExport.current?.projectId !== saved.id ||
+                          pendingExport.current.revisionId !== version
+                        )
+                          pendingExport.current = {
+                            projectId: saved.id,
+                            revisionId: version,
+                            key: crypto.randomUUID(),
+                          };
+                        setJob(
+                          await api<RenderJob>(
+                            `/api/projects/${project.id}/render`,
+                            "POST",
+                            { baseRevisionId: version },
+                            { "Idempotency-Key": pendingExport.current.key },
+                          ),
+                        );
+                        pendingExport.current = null;
+                      })
+                    }
+                  >
+                    {active ? "Rendering…" : "Approve & export MP4"}{" "}
+                    <Icon name="arrow-up-right" size={18} />
+                  </button>
                 </div>
                 {editor.saveError && (
                   <div className="save-warning" role="alert">
@@ -1266,51 +1252,6 @@ export function Studio({
                     </form>
                   </section>
                 </div>
-                <TimelineEditor
-                  projectId={project.id}
-                  assets={project.assets || []}
-                  timeline={timeline}
-                  selected={selected}
-                  onSelect={setSelected}
-                  player={player}
-                  inFrame={previewStart}
-                  outFrame={previewEnd}
-                  onChange={changeTimeline}
-                />
-                {scene?.code ? (
-                  <CodeSceneEditor
-                    key={`code-${scene.id}-${codeVersion(scene.code)}`}
-                    timeline={timeline}
-                    selected={selected}
-                    onChange={changeTimeline}
-                    images={(project.assets || []).filter(
-                      (a) => a.mime === "image/png",
-                    )}
-                  />
-                ) : (
-                  <CanvasEditor
-                    key={`canvas-${scene?.id}`}
-                    timeline={timeline}
-                    selected={selected}
-                    assetSources={Object.fromEntries(
-                      (project.assets || []).map((a) => [
-                        a.id,
-                        `/api/projects/${project.id}/assets/${a.id}`,
-                      ]),
-                    )}
-                    onChange={changeTimeline}
-                    fonts={(project.assets || []).filter((a) =>
-                      isFontMime(a.mime),
-                    )}
-                  />
-                )}
-                {scene && !scene.code && (
-                  <CodeSceneConvert
-                    timeline={timeline}
-                    selected={selected}
-                    onChange={changeTimeline}
-                  />
-                )}
                 <div className="section-heading">
                   <h2>Your storyboard</h2>
                   <span>SELECT A SCENE TO REFINE IT</span>
@@ -1363,536 +1304,673 @@ export function Studio({
                     </button>
                   ))}
                 </div>
-                {scene && (
+                <TimelineEditor
+                  projectId={project.id}
+                  assets={project.assets || []}
+                  timeline={timeline}
+                  selected={selected}
+                  onSelect={setSelected}
+                  player={player}
+                  inFrame={previewStart}
+                  outFrame={previewEnd}
+                  onChange={changeTimeline}
+                />
+                <EditorToolsNav tool={tool} onTool={setTool} />
+                <div
+                  role="tabpanel"
+                  id="studio-panel-scene"
+                  aria-labelledby="studio-tab-scene"
+                  className="tool-panel"
+                  hidden={tool !== "scene"}
+                >
+                  {scene && (
+                    <section
+                      id="studio-tool-scene"
+                      tabIndex={-1}
+                      className="scene-editor"
+                    >
+                      <div>
+                        <span className="eyebrow">SCENE {selected + 1}</span>
+                        <h2>Make it yours.</h2>
+                      </div>
+                      <label>
+                        Scene title
+                        <input
+                          value={scene.title}
+                          maxLength={100}
+                          onChange={(e) =>
+                            changeScene({ title: e.target.value })
+                          }
+                        />
+                      </label>
+                      <label>
+                        On-screen text
+                        <input
+                          value={
+                            scene.layers.find((l) => l.id === "title")?.text ||
+                            ""
+                          }
+                          maxLength={80}
+                          onChange={(e) =>
+                            changeScene({
+                              layers: scene.layers.map((l) =>
+                                l.id === "title" && !l.locked
+                                  ? { ...l, text: e.target.value }
+                                  : l,
+                              ),
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        Accent
+                        <input
+                          type="color"
+                          value={scene.accent}
+                          onChange={(e) =>
+                            changeScene({
+                              accent: e.target.value,
+                              layers: scene.layers.map((l) =>
+                                l.color === scene.accent && !l.locked
+                                  ? { ...l, color: e.target.value }
+                                  : l,
+                              ),
+                            })
+                          }
+                        />
+                      </label>
+                      <label>
+                        Scene notes
+                        <textarea
+                          aria-label="Scene notes"
+                          value={scene.intent}
+                          maxLength={500}
+                          rows={4}
+                          onChange={(e) =>
+                            changeScene({ intent: e.target.value })
+                          }
+                        />
+                      </label>
+                      <small>
+                        Keep shot directions or narration here. These notes are
+                        saved with the scene. You can read them in Record
+                        narration.
+                      </small>
+                      <div className="scene-notes-actions">
+                        <button
+                          className="subtle"
+                          disabled={!scene.intent.trim() || busy}
+                          onClick={() => {
+                            try {
+                              changeTimeline(
+                                captionSceneNotes(timeline, selected),
+                              );
+                              setError("");
+                            } catch (error) {
+                              setError(
+                                error instanceof Error
+                                  ? error.message
+                                  : "Could not create captions from these notes.",
+                              );
+                            }
+                          }}
+                        >
+                          Use notes as captions for this scene
+                        </button>
+                        <small>
+                          This replaces captions inside this scene. Check their
+                          timing against your finished voice recording.
+                        </small>
+                      </div>
+                      <div className="reorder">
+                        <button
+                          aria-label="Move scene earlier"
+                          className="subtle"
+                          disabled={selected === 0}
+                          onClick={() => {
+                            const scenes = [...timeline.scenes];
+                            [scenes[selected - 1], scenes[selected]] = [
+                              scenes[selected],
+                              scenes[selected - 1],
+                            ];
+                            changeTimeline({ ...timeline, scenes });
+                            setSelected(selected - 1);
+                            setJob(null);
+                          }}
+                        >
+                          <Icon name="arrow-left" size={14} />
+                        </button>
+                        <button
+                          aria-label="Move scene later"
+                          className="subtle"
+                          disabled={selected === timeline.scenes.length - 1}
+                          onClick={() => {
+                            const scenes = [...timeline.scenes];
+                            [scenes[selected + 1], scenes[selected]] = [
+                              scenes[selected],
+                              scenes[selected + 1],
+                            ];
+                            changeTimeline({ ...timeline, scenes });
+                            setSelected(selected + 1);
+                            setJob(null);
+                          }}
+                        >
+                          <Icon name="arrow-right" size={14} />
+                        </button>
+                      </div>
+                      <button
+                        className="subtle"
+                        disabled={!dirty || busy}
+                        onClick={() => void run(save)}
+                      >
+                        {dirty ? (
+                          "Save changes"
+                        ) : (
+                          <>
+                            Saved <Icon name="check" size={14} />
+                          </>
+                        )}
+                      </button>
+                    </section>
+                  )}
+                  <LayerEditor
+                    key={`layers-${scene?.id}`}
+                    assets={project.assets || []}
+                    timeline={timeline}
+                    selected={Math.min(selected, timeline.scenes.length - 1)}
+                    onChange={changeTimeline}
+                  />
+                </div>
+                <div
+                  role="tabpanel"
+                  id="studio-panel-design"
+                  aria-labelledby="studio-tab-design"
+                  className="tool-panel"
+                  hidden={tool !== "design"}
+                >
+                  {scene?.code ? (
+                    <CodeSceneEditor
+                      key={`code-${scene.id}-${codeVersion(scene.code)}`}
+                      timeline={timeline}
+                      selected={selected}
+                      onChange={changeTimeline}
+                      images={(project.assets || []).filter(
+                        (a) => a.mime === "image/png",
+                      )}
+                    />
+                  ) : (
+                    <CanvasEditor
+                      key={`canvas-${scene?.id}`}
+                      timeline={timeline}
+                      selected={selected}
+                      assetSources={Object.fromEntries(
+                        (project.assets || []).map((a) => [
+                          a.id,
+                          `/api/projects/${project.id}/assets/${a.id}`,
+                        ]),
+                      )}
+                      onChange={changeTimeline}
+                      fonts={(project.assets || []).filter((a) =>
+                        isFontMime(a.mime),
+                      )}
+                    />
+                  )}
+                  {scene && !scene.code && (
+                    <CodeSceneConvert
+                      timeline={timeline}
+                      selected={selected}
+                      onChange={changeTimeline}
+                    />
+                  )}
+                </div>
+                <div
+                  role="tabpanel"
+                  id="studio-panel-media"
+                  aria-labelledby="studio-tab-media"
+                  className="tool-panel"
+                  hidden={tool !== "media"}
+                >
+                  <AssetPanel
+                    key={project.id}
+                    canAddVisual={!!scene && scene.layers.length < 20}
+                    onRecordingPending={setRecordingPending}
+                    onRecordingActive={setRecordingActive}
+                    onRecordStart={() => player.current?.pause()}
+                    project={project}
+                    onProject={editor.mergeAssets}
+                    onUseFont={
+                      scene?.layers.some(
+                        (layer) => layer.kind === "text" && !layer.locked,
+                      )
+                        ? (fontAssetId) =>
+                            changeScene({
+                              layers: scene.layers.map((layer) =>
+                                layer.kind === "text" && !layer.locked
+                                  ? { ...layer, fontAssetId }
+                                  : layer,
+                              ),
+                            })
+                        : undefined
+                    }
+                    onAdd={(assetId) => {
+                      if (!scene) return;
+                      const asset = project.assets?.find(
+                        (a) => a.id === assetId,
+                      );
+                      const video = asset?.mime === "video/mp4";
+                      const layer: Layer = {
+                        id: crypto.randomUUID(),
+                        kind: video ? "video" : "image",
+                        assetId,
+                        x: video ? 0 : 0.1,
+                        y: video ? 0 : 0.5,
+                        width: video ? 1 : 0.8,
+                        height: video ? 1 : 0.35,
+                        text: "",
+                        color: "#FFFFFF",
+                        fontSize: 48,
+                        animation: video ? "none" : "rise",
+                        ...(video
+                          ? {
+                              video: {
+                                startFrame: 0,
+                                offsetFrames: 0,
+                                durationFrames: Math.min(
+                                  scene.durationFrames,
+                                  asset.durationFrames || 1,
+                                ),
+                                volume: 1,
+                                audio: !!asset.hasAudio,
+                                fit: "contain" as const,
+                              },
+                            }
+                          : {}),
+                      };
+                      changeScene({
+                        layers: video
+                          ? [layer, ...scene.layers]
+                          : [...scene.layers, layer],
+                      });
+                    }}
+                  />
+                </div>
+                <div
+                  role="tabpanel"
+                  id="studio-panel-captions"
+                  aria-labelledby="studio-tab-captions"
+                  className="tool-panel"
+                  hidden={tool !== "captions"}
+                >
+                  <MediaEditor
+                    key={`media-editor:${project.id}`}
+                    timeline={timeline}
+                    assets={project.assets || []}
+                    onChange={changeTimeline}
+                  />
+                </div>
+                <div
+                  role="tabpanel"
+                  id="studio-panel-export"
+                  aria-labelledby="studio-tab-export"
+                  className="tool-panel"
+                  hidden={tool !== "export"}
+                >
                   <section
-                    id="studio-tool-scene"
+                    id="studio-tool-export"
+                    tabIndex={-1}
+                    className="export-panel"
+                  >
+                    <div>
+                      <span className="eyebrow">EXPORT</span>
+                      <h2>Bring your story to life.</h2>
+                      <p>
+                        An H.264 MP4 with technical checks, scene snapshots and
+                        motion clips. Approve &amp; export from the bar above.
+                      </p>
+                    </div>
+                    {timeline.format === "square" ? (
+                      <span>Export size: 1080 × 1080</span>
+                    ) : (
+                      <label className="export-resolution">
+                        Export resolution
+                        <select
+                          aria-label="Export resolution"
+                          value={timeline.exportResolution || "standard"}
+                          onChange={(event) =>
+                            changeTimeline({
+                              ...timeline,
+                              exportResolution: event.target.value as
+                                "standard" | "1080p",
+                            })
+                          }
+                        >
+                          <option value="standard">
+                            Standard ·{" "}
+                            {videoDimensions({ format: timeline.format }).width}{" "}
+                            ×{" "}
+                            {
+                              videoDimensions({ format: timeline.format })
+                                .height
+                            }
+                          </option>
+                          <option value="1080p">
+                            Full HD ·{" "}
+                            {
+                              videoDimensions({
+                                format: timeline.format,
+                                exportResolution: "1080p",
+                              }).width
+                            }{" "}
+                            ×{" "}
+                            {
+                              videoDimensions({
+                                format: timeline.format,
+                                exportResolution: "1080p",
+                              }).height
+                            }
+                          </option>
+                        </select>
+                      </label>
+                    )}
+                  </section>
+                  {job && (
+                    <section className="job-panel" aria-live="polite">
+                      <div className="job-heading">
+                        <strong>
+                          {job.files
+                            ? "Export files unavailable"
+                            : job.status === "completed"
+                              ? "Your film is ready."
+                              : job.status === "failed"
+                                ? "Export needs attention"
+                                : job.status === "cancelled"
+                                  ? "Export cancelled"
+                                  : job.status === "queued"
+                                    ? queueMessage(job.queueAhead)
+                                    : `${job.stage || "Rendering your story"} · ${Math.round(job.progress * 100)}%`}
+                        </strong>
+                        {active && (
+                          <button
+                            className="subtle"
+                            onClick={() =>
+                              void run(async () =>
+                                setJob(
+                                  await api<RenderJob>(
+                                    `/api/jobs/${job.id}`,
+                                    "DELETE",
+                                  ),
+                                ),
+                              )
+                            }
+                          >
+                            Cancel export
+                          </button>
+                        )}
+                      </div>
+                      <progress max={1} value={job.progress} />
+                      {job.error && <p role="alert">{job.error}</p>}
+                      {job.status === "queued" && (
+                        <p>
+                          Exports render one at a time on the shared studio
+                          renderer. You can keep editing; this export uses the
+                          version you approved.
+                        </p>
+                      )}
+                      {job.status === "completed" && !job.files && (
+                        <>
+                          <div className="completed-export">
+                            <img
+                              src={`/api/jobs/${job.id}/thumbnail`}
+                              alt="Rendered video thumbnail"
+                            />
+                            <div>
+                              <p>
+                                Verified codec, dimensions, frame rate, and
+                                duration.
+                              </p>
+                              <a
+                                className="primary download"
+                                href={`/api/jobs/${job.id}/download`}
+                              >
+                                Download MP4 <Icon name="download" size={14} />
+                              </a>
+                              {((job.report as { timeline?: Timeline } | null)
+                                ?.timeline?.captions?.length || 0) > 0 && (
+                                <div className="layer-fields">
+                                  <a
+                                    href={`/api/jobs/${job.id}/evidence/captions.srt`}
+                                    download="captions.srt"
+                                  >
+                                    SRT captions{" "}
+                                    <Icon name="download" size={14} />
+                                  </a>
+                                  <a
+                                    href={`/api/jobs/${job.id}/evidence/captions.vtt`}
+                                    download="captions.vtt"
+                                  >
+                                    VTT captions{" "}
+                                    <Icon name="download" size={14} />
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <QualityEvidence job={job} />
+                          <p className="qc-note">
+                            Static geometry and rendered text checks completed.
+                            Scene stills and moving clips are stored with the
+                            export for review. Semantic quality and perceptual
+                            audio/video sync require human review.
+                          </p>
+                        </>
+                      )}
+                      <details>
+                        <summary>
+                          Export activity
+                          {job.retryCount ? ` · ${job.retryCount} retry` : ""}
+                        </summary>
+                        {job.events?.map((event, index) => (
+                          <p key={index}>
+                            {event.at.slice(11, 19)} UTC · {event.message}
+                          </p>
+                        ))}
+                      </details>
+                      {!active && (
+                        <ExportFiles
+                          job={job}
+                          onChange={(files) =>
+                            setJob((current) =>
+                              current?.id === job.id
+                                ? { ...current, files }
+                                : current,
+                            )
+                          }
+                        />
+                      )}
+                    </section>
+                  )}
+                  <ExportHistory
+                    refreshKey={exportActivityRevision}
+                    projectId={project.id}
+                    current={job}
+                    onSelect={setJob}
+                  />
+                </div>
+                <div
+                  role="tabpanel"
+                  id="studio-panel-project"
+                  aria-labelledby="studio-tab-project"
+                  className="tool-panel"
+                  hidden={tool !== "project"}
+                >
+                  <section
+                    id="studio-tool-project"
                     tabIndex={-1}
                     className="scene-editor"
                   >
-                    <div>
-                      <span className="eyebrow">SCENE {selected + 1}</span>
-                      <h2>Make it yours.</h2>
-                    </div>
-                    <label>
-                      Scene title
-                      <input
-                        value={scene.title}
-                        maxLength={100}
-                        onChange={(e) => changeScene({ title: e.target.value })}
-                      />
-                    </label>
-                    <label>
-                      Scene notes
-                      <textarea
-                        aria-label="Scene notes"
-                        value={scene.intent}
-                        maxLength={500}
-                        rows={4}
-                        onChange={(e) =>
-                          changeScene({ intent: e.target.value })
-                        }
-                      />
-                    </label>
-                    <small>
-                      Keep shot directions or narration here. These notes are
-                      saved with the scene. You can read them in Record
-                      narration.
-                    </small>
-                    <button
-                      className="subtle"
-                      disabled={!scene.intent.trim() || busy}
-                      onClick={() => {
-                        try {
-                          changeTimeline(captionSceneNotes(timeline, selected));
-                          setError("");
-                        } catch (error) {
-                          setError(
-                            error instanceof Error
-                              ? error.message
-                              : "Could not create captions from these notes.",
-                          );
-                        }
-                      }}
-                    >
-                      Use notes as captions for this scene
-                    </button>
-                    <small>
-                      This replaces captions inside this scene. Check their
-                      timing against your finished voice recording.
-                    </small>
-                    <label>
-                      On-screen text
-                      <input
-                        value={
-                          scene.layers.find((l) => l.id === "title")?.text || ""
-                        }
-                        maxLength={80}
-                        onChange={(e) =>
-                          changeScene({
-                            layers: scene.layers.map((l) =>
-                              l.id === "title" && !l.locked
-                                ? { ...l, text: e.target.value }
-                                : l,
-                            ),
-                          })
-                        }
-                      />
-                    </label>
-                    <label>
-                      Accent
-                      <input
-                        type="color"
-                        value={scene.accent}
-                        onChange={(e) =>
-                          changeScene({
-                            accent: e.target.value,
-                            layers: scene.layers.map((l) =>
-                              l.color === scene.accent && !l.locked
-                                ? { ...l, color: e.target.value }
-                                : l,
-                            ),
-                          })
-                        }
-                      />
-                    </label>
-                    <div className="reorder">
-                      <button
-                        aria-label="Move scene earlier"
-                        className="subtle"
-                        disabled={selected === 0}
-                        onClick={() => {
-                          const scenes = [...timeline.scenes];
-                          [scenes[selected - 1], scenes[selected]] = [
-                            scenes[selected],
-                            scenes[selected - 1],
-                          ];
-                          changeTimeline({ ...timeline, scenes });
-                          setSelected(selected - 1);
-                          setJob(null);
-                        }}
-                      >
-                        <Icon name="arrow-left" size={14} />
-                      </button>
-                      <button
-                        aria-label="Move scene later"
-                        className="subtle"
-                        disabled={selected === timeline.scenes.length - 1}
-                        onClick={() => {
-                          const scenes = [...timeline.scenes];
-                          [scenes[selected + 1], scenes[selected]] = [
-                            scenes[selected],
-                            scenes[selected + 1],
-                          ];
-                          changeTimeline({ ...timeline, scenes });
-                          setSelected(selected + 1);
-                          setJob(null);
-                        }}
-                      >
-                        <Icon name="arrow-right" size={14} />
-                      </button>
-                    </div>
-                    <button
-                      className="subtle"
-                      disabled={!dirty || busy}
-                      onClick={() => void run(save)}
-                    >
-                      {dirty ? (
-                        "Save changes"
-                      ) : (
-                        <>
-                          Saved <Icon name="check" size={14} />
-                        </>
-                      )}
-                    </button>
-                  </section>
-                )}
-                <section className="scene-editor">
-                  <h2>Version history</h2>
-                  <select
-                    className="version-history-restore"
-                    aria-label="Restore saved version"
-                    defaultValue=""
-                    disabled={
-                      busy || dirty || recordingPending || editor.saving
-                    }
-                    onChange={(e) => {
-                      const revisionId = e.target.value;
-                      if (!revisionId) return;
-                      void run(async () => {
-                        remember(
-                          await api<Project>(
-                            `/api/projects/${project.id}/restore`,
-                            "POST",
-                            {
-                              revisionId,
-                              baseRevisionId:
-                                project.revisions.at(-1)?.id ?? null,
-                            },
-                          ),
-                        );
-                        setSelected(0);
-                        setJob(null);
-                      });
-                      e.target.value = "";
-                    }}
-                  >
-                    <option value="">Choose a saved version to restore…</option>
-                    {savedVersionCount(project) > project.revisions.length && (
-                      <option disabled>
-                        Older versions: choose Browse saved versions below
-                      </option>
-                    )}
-                    {[...project.revisions].reverse().map((r, i) => (
-                      <option value={r.id} key={`${r.id}:${i}`}>
-                        Version {r.number ?? savedVersionCount(project) - i} ·{" "}
-                        {r.source}
-                      </option>
-                    ))}
-                  </select>
-                  <small>
-                    Restoring saves a new version; earlier versions stay
-                    available.
-                  </small>
-                  <VersionHistory
-                    key={`${project.id}:${historyCleanup}`}
-                    projectId={project.id}
-                    latestRevisionId={revisionId(project)}
-                    count={savedVersionCount(project)}
-                    disabled={busy || recordingPending}
-                    canRestore={
-                      !busy && !dirty && !recordingPending && !editor.saving
-                    }
-                    onOpen={() => player.current?.pause()}
-                    onRestored={(saved) => {
-                      remember(saved);
-                      setSelected(0);
-                      setJob(null);
-                    }}
-                  />
-                  <ProjectHistoryStorage
-                    key={project.id}
-                    projectId={project.id}
-                    latestRevisionId={revisionId(project)}
-                    disabled={busy || recordingActive || editor.saving}
-                    onOpen={() => player.current?.pause()}
-                    onHistory={(fresh, expected) => {
-                      const merged = editor.mergeHistory(fresh, expected);
-                      if (merged) {
-                        setHistoryCleanup((n) => n + 1);
-                        setListRefresh((n) => n + 1);
+                    <h2>Version history</h2>
+                    <select
+                      className="version-history-restore"
+                      aria-label="Restore saved version"
+                      defaultValue=""
+                      disabled={
+                        busy || dirty || recordingPending || editor.saving
                       }
-                      return merged;
-                    }}
-                  />
-                </section>
-                <section className="scene-editor">
-                  <h2>Keep your project</h2>
-                  <label>
-                    Recover a downloaded draft
-                    <input
-                      type="file"
-                      accept="application/json,.json"
-                      aria-label="Recover a downloaded draft"
-                      disabled={busy || dirty || editor.saving}
                       onChange={(e) => {
-                        const file = e.currentTarget.files?.[0];
-                        e.currentTarget.value = "";
-                        if (!file) return;
+                        const revisionId = e.target.value;
+                        if (!revisionId) return;
                         void run(async () => {
-                          if (file.size > MAX_DOWNLOADED_DRAFT_BYTES)
-                            throw new Error(
-                              "Recovery files must be 2 MiB or smaller.",
-                            );
-                          const draft = parseDownloadedDraft(
-                            await file.text(),
-                            userId,
-                            project.id,
+                          remember(
+                            await api<Project>(
+                              `/api/projects/${project.id}/restore`,
+                              "POST",
+                              {
+                                revisionId,
+                                baseRevisionId:
+                                  project.revisions.at(-1)?.id ?? null,
+                              },
+                            ),
                           );
-                          if (!confirmDraftRecovery(draft, revisionId(project)))
-                            return;
-                          editor.recoverDraft(draft);
                           setSelected(0);
                           setJob(null);
                         });
+                        e.target.value = "";
+                      }}
+                    >
+                      <option value="">
+                        Choose a saved version to restore…
+                      </option>
+                      {savedVersionCount(project) >
+                        project.revisions.length && (
+                        <option disabled>
+                          Older versions: choose Browse saved versions below
+                        </option>
+                      )}
+                      {[...project.revisions].reverse().map((r, i) => (
+                        <option value={r.id} key={`${r.id}:${i}`}>
+                          Version {r.number ?? savedVersionCount(project) - i} ·{" "}
+                          {r.source}
+                        </option>
+                      ))}
+                    </select>
+                    <small>
+                      Restoring saves a new version; earlier versions stay
+                      available.
+                    </small>
+                    <VersionHistory
+                      key={`${project.id}:${historyCleanup}`}
+                      projectId={project.id}
+                      latestRevisionId={revisionId(project)}
+                      count={savedVersionCount(project)}
+                      disabled={busy || recordingPending}
+                      canRestore={
+                        !busy && !dirty && !recordingPending && !editor.saving
+                      }
+                      onOpen={() => player.current?.pause()}
+                      onRestored={(saved) => {
+                        remember(saved);
+                        setSelected(0);
+                        setJob(null);
                       }}
                     />
-                  </label>
-                  <small>
-                    Use a recovery JSON from this account and project. Saved
-                    versions remain available; the original uploaded media must
-                    still be in the project.
-                  </small>
-                  <DownloadProject
-                    key={project.id}
-                    projectId={project.id}
-                    disabled={busy || recordingPending || editor.saving}
-                    beforeDownload={async () => {
-                      if (dirty) await save();
-                    }}
-                  />
-                  <small>
-                    ZIP includes saved scenes, conversation, versions, and
-                    uploaded assets. Import creates a separate copy. Edits made
-                    while downloading stay in your current project.
-                  </small>
-                </section>
-                <AssetPanel
-                  key={project.id}
-                  canAddVisual={!!scene && scene.layers.length < 20}
-                  onRecordingPending={setRecordingPending}
-                  onRecordingActive={setRecordingActive}
-                  onRecordStart={() => player.current?.pause()}
-                  project={project}
-                  onProject={editor.mergeAssets}
-                  onUseFont={
-                    scene?.layers.some(
-                      (layer) => layer.kind === "text" && !layer.locked,
-                    )
-                      ? (fontAssetId) =>
-                          changeScene({
-                            layers: scene.layers.map((layer) =>
-                              layer.kind === "text" && !layer.locked
-                                ? { ...layer, fontAssetId }
-                                : layer,
-                            ),
-                          })
-                      : undefined
-                  }
-                  onAdd={(assetId) => {
-                    if (!scene) return;
-                    const asset = project.assets?.find((a) => a.id === assetId);
-                    const video = asset?.mime === "video/mp4";
-                    const layer: Layer = {
-                      id: crypto.randomUUID(),
-                      kind: video ? "video" : "image",
-                      assetId,
-                      x: video ? 0 : 0.1,
-                      y: video ? 0 : 0.5,
-                      width: video ? 1 : 0.8,
-                      height: video ? 1 : 0.35,
-                      text: "",
-                      color: "#FFFFFF",
-                      fontSize: 48,
-                      animation: video ? "none" : "rise",
-                      ...(video
-                        ? {
-                            video: {
-                              startFrame: 0,
-                              offsetFrames: 0,
-                              durationFrames: Math.min(
-                                scene.durationFrames,
-                                asset.durationFrames || 1,
-                              ),
-                              volume: 1,
-                              audio: !!asset.hasAudio,
-                              fit: "contain" as const,
-                            },
-                          }
-                        : {}),
-                    };
-                    changeScene({
-                      layers: video
-                        ? [layer, ...scene.layers]
-                        : [...scene.layers, layer],
-                    });
-                  }}
-                />
-                <LayerEditor
-                  key={`layers-${scene?.id}`}
-                  assets={project.assets || []}
-                  timeline={timeline}
-                  selected={Math.min(selected, timeline.scenes.length - 1)}
-                  onChange={changeTimeline}
-                />
-                <MediaEditor
-                  key={`media-editor:${project.id}`}
-                  timeline={timeline}
-                  assets={project.assets || []}
-                  onChange={changeTimeline}
-                />
-                <section
-                  id="studio-tool-export"
-                  tabIndex={-1}
-                  className="export-panel"
-                >
-                  <div>
-                    <span className="eyebrow">READY WHEN YOU ARE</span>
-                    <h2>Bring your story to life.</h2>
-                    <p>
-                      H.264 MP4 · Technical checks · Scene snapshots & motion
-                      clips
-                    </p>
-                  </div>
-                  <button
-                    className="primary"
-                    disabled={busy || !!active}
-                    onClick={() =>
-                      void run(async () => {
-                        await save();
-                        const saved = editor.getCurrent();
-                        if (!saved || saved.id !== project.id)
-                          throw new Error(
-                            "Open the project again before exporting.",
-                          );
-                        const version = revisionId(saved);
-                        if (
-                          pendingExport.current?.projectId !== saved.id ||
-                          pendingExport.current.revisionId !== version
-                        )
-                          pendingExport.current = {
-                            projectId: saved.id,
-                            revisionId: version,
-                            key: crypto.randomUUID(),
-                          };
-                        setJob(
-                          await api<RenderJob>(
-                            `/api/projects/${project.id}/render`,
-                            "POST",
-                            { baseRevisionId: version },
-                            { "Idempotency-Key": pendingExport.current.key },
-                          ),
-                        );
-                        pendingExport.current = null;
-                      })
-                    }
-                  >
-                    {active ? "Rendering…" : "Approve & export MP4"}{" "}
-                    <Icon name="arrow-up-right" size={18} />
-                  </button>
-                </section>
-                {job && (
-                  <section className="job-panel" aria-live="polite">
-                    <div className="job-heading">
-                      <strong>
-                        {job.files
-                          ? "Export files unavailable"
-                          : job.status === "completed"
-                            ? "Your film is ready."
-                            : job.status === "failed"
-                              ? "Export needs attention"
-                              : job.status === "cancelled"
-                                ? "Export cancelled"
-                                : job.status === "queued"
-                                  ? queueMessage(job.queueAhead)
-                                  : `${job.stage || "Rendering your story"} · ${Math.round(job.progress * 100)}%`}
-                      </strong>
-                      {active && (
-                        <button
-                          className="subtle"
-                          onClick={() =>
-                            void run(async () =>
-                              setJob(
-                                await api<RenderJob>(
-                                  `/api/jobs/${job.id}`,
-                                  "DELETE",
-                                ),
-                              ),
-                            )
-                          }
-                        >
-                          Cancel export
-                        </button>
-                      )}
-                    </div>
-                    <progress max={1} value={job.progress} />
-                    {job.error && <p role="alert">{job.error}</p>}
-                    {job.status === "queued" && (
-                      <p>
-                        Exports render one at a time on the shared studio
-                        renderer. You can keep editing; this export uses the
-                        version you approved.
-                      </p>
-                    )}
-                    {job.status === "completed" && !job.files && (
-                      <>
-                        <div className="completed-export">
-                          <img
-                            src={`/api/jobs/${job.id}/thumbnail`}
-                            alt="Rendered video thumbnail"
-                          />
-                          <div>
-                            <p>
-                              Verified codec, dimensions, frame rate, and
-                              duration.
-                            </p>
-                            <a
-                              className="primary download"
-                              href={`/api/jobs/${job.id}/download`}
-                            >
-                              Download MP4 <Icon name="download" size={14} />
-                            </a>
-                            {((job.report as { timeline?: Timeline } | null)
-                              ?.timeline?.captions?.length || 0) > 0 && (
-                              <div className="layer-fields">
-                                <a
-                                  href={`/api/jobs/${job.id}/evidence/captions.srt`}
-                                  download="captions.srt"
-                                >
-                                  SRT captions{" "}
-                                  <Icon name="download" size={14} />
-                                </a>
-                                <a
-                                  href={`/api/jobs/${job.id}/evidence/captions.vtt`}
-                                  download="captions.vtt"
-                                >
-                                  VTT captions{" "}
-                                  <Icon name="download" size={14} />
-                                </a>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <QualityEvidence job={job} />
-                        <p className="qc-note">
-                          Static geometry and rendered text checks completed.
-                          Scene stills and moving clips are stored with the
-                          export for review. Semantic quality and perceptual
-                          audio/video sync require human review.
-                        </p>
-                      </>
-                    )}
-                    <details>
-                      <summary>
-                        Export activity
-                        {job.retryCount ? ` · ${job.retryCount} retry` : ""}
-                      </summary>
-                      {job.events?.map((event, index) => (
-                        <p key={index}>
-                          {event.at.slice(11, 19)} UTC · {event.message}
-                        </p>
-                      ))}
-                    </details>
-                    {!active && (
-                      <ExportFiles
-                        job={job}
-                        onChange={(files) =>
-                          setJob((current) =>
-                            current?.id === job.id
-                              ? { ...current, files }
-                              : current,
-                          )
+                    <ProjectHistoryStorage
+                      key={project.id}
+                      projectId={project.id}
+                      latestRevisionId={revisionId(project)}
+                      disabled={busy || recordingActive || editor.saving}
+                      onOpen={() => player.current?.pause()}
+                      onHistory={(fresh, expected) => {
+                        const merged = editor.mergeHistory(fresh, expected);
+                        if (merged) {
+                          setHistoryCleanup((n) => n + 1);
+                          setListRefresh((n) => n + 1);
                         }
-                      />
-                    )}
+                        return merged;
+                      }}
+                    />
                   </section>
-                )}
-                <ExportHistory
-                  refreshKey={exportActivityRevision}
-                  projectId={project.id}
-                  current={job}
-                  onSelect={setJob}
-                />
+                  <section className="scene-editor">
+                    <h2>Keep your project</h2>
+                    <label>
+                      Recover a downloaded draft
+                      <input
+                        type="file"
+                        accept="application/json,.json"
+                        aria-label="Recover a downloaded draft"
+                        disabled={busy || dirty || editor.saving}
+                        onChange={(e) => {
+                          const file = e.currentTarget.files?.[0];
+                          e.currentTarget.value = "";
+                          if (!file) return;
+                          void run(async () => {
+                            if (file.size > MAX_DOWNLOADED_DRAFT_BYTES)
+                              throw new Error(
+                                "Recovery files must be 2 MiB or smaller.",
+                              );
+                            const draft = parseDownloadedDraft(
+                              await file.text(),
+                              userId,
+                              project.id,
+                            );
+                            if (
+                              !confirmDraftRecovery(draft, revisionId(project))
+                            )
+                              return;
+                            editor.recoverDraft(draft);
+                            setSelected(0);
+                            setJob(null);
+                          });
+                        }}
+                      />
+                    </label>
+                    <small>
+                      Use a recovery JSON from this account and project. Saved
+                      versions remain available; the original uploaded media
+                      must still be in the project.
+                    </small>
+                    <DownloadProject
+                      key={project.id}
+                      projectId={project.id}
+                      disabled={busy || recordingPending || editor.saving}
+                      beforeDownload={async () => {
+                        if (dirty) await save();
+                      }}
+                    />
+                    <small>
+                      ZIP includes saved scenes, conversation, versions, and
+                      uploaded assets. Import creates a separate copy. Edits
+                      made while downloading stay in your current project.
+                    </small>
+                  </section>
+                  <section className="scene-editor">
+                    <h2>Remove this project</h2>
+                    <small>
+                      Trash keeps the project, its media and versions until you
+                      restore or permanently remove it.
+                    </small>
+                    <button
+                      className="subtle"
+                      disabled={busy || editor.saving}
+                      onClick={() => void trashCurrentProject()}
+                    >
+                      Move project to Trash
+                    </button>
+                  </section>
+                </div>
               </fieldset>
             )}
           </div>
         )}
         {/* Account-wide accounting stays available but follows the creative
             work instead of leading every page. */}
-        <section
+        <details
           className="studio-records"
           aria-labelledby="studio-records-title"
         >
-          <h2 id="studio-records-title">Storage and export records</h2>
+          <summary>
+            <h2 id="studio-records-title">Storage and export records</h2>
+            <span>Export files, retained activity and allowances</span>
+          </summary>
           <ExportStorage
             onRetired={(receipt) => {
               setExportActivityRevision((value) => value + 1);
@@ -1923,7 +2001,7 @@ export function Studio({
               );
             }}
           />
-        </section>
+        </details>
         {error && (
           <div className="error-banner" role="alert" aria-label="Studio error">
             <strong>Something needs attention.</strong> {error}

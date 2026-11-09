@@ -8,6 +8,7 @@ type Token = {
   hint: string;
   createdAt: string;
   lastUsedAt: string | null;
+  kind: "token" | "app";
 };
 const when = (iso: string | null) =>
   iso
@@ -172,24 +173,25 @@ export function AssistantTokens() {
           {tokens.map((token) => (
             <li key={token.id}>
               <span>
-                <strong>{token.name}</strong> · …{token.hint}
+                <strong>{token.name}</strong>{" "}
+                {token.kind === "app" ? "· connected app" : `· …${token.hint}`}
                 <small>
-                  Created {when(token.createdAt)} · last used{" "}
-                  {when(token.lastUsedAt)}
+                  {token.kind === "app" ? "Connected" : "Created"}{" "}
+                  {when(token.createdAt)} · last used {when(token.lastUsedAt)}
                 </small>
               </span>
               <button
                 type="button"
                 className="subtle"
                 disabled={busy}
-                aria-label={`Revoke ${token.name}`}
+                aria-label={`${token.kind === "app" ? "Disconnect" : "Revoke"} ${token.name}`}
                 onClick={() =>
                   void run(async () =>
                     setTokens((await call("DELETE", { id: token.id })).tokens),
                   )
                 }
               >
-                Revoke
+                {token.kind === "app" ? "Disconnect" : "Revoke"}
               </button>
             </li>
           ))}
@@ -202,6 +204,11 @@ export function AssistantTokens() {
         <ul>
           <li>
             <strong>Claude Code:</strong> run <code>{claudeCode}</code>
+          </li>
+          <li>
+            <strong>claude.ai, ChatGPT and other apps with connectors:</strong>{" "}
+            add a custom connector with the server URL above. The app asks you
+            to sign in here and approve it; no token is needed.
           </li>
           <li>
             <strong>Claude Desktop, Cursor and other clients:</strong> add a

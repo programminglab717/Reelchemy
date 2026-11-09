@@ -1,4 +1,9 @@
-import { test as base, expect, type APIRequestContext } from "@playwright/test";
+import {
+  test as base,
+  expect,
+  type APIRequestContext,
+  type Page,
+} from "@playwright/test";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 // Keep real abuse controls enabled. Fast suites can share a source IP and
@@ -110,3 +115,24 @@ export const test = browserTest.extend<{ signedIn: void }>({
   ],
 });
 export { expect };
+
+// The studio shows one editing tool at a time below the player and timeline.
+export type StudioToolName =
+  | "Scene & layers"
+  | "Design"
+  | "Media & voice"
+  | "Sound & captions"
+  | "Export"
+  | "Project";
+export async function openTool(page: Page, name: StudioToolName) {
+  const tab = page.getByRole("tab", { name, exact: true });
+  await tab.click();
+  await expect(tab).toHaveAttribute("aria-selected", "true");
+}
+// Account-wide storage and export records are folded away on the page.
+export async function openRecords(page: Page) {
+  const records = page.locator("details.studio-records");
+  if ((await records.getAttribute("open")) === null)
+    await records.locator("summary").click();
+  await expect(records).toHaveAttribute("open", "");
+}

@@ -1,55 +1,62 @@
 "use client";
-const tools = [
-  ["preview", "Preview"],
-  ["timeline", "Timeline"],
-  ["canvas", "Canvas"],
-  ["scene", "Scene & notes"],
-  ["media", "Media & voice"],
-  ["captions", "Sound & captions"],
-  ["export", "Export"],
+// The editing tools below the player and timeline, one open at a time.
+export const studioTools = [
+  ["scene", "Scene & layers", "studio-tool-scene"],
+  ["design", "Design", "studio-tool-canvas"],
+  ["media", "Media & voice", "studio-tool-media"],
+  ["captions", "Sound & captions", "studio-tool-captions"],
+  ["export", "Export", "studio-tool-export"],
+  ["project", "Project", "studio-tool-project"],
 ] as const;
-function jump(id: string) {
-  const target = document.getElementById(id);
-  target?.focus({ preventScroll: true });
-  target?.scrollIntoView({ block: "start", behavior: "auto" });
-}
-export function EditorToolsNav() {
+export type StudioTool = (typeof studioTools)[number][0];
+export function EditorToolsNav({
+  tool,
+  onTool,
+}: {
+  tool: StudioTool;
+  onTool: (tool: StudioTool) => void;
+}) {
+  const select = (next: StudioTool) => {
+    onTool(next);
+    requestAnimationFrame(() =>
+      document.getElementById(`studio-tab-${next}`)?.focus(),
+    );
+  };
   return (
-    <nav className="editor-shortcuts" aria-label="Editing tools">
-      <div className="editor-tool-links">
-        {tools.map(([key, label]) => (
-          <a
+    <div className="editor-shortcuts">
+      <div
+        className="editor-tool-links"
+        role="tablist"
+        aria-label="Editing tools"
+        onKeyDown={(event) => {
+          const index = studioTools.findIndex(([key]) => key === tool);
+          const step =
+            event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
+          if (!step) return;
+          event.preventDefault();
+          select(
+            studioTools[
+              (index + step + studioTools.length) % studioTools.length
+            ][0],
+          );
+        }}
+      >
+        {studioTools.map(([key, label]) => (
+          <button
             key={key}
-            href={`#studio-tool-${key}`}
-            onClick={(event) => {
-              event.preventDefault();
-              jump(`studio-tool-${key}`);
-            }}
+            type="button"
+            role="tab"
+            id={`studio-tab-${key}`}
+            aria-selected={tool === key}
+            aria-controls={`studio-panel-${key}`}
+            tabIndex={tool === key ? 0 : -1}
+            className={tool === key ? "active" : ""}
+            onClick={() => onTool(key)}
           >
             {label}
-          </a>
+          </button>
         ))}
       </div>
-      <label className="mobile-tool-picker">
-        Editing tools
-        <select
-          aria-label="Jump to editing tool"
-          defaultValue=""
-          onChange={(event) => {
-            jump(event.target.value);
-            event.currentTarget.value = "";
-          }}
-        >
-          <option value="" disabled>
-            Jump to a tool…
-          </option>
-          {tools.map(([key, label]) => (
-            <option key={key} value={`studio-tool-${key}`}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </label>
-    </nav>
+    </div>
   );
 }

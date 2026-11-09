@@ -33,7 +33,13 @@ The owner's goal: the AI should produce sophisticated, motion-graphics explainer
   - 3D (`R.three`; three.js and add-ons pre-built into one classic script committed at `src/motion/vendor/three.js` (regenerate with `npm run vendor:three`; `tests/motion.test.ts` checks it is current), served as `three.js`; drawn by the clock's once-per-frame draw hooks);
   - the maker's images in code scenes (declared `code.assets`, bytes posted in by the host);
   - style references (`src/director/reference.ts`), presets (`src/director/presets.ts`), `R.finish` and an extra-polish mode.
-- Open ideas: transparent/alpha clip exports (ProRes 4444 or WebM), a whole-film critique pass, sound design (music bed and synced effects), richer cross-scene transitions, and more reference scenes for other genres.
+- 0.74 added:
+  - the explainer kit in `src/motion/kit-explainer.ts` (inserted into `KIT_SOURCE`; same closure): shots with transitions, arrows, callouts, marks, steps, UI windows, cursor, charts, stats, isometric stacks, kinetic type, drift and pulse; `view.globe` lives in `kit.ts`'s `three()`;
+  - quality gates: `probeTimes` (motion without ambience) and `coverageAt` in `preflight.ts`, `COVERAGE_SOURCE` in `audit.ts`, and `stillStretches`/`sceneProblems` in `director.ts` (thresholds STILL, LONGEST_STILL, MIN_COVERAGE were calibrated on the references);
+  - references `cdn-globe.ts` and `deploy-walkthrough.ts` (both tested against the director's own problems in `tests/motion-kit.test.ts`);
+  - the MCP server: `src/mcp/server.ts` (JSON-RPC, resources, prompt), `src/mcp/tools.ts` (tools call the studio's route handlers through `internalRequest` in `access.ts`), `src/app/api/mcp/route.ts` (token auth), `src/lib/mcp-tokens.ts`, token management at `/api/account/mcp-tokens` and `AssistantTokens.tsx`; `tests/mcp.test.ts`;
+  - the workspace tabs (`EditorToolsNav.tsx` and the `tool-panel` regions in `Studio.tsx`); e2e tests open a tool with `openTool(page, name)` and the folded records with `openRecords(page)` from `tests/e2e/fixtures.ts`.
+- Open ideas: OAuth for claude.ai and ChatGPT connectors, transparent/alpha clip exports (ProRes 4444 or WebM), a whole-film critique pass, sound design (music bed and synced effects), richer cross-scene transitions, and more reference scenes for other genres.
 
 ## User instructions
 

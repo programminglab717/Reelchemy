@@ -2425,9 +2425,6 @@ main.account-page {
   outline-offset: 3px;
 }
 @media (max-width: 800px) {
-  .editor-tool-links {
-    display: none;
-  }
   .mobile-tool-picker {
     display: flex;
     align-items: center;
@@ -2830,4 +2827,381 @@ main.account-page {
 .assistant-help summary {
   cursor: pointer;
   font-size: 13px;
+}
+
+/* ---------------------------------------------------------------------------
+   Studio refresh (0.74): a readable type scale, an editor bar that stays in
+   reach, one editing tool open at a time, a compact scene strip, and
+   bookkeeping folded away until it is needed. */
+body {
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+}
+.subtle {
+  padding: 9px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.subtle:hover:not(:disabled) {
+  background: #f1f5ea;
+  border-color: #c9d3bc;
+}
+.subtle:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 1.4px;
+  font-weight: 600;
+}
+.project-workspace {
+  padding: 22px clamp(14px, 3vw, 36px) 40px;
+  max-width: 1560px;
+}
+.project-heading {
+  margin-bottom: 14px;
+  align-items: flex-end;
+}
+.project-heading h1 {
+  font-size: 26px;
+  font-weight: 600;
+  margin: 6px 0 4px;
+}
+.project-heading p {
+  font-size: 12px;
+  margin-top: 6px;
+}
+/* The editor bar: history, saving and the export, always in reach. */
+.editor-actions {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  gap: 8px;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 8px 20px -18px #202a2580;
+}
+.editor-actions [role="status"] {
+  font-size: 13px;
+}
+.editor-actions .primary {
+  min-height: 40px;
+  padding: 0 18px;
+  font-size: 13px;
+}
+.panel-heading {
+  padding: 14px 18px;
+}
+.panel-heading h2 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+.panel-heading > span {
+  font-size: 10px;
+}
+.preview-caption {
+  font-size: 11px;
+  padding: 10px 18px;
+}
+.message {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.message small {
+  font-size: 10px;
+}
+.director-panel label {
+  font-size: 12px;
+}
+.director-panel textarea {
+  font-size: 13px;
+}
+.director-panel select {
+  font-size: 13px;
+}
+/* The scene strip: scenes in order, compact, scrolling sideways. */
+.section-heading {
+  margin-top: 18px;
+}
+.storyboard {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 4px 4px 10px;
+  scroll-snap-type: x proximity;
+}
+.storyboard .scene-card {
+  flex: 0 0 210px;
+  scroll-snap-align: start;
+}
+.scene-card > div {
+  height: 96px;
+  padding: 26px 14px 12px;
+}
+.scene-card strong {
+  font-size: 13px;
+}
+.scene-number {
+  font-size: 10px;
+}
+.scene-card footer {
+  padding: 9px 12px;
+}
+.scene-card footer strong {
+  font-size: 12px;
+}
+.scene-card footer span {
+  font-size: 11px;
+}
+/* One editing tool at a time. */
+.editor-shortcuts {
+  position: static;
+  margin: 26px 0 0;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+}
+.editor-tool-links {
+  gap: 2px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+.editor-tool-links button {
+  flex: none;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--muted);
+  font-size: 14px;
+  white-space: nowrap;
+}
+.editor-tool-links button:hover {
+  color: var(--ink);
+}
+.editor-tool-links button.active {
+  color: var(--ink);
+  font-weight: 600;
+  border-bottom-color: var(--dark);
+}
+.tool-panel {
+  display: grid;
+  gap: 18px;
+  padding-top: 18px;
+  min-width: 0;
+}
+.tool-panel[hidden] {
+  display: none;
+}
+.tool-panel > * {
+  margin-top: 0;
+}
+.scene-editor {
+  padding: 18px 20px;
+  border-radius: 12px;
+}
+.scene-editor h2 {
+  font-size: 16px;
+  font-weight: 600;
+}
+.scene-editor label {
+  font-size: 12px;
+  color: #66715d;
+}
+.scene-editor input {
+  font-size: 13px;
+}
+.scene-editor small,
+.layer-editor small {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.layer-editor {
+  border-radius: 12px;
+}
+.layer-editor h2 {
+  font-size: 16px;
+  font-weight: 600;
+}
+.layer-editor label {
+  font-size: 12px;
+}
+.export-panel {
+  margin-top: 0;
+  flex-wrap: wrap;
+}
+.export-panel p {
+  font-size: 12px;
+}
+.job-panel {
+  margin-top: 0;
+}
+/* Studio exports: a quiet line when nothing is rendering. */
+.workspace-exports.idle {
+  margin-top: 12px;
+  margin-bottom: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.workspace-exports.idle .panel-heading {
+  justify-content: flex-end;
+}
+.workspace-exports.idle h2 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.workspace-exports.idle .panel-heading p {
+  font-size: 12px;
+  color: var(--muted);
+}
+.workspace-exports.idle .subtle {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+/* Storage and export records, folded away. */
+.studio-records > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  cursor: pointer;
+  list-style-position: outside;
+}
+.studio-records > summary h2 {
+  display: inline;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.studio-records > summary span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.studio-records[open] > summary {
+  margin-bottom: 14px;
+}
+@media (max-width: 800px) {
+  .editor-shortcuts {
+    border-bottom: 0;
+  }
+  .editor-actions {
+    position: static;
+  }
+  .storyboard .scene-card {
+    flex-basis: 170px;
+  }
+}
+/* The selected scene's details, as a form. */
+#studio-tool-scene {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  align-items: end;
+  gap: 14px 18px;
+}
+#studio-tool-scene > div:first-child,
+#studio-tool-scene > label:has(textarea),
+#studio-tool-scene > small,
+#studio-tool-scene > .scene-notes-actions {
+  grid-column: 1 / -1;
+}
+#studio-tool-scene label input:not([type="color"]),
+#studio-tool-scene label:nth-child(3) input {
+  width: 100%;
+  min-width: 0;
+}
+#studio-tool-scene textarea {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  min-height: 84px;
+}
+.scene-notes-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+#studio-tool-scene > .reorder {
+  grid-column: 1;
+  justify-self: start;
+}
+#studio-tool-scene > button:last-child {
+  grid-column: 3;
+  justify-self: end;
+}
+@media (max-width: 800px) {
+  #studio-tool-scene {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  #studio-tool-scene > label:nth-of-type(2) {
+    grid-column: 1 / -1;
+  }
+  #studio-tool-scene > button:last-child {
+    grid-column: 2;
+  }
+}
+/* The composer: readable options and actions. */
+.options {
+  flex-wrap: wrap;
+}
+.options label {
+  font-size: 13px;
+}
+.options select {
+  max-width: 180px;
+  font-size: 13px;
+}
+.primary {
+  font-size: 13px;
+}
+.composer-note {
+  font-size: 12px;
+}
+.section-heading span {
+  font-size: 10px;
+}
+/* App connection consent (MCP OAuth). */
+.oauth-consent {
+  max-width: 560px;
+}
+.oauth-consent h1 {
+  font-size: 24px;
+  line-height: 1.25;
+  margin: 8px 0 14px;
+}
+.oauth-consent p,
+.oauth-consent li {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.oauth-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
 }

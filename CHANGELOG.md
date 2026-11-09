@@ -612,3 +612,24 @@ Closer to dedicated AI motion-graphics tools: 3D, the maker's own images, style 
 - **Film finish:** R.finish adds subtle grain (a new pattern every 4 frames, which keeps files reasonable), a vignette and letterbox bars.
 - Stronger composition guidance (fill the frame, layered depth, tight camera framing), and a fourth reference scene: a 3D product hero shot.
 - Developer tool: `scripts/render-showcase.ts` renders the reference scenes, or one scene file, through the export pipeline.
+
+## 0.74.0 — 2026-11-09
+
+Higher-end motion design from the director, AI assistants working inside the studio over MCP, and a clearer workspace.
+
+- **Explainer kit.** New building blocks for code scenes:
+  - R.shots: several full-frame shots in one scene with push, slide-up, zoom-through, wipe, blur, fade or cut transitions.
+  - R.arrow, R.callout and R.mark (hand-drawn underline, circle, box, highlighter).
+  - R.steps (numbered steps that advance), R.window (browser, app, terminal and phone mockups) and R.cursor (moves and clicks) for tutorials.
+  - R.chart (line and area charts that draw), R.stat (count-up cards) and R.iso (isometric layer stacks).
+  - R.headline and R.swap (kinetic type), R.drift (continuous camera push) and R.pulse.
+  - view.globe in 3D: a dotted globe with a rim glow, pins, arcs that grow and packets along them.
+- **Quality gates.** The director's checks now catch frozen stretches (motion measured every half second without the ambience) and underfilled frames (content under 40% of the frame), besides errors and layout problems. Text under an opaque panel no longer counts as overlapping.
+- **Planning and references.** The planner paces a new visual event every 1.5–2 s and plans longer scenes as 2–4 shots. Two new references lead the writer: a three-shot CDN explainer (3D globe, request diagram, chart) and a software tutorial (app mockup with a cursor, then a terminal).
+- **MCP server.** `/api/mcp` lets Claude Code, Claude Desktop, Cursor and other MCP clients make videos in a studio: read the motion guide, create projects, write scenes, see stills with the automatic checks, revise and export. claude.ai, ChatGPT and other connector apps sign in with OAuth: discovery metadata, dynamic registration, PKCE codes approved by the signed-in owner, and one-hour access tokens with rotating refresh tokens. Other clients use personal access tokens created in Account settings → AI assistants. All tokens are stored as hashes, act only for their studio, open only the MCP endpoint and can be revoked or disconnected. Previews are limited per studio (`REELCHEMY_PREVIEWS_PER_HOUR`, default 120).
+- **Workspace.**
+  - A sticky editor bar holds undo, redo, saving and Approve & export.
+  - The player and director sit side by side, above a compact scene strip and the timeline.
+  - One editing tool is open at a time: Scene & layers, Design, Media & voice, Sound & captions, Export and Project.
+  - Version history, recovery and Trash moved to Project. Storage and export records are folded away, and the studio-exports line is quiet when nothing renders.
+  - A readable type scale replaces 7–11 px labels.

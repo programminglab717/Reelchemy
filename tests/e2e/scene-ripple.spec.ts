@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 import { creatorTemplateTimeline } from "../../src/lib/creator-templates";
 import { execFileSync } from "node:child_process";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
@@ -212,9 +212,7 @@ test("a captioned starter closes a deleted scene's gap through undo, reload and 
       [450, 900, 180],
     ]);
     await page.setViewportSize({ width: 390, height: 844 });
-    await page
-      .getByLabel("Jump to editing tool", { exact: true })
-      .selectOption("studio-tool-scene");
+    await openTool(page, "Scene & layers");
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,

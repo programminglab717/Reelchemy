@@ -120,6 +120,7 @@ import {
 } from "./provider-usage-store";
 import { StudioAiCredentialStore } from "./studio-ai-credentials";
 import { McpTokenStore } from "./mcp-tokens";
+import { McpOAuthStore } from "./mcp-oauth";
 import { StudioAiEntitlementStore } from "./studio-ai-access";
 import {
   migrateAccountErasures,
@@ -228,6 +229,7 @@ export const mediaProcessing = new MediaProcessingStore(db);
 export const providerUsage = new ProviderUsageStore(db);
 export const studioAiCredentials = new StudioAiCredentialStore(db);
 export const mcpTokens = new McpTokenStore(db);
+export const mcpOAuth = new McpOAuthStore(db);
 export const studioAiEntitlements = new StudioAiEntitlementStore(db);
 export const studioAiUsage = (workspaceId: string, access: ProviderAccess) =>
   providerUsageSummary(db, workspaceId).sources[access];
@@ -1467,6 +1469,17 @@ export function projectExportPage(
   return ownedExportPage(db, projectId, workspaceId, cursor);
 }
 export type Workspace = { id: string; ownerId: string; name: string };
+// An existing studio for an owner (never creates one), unless its account
+// is being erased.
+export function ownedWorkspace(userId: string): Workspace | undefined {
+  if (db.prepare("SELECT 1 FROM account_erasures WHERE owner_id=?").get(userId))
+    return undefined;
+  return db
+    .prepare(
+      "SELECT id,owner_id AS ownerId,name FROM workspaces WHERE owner_id=?",
+    )
+    .get(userId) as Workspace | undefined;
+}
 export function ensureWorkspace(userId: string, name: string): Workspace {
   if (db.prepare("SELECT 1 FROM account_erasures WHERE owner_id=?").get(userId))
     throw new AccountErasureUnavailable();

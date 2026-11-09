@@ -301,3 +301,178 @@ test(
     assert.equal((removed.structuredContent!.scenes as unknown[]).length, 1);
   },
 );
+
+test("apps connect by OAuth: discovery, registration, PKCE consent, tokens and refresh", async () => {
+  const metadata =
+    await import("../src/app/.well-known/oauth-protected-resource/route");
+  const server =
+    await import("../src/app/.well-known/oauth-authorization-server/route");
+  const register = await import("../src/app/api/oauth/register/route");
+  const approve = await import("../src/app/api/oauth/authorize/route");
+  const exchange = await import("../src/app/api/oauth/token/route");
+  // The endpoint's challenge points to the metadata, which names the server.
+  const missing = await rpc(null, "ping");
+  assert.match(
+    missing.response.headers.get("www-authenticate")!,
+    /resource_metadata="http:\/\/127\.0\.0\.1:3001\/\.well-known\/oauth-protected-resource"/,
+  );
+  const resource = await (
+    await metadata.GET(
+      new Request(`${origin}/.well-known/oauth-protected-resource`),
+    )
+  ).json();
+  assert.equal(resource.resource, `${origin}/api/mcp`);
+  const as = await server
+    .GET(new Request(`${origin}/.well-known/oauth-authorization-server`))
+    .json();
+  assert.deepEqual(as.code_challenge_methods_supported, ["S256"]);
+  // Registration accepts HTTPS or loopback redirects only.
+  const bad = await register.POST(
+    new Request(`${origin}/api/oauth/register`, {
+      method: "POST",
+      body: JSON.stringify({
+        client_name: "Evil",
+        redirect_uris: ["http://evil.example/cb"],
+      }),
+    }),
+  );
+  assert.equal(bad.status, 400);
+  const registered = await (
+    await register.POST(
+      new Request(`${origin}/api/oauth/register`, {
+        method: "POST",
+        body: JSON.stringify({
+          client_name: "Claude",
+          redirect_uris: ["https://claude.ai/api/mcp/auth_callback"],
+        }),
+      }),
+    )
+  ).json();
+  const clientId = registered.client_id as string;
+  const verifier = randomBytes(32).toString("base64url");
+  const challenge = (await import("node:crypto"))
+    .createHash("sha256")
+    .update(verifier)
+    .digest("base64url");
+  const decide = (
+    decision: string,
+    redirect = "https://claude.ai/api/mcp/auth_callback",
+  ) =>
+    approve.POST(
+      new Request(`${origin}/api/oauth/authorize`, {
+        method: "POST",
+        headers: {
+          host: "127.0.0.1:3001",
+          origin,
+          cookie: owner,
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          client_id: clientId,
+          redirect_uri: redirect,
+          code_challenge: challenge,
+          state: "s1",
+          decision,
+        }),
+      }),
+      none,
+    );
+  // An unregistered redirect is refused; a denial is reported to the app.
+  assert.equal((await decide("allow", "https://evil.example/cb")).status, 400);
+  const denied = new URL((await decide("deny")).headers.get("location")!);
+  assert.equal(denied.searchParams.get("error"), "access_denied");
+  // Only a signed-in owner can approve.
+  const anonymous = await approve.POST(
+    new Request(`${origin}/api/oauth/authorize`, {
+      method: "POST",
+      headers: {
+        host: "127.0.0.1:3001",
+        origin,
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: "https://claude.ai/api/mcp/auth_callback",
+        code_challenge: challenge,
+        decision: "allow",
+      }),
+    }),
+    none,
+  );
+  assert.equal(anonymous.status, 401);
+  const allowed = new URL((await decide("allow")).headers.get("location")!);
+  assert.equal(allowed.searchParams.get("state"), "s1");
+  const code = allowed.searchParams.get("code")!;
+  const token = (body: Record<string, string>) =>
+    exchange.POST(
+      new Request(`${origin}/api/oauth/token`, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams(body),
+      }),
+    );
+  // A wrong verifier fails and burns the code.
+  const wrong = await token({
+    grant_type: "authorization_code",
+    code,
+    client_id: clientId,
+    redirect_uri: "https://claude.ai/api/mcp/auth_callback",
+    code_verifier: randomBytes(32).toString("base64url"),
+  });
+  assert.equal(wrong.status, 400);
+  const again = await token({
+    grant_type: "authorization_code",
+    code,
+    client_id: clientId,
+    redirect_uri: "https://claude.ai/api/mcp/auth_callback",
+    code_verifier: verifier,
+  });
+  assert.equal(again.status, 400);
+  // A fresh approval with the right verifier yields tokens that work.
+  const code2 = new URL(
+    (await decide("allow")).headers.get("location")!,
+  ).searchParams.get("code")!;
+  const issued = await (
+    await token({
+      grant_type: "authorization_code",
+      code: code2,
+      client_id: clientId,
+      redirect_uri: "https://claude.ai/api/mcp/auth_callback",
+      code_verifier: verifier,
+    })
+  ).json();
+  assert.equal(issued.token_type, "Bearer");
+  assert.equal(issued.expires_in, 3600);
+  assert.equal((await rpc(issued.access_token, "ping")).response.status, 200);
+  const listed = await (await tokens.GET(session(owner, "GET"), none)).json();
+  assert(
+    listed.tokens.some(
+      (t: { kind: string; name: string }) =>
+        t.kind === "app" && t.name === "Claude",
+    ),
+  );
+  // Refresh rotates both tokens; the old ones stop working.
+  const renewed = await (
+    await token({
+      grant_type: "refresh_token",
+      refresh_token: issued.refresh_token,
+      client_id: clientId,
+    })
+  ).json();
+  assert.equal((await rpc(renewed.access_token, "ping")).response.status, 200);
+  assert.equal((await rpc(issued.access_token, "ping")).response.status, 401);
+  assert.equal(
+    (
+      await token({
+        grant_type: "refresh_token",
+        refresh_token: issued.refresh_token,
+        client_id: clientId,
+      })
+    ).status,
+    400,
+  );
+  // Disconnecting in settings ends the connection.
+  const app = listed.tokens.find((t: { kind: string }) => t.kind === "app");
+  await tokens.DELETE(session(owner, "DELETE", { id: app.id }), none);
+  assert.equal((await rpc(renewed.access_token, "ping")).response.status, 401);
+});

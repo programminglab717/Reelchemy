@@ -10,15 +10,18 @@ Current engineering checkpoint (0.60): five-minute/native-HD editing, private mu
 
 The studio is an MCP server, so an AI assistant can make videos in it directly: read the motion guide, create a project, write each code scene, see its stills and the automatic checks, revise, and export.
 
-1. In **Account settings → AI assistants (MCP)**, create a token. It is shown once, acts only for your studio, and can be revoked there at any time.
-2. Add the server to your assistant:
-   - **Claude Code:** `claude mcp add --transport http reelchemy https://YOUR-STUDIO/api/mcp --header "Authorization: Bearer rlc_…"`
-   - **Claude Desktop, Cursor and other clients:** a remote (Streamable HTTP) MCP server with the URL `https://YOUR-STUDIO/api/mcp` and the header `Authorization: Bearer rlc_…`.
-3. Ask, for example: "Make a 30-second explainer about how DNS works in Reelchemy."
+Connect in one of two ways:
+
+- **claude.ai, ChatGPT and other apps with connectors (OAuth):** add a custom connector with the URL `https://YOUR-STUDIO/api/mcp`. The app registers itself, sends you to the studio to sign in and approve it, and receives short-lived tokens that renew automatically. Connected apps are listed (and can be disconnected) in **Account settings → AI assistants (MCP)**.
+- **Claude Code, Claude Desktop, Cursor and other clients with a token:** in **Account settings → AI assistants (MCP)**, create a token (shown once; revocable). Then:
+  - Claude Code: `claude mcp add --transport http reelchemy https://YOUR-STUDIO/api/mcp --header "Authorization: Bearer rlc_…"`
+  - other clients: a remote (Streamable HTTP) MCP server with that URL and the header `Authorization: Bearer rlc_…`.
+
+Then ask, for example: "Make a 30-second explainer about how DNS works in Reelchemy."
 
 Tools: `get_motion_guide`, `list_projects`, `create_project`, `get_project`, `get_scene`, `write_scene` (saves, then previews), `preview_scene` (saved or unsaved code), `add_scene`, `remove_scene`, `direct_film` and `director_status` (the built-in director, with your AI key), `export_video` and `export_status`. Resources: the motion guide and five reference scenes. Prompt: `make_explainer`.
 
-The endpoint is stateless (every call is a POST with a JSON reply). Each call goes through the studio's own handlers for your studio: the same ownership, validation, revision checks and limits as the browser. Previews run one at a time per server and are limited per studio (`REELCHEMY_PREVIEWS_PER_HOUR`, default 120). Tokens open only the MCP endpoint, never the studio's other APIs, and token management needs a signed-in session. Connectors that require OAuth sign-in (claude.ai and ChatGPT connectors) are not supported yet; use a client that can send the Authorization header.
+The endpoint is stateless (every call is a POST with a JSON reply). Each call goes through the studio's own handlers for your studio: the same ownership, validation, revision checks and limits as the browser. Previews run one at a time per server and are limited per studio (`REELCHEMY_PREVIEWS_PER_HOUR`, default 120). Tokens open only the MCP endpoint, never the studio's other APIs, and token management needs a signed-in session. OAuth follows the MCP authorization spec: protected-resource and authorization-server metadata under `/.well-known/`, dynamic client registration (public clients, redirect URIs over HTTPS or loopback HTTP), PKCE S256 codes approved by the signed-in owner (single-use, five minutes), one-hour access tokens and rotating 30-day refresh tokens, all stored as hashes. The studio must be reachable over HTTPS at the address in `BETTER_AUTH_URL` for cloud apps to connect.
 
 ## Animated code scenes and the AI director (0.71)
 

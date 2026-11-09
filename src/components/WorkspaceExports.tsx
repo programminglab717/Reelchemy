@@ -60,7 +60,7 @@ export function WorkspaceExports({
   }, [revision, refreshKey, accountFetch]);
   return (
     <section
-      className="workspace-exports layer-editor"
+      className={`workspace-exports layer-editor${queue && !queue.exports.length && !error ? " idle" : ""}`}
       aria-label="Studio exports"
     >
       <div className="panel-heading">
