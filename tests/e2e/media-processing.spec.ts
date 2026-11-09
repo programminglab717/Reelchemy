@@ -160,9 +160,11 @@ test("a lost asynchronous upload response retries one attachment, preserves edit
   await expect(page.getByRole("status", { name: "Save status" })).toHaveText(
     "All changes saved",
   );
+  await openTool(page, "Media & voice");
   await page
     .getByRole("button", { name: "Add to selected scene", exact: true })
     .click();
+  await openTool(page, "Design");
   await page
     .getByRole("button", { name: "Hide layer title", exact: true })
     .click();

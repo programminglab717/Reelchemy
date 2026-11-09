@@ -125,9 +125,11 @@ test("reuse preserves unsaved edits, shared storage and actual MP4 pixels after 
   expect(await (await request.get("/api/workspace/storage")).json()).toEqual(
     before,
   );
+  await openTool(page, "Media & voice");
   await page
     .getByRole("button", { name: "Add to selected scene", exact: true })
     .click();
+  await openTool(page, "Design");
   await page
     .getByRole("button", { name: "Hide layer title", exact: true })
     .click();
@@ -316,6 +318,7 @@ test("library search/type/pagination and failure recovery remain usable at mobil
   await expect(add).toBeDisabled();
   await page.locator(".storyboard").getByRole("button").nth(1).click();
   await expect(add).toBeEnabled();
+  await openTool(page, "Media & voice");
   await add.click();
   await expect(page.getByRole("status", { name: "Save status" })).toHaveText(
     "All changes saved",
