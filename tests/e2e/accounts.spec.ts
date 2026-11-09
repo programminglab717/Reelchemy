@@ -1,6 +1,6 @@
 import { browserTest as test, expect } from "./fixtures";
 import sharp from "sharp";
-import { account, mailLink } from "./fixtures";
+import { account, authPost, mailLink } from "./fixtures";
 test.beforeEach(async ({ context }) => {
   await context.setExtraHTTPHeaders({
     origin: process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3001",
@@ -125,12 +125,17 @@ test("unverified login is denied and password reset revokes existing sessions", 
 }) => {
   const email = `unverified-${crypto.randomUUID()}@example.test`;
   const password = "Test-only-passphrase-4826";
-  await request.post("/api/auth/sign-up/email", {
-    data: { name: "Unverified", email, password },
-  });
+  // Honour the sign-up/sign-in windows (other tests create accounts too).
   expect(
     (
-      await request.post("/api/auth/sign-in/email", {
+      await authPost(request, "/api/auth/sign-up/email", {
+        data: { name: "Unverified", email, password },
+      })
+    ).ok(),
+  ).toBe(true);
+  expect(
+    (
+      await authPost(request, "/api/auth/sign-in/email", {
         data: { email, password },
       })
     ).status(),
