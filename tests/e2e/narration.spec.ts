@@ -56,6 +56,7 @@ test("synthetic microphone take can be reviewed, recovered after failed upload, 
   await expect(
     page.getByRole("button", { name: "Manage saved history", exact: true }),
   ).toBeDisabled();
+  await openTool(page, "Media & voice");
   await expect
     .poll(async () =>
       Number(
@@ -67,7 +68,6 @@ test("synthetic microphone take can be reviewed, recovered after failed upload, 
       ),
     )
     .toBeGreaterThan(1.2);
-  await openTool(page, "Media & voice");
   await page
     .getByRole("button", { name: "Stop recording", exact: true })
     .click();
