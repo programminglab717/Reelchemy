@@ -130,6 +130,7 @@ test("large-history editable ZIP errors and cancellation recover without downloa
   ).toBeVisible();
   await openTool(page, "Scene & layers");
   await expect(page.getByLabel("Scene title", { exact: true })).toBeEnabled();
+  await openTool(page, "Project");
   await page
     .getByRole("button", { name: "Cancel download", exact: true })
     .click();
