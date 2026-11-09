@@ -220,7 +220,6 @@ test("full export storage can be reclaimed across projects without losing an uns
     await dialog.screenshot({
       path: testInfo.outputPath("export-manager-mobile.png"),
     });
-    await openTool(page, "Export");
     await review
       .getByLabel("Export file removal confirmation")
       .fill("REMOVE EXPORT");
