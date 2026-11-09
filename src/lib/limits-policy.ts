@@ -1,9 +1,5 @@
 export type LimitedOperation =
-  | "writes"
-  | "media"
-  | "planning"
-  | "render"
-  | "previews";
+  "writes" | "media" | "planning" | "render" | "previews";
 export class LimitConfigurationError extends Error {
   constructor() {
     super("Service limits need administrator attention.");

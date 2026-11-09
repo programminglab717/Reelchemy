@@ -50,7 +50,9 @@ export class McpTokenStore {
       .transaction(() => {
         const count = (
           this.db
-            .prepare("SELECT count(*) AS n FROM mcp_tokens WHERE workspace_id=?")
+            .prepare(
+              "SELECT count(*) AS n FROM mcp_tokens WHERE workspace_id=?",
+            )
             .get(workspaceId) as { n: number }
         ).n;
         if (count >= MAX_MCP_TOKENS)
