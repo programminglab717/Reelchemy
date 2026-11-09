@@ -3205,3 +3205,16 @@ body {
   gap: 10px;
   margin-top: 20px;
 }
+/* Tool panels never grow wider than the page (long option labels and
+   allowance lines wrap or shrink instead). */
+.tool-panel {
+  grid-template-columns: minmax(0, 1fr);
+}
+.tool-panel > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.version-history-restore {
+  max-width: 100%;
+  min-width: 0;
+}
