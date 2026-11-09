@@ -63,13 +63,13 @@ test("duplicate keeps owned media/style, selects the copy, undoes once and expor
   const usage = await (await request.get("/api/workspace/storage")).json();
   await page.goto("/");
   await page.getByRole("button", { name: project.name, exact: true }).click();
+  await openTool(page, "Design");
   await page
     .getByRole("button", {
       name: "Choose owned-image in layer stack",
       exact: true,
     })
     .click();
-  await openTool(page, "Design");
   await page
     .getByRole("button", { name: "Duplicate selected layer", exact: true })
     .click();
@@ -160,8 +160,8 @@ test("duplicate keeps owned media/style, selects the copy, undoes once and expor
   ).toBe(200);
   await page.goto("/");
   await page.getByRole("button", { name: project.name, exact: true }).click();
-  await chooseCopy().click();
   await openTool(page, "Design");
+  await chooseCopy().click();
   await expect(
     page.getByRole("button", { name: "Duplicate selected layer", exact: true }),
   ).toBeDisabled();
