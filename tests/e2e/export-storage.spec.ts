@@ -128,6 +128,7 @@ test("full export storage can be reclaimed across projects without losing an uns
       name: "Studio export storage",
       exact: true,
     });
+    await openRecords(page);
     await expect(storage).toContainText("100 of 100 retained exports");
     let fail = true;
     const pages: string[] = [];
@@ -146,7 +147,6 @@ test("full export storage can be reclaimed across projects without losing an uns
         await route.fulfill({ response });
       },
     );
-    await openRecords(page);
     await storage
       .getByRole("button", { name: "Manage export files", exact: true })
       .click();
