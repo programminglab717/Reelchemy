@@ -1,4 +1,5 @@
 import { gsapPlugins, motionFonts } from "./libraries";
+import { KIT_EXPLAINER_SOURCE } from "./kit-explainer";
 
 // The helper kit available to scene code as `R`: stage facts, icons, and
 // layout-aware motion primitives (connectors, packets, nodes, code, counters,
@@ -385,6 +386,8 @@ export const KIT_SOURCE = String.raw`(() => {
     if (o.text !== undefined) node.textContent = o.text;
     if (o.html !== undefined) node.innerHTML = o.html;
     if (o.style) css(node, o.style);
+    // Positioned by left/top in stage pixels: place it absolutely.
+    if (o.style && (o.style.left !== undefined || o.style.top !== undefined) && !o.style.position) node.style.position = "absolute";
     if (o.attrs) for (const k in o.attrs) node.setAttribute(k, o.attrs[k]);
     resolve(o.parent || stage, "R.el").appendChild(node);
     return node;
@@ -750,6 +753,21 @@ export const KIT_SOURCE = String.raw`(() => {
       const mesh = new T.Mesh(new T.PlaneGeometry(worldWidth, worldWidth * pxHeight / pxWidth), new T.MeshBasicMaterial({ map: texture, color: new T.Color(tint, tint, tint), transparent: true, toneMapped: false, side: T.DoubleSide }));
       return place(mesh, q);
     };
+    // A soft round dot (points are square without a sprite).
+    let sprite = null;
+    const dotSprite = () => {
+      if (sprite) return sprite;
+      const dot = document.createElement("canvas");
+      dot.width = dot.height = 64;
+      const dc = dot.getContext("2d"), gradient = dc.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gradient.addColorStop(0, "rgba(255,255,255,1)");
+      gradient.addColorStop(0.4, "rgba(255,255,255,0.6)");
+      gradient.addColorStop(1, "rgba(255,255,255,0)");
+      dc.fillStyle = gradient;
+      dc.fillRect(0, 0, 64, 64);
+      sprite = new T.CanvasTexture(dot);
+      return sprite;
+    };
     const roundRect = (ctx, x, y, w, h, r) => { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); };
     const api = {
       THREE: T, scene, camera, renderer, canvas, target, draw,
@@ -849,17 +867,93 @@ export const KIT_SOURCE = String.raw`(() => {
         for (let i = 0; i < b.count; i++) for (let j = 0; j < 3; j++) positions[i * 3 + j] = (Math.random() - 0.5) * b.spread[j];
         const geometry = new T.BufferGeometry();
         geometry.setAttribute("position", new T.BufferAttribute(positions, 3));
-        // A soft round dot (points are square without a sprite).
-        const dot = document.createElement("canvas");
-        dot.width = dot.height = 64;
-        const dc = dot.getContext("2d"), gradient = dc.createRadialGradient(32, 32, 0, 32, 32, 32);
-        gradient.addColorStop(0, "rgba(255,255,255,1)");
-        gradient.addColorStop(0.4, "rgba(255,255,255,0.6)");
-        gradient.addColorStop(1, "rgba(255,255,255,0)");
-        dc.fillStyle = gradient;
-        dc.fillRect(0, 0, 64, 64);
-        const sprite = new T.CanvasTexture(dot);
-        return place(new T.Points(geometry, new T.PointsMaterial({ color: color(b.color), size: b.size * 2, map: sprite, transparent: true, opacity: b.opacity, depthWrite: false, blending: T.AdditiveBlending })), b);
+        return place(new T.Points(geometry, new T.PointsMaterial({ color: color(b.color), size: b.size * 2, map: dotSprite(), transparent: true, opacity: b.opacity, depthWrite: false, blending: T.AdditiveBlending })), b);
+      },
+      // A dotted globe with glowing arcs between places (lat, lon in degrees):
+      // const g = view.globe({ r: 2.2 }); tl.add(g.arc([51.5, -0.1], [40.7, -74]).draw(), 1)
+      globe(q) {
+        const b = Object.assign({ r: 2, dots: 2400, color: "#7dd3fc", dotSize: 0.03, base: "#0b1222", atmosphere: true }, q || {});
+        const group = place(new T.Group(), b);
+        group.add(new T.Mesh(new T.SphereGeometry(b.r * 0.985, 64, 48), new T.MeshStandardMaterial({ color: color(b.base), roughness: 0.85, metalness: 0.1 })));
+        const positions = new Float32Array(b.dots * 3);
+        for (let i = 0; i < b.dots; i++) {
+          const y = 1 - ((i + 0.5) / b.dots) * 2, rad = Math.sqrt(1 - y * y), th = i * 2.399963229728653;
+          positions[i * 3] = Math.cos(th) * rad * b.r; positions[i * 3 + 1] = y * b.r; positions[i * 3 + 2] = Math.sin(th) * rad * b.r;
+        }
+        const geometry = new T.BufferGeometry();
+        geometry.setAttribute("position", new T.BufferAttribute(positions, 3));
+        const dots = new T.Points(geometry, new T.PointsMaterial({ color: color(b.color), size: b.dotSize * 2, map: dotSprite(), transparent: true, opacity: 0.85, depthWrite: false }));
+        group.add(dots);
+        // A soft glow at the rim (stronger where the surface turns away).
+        if (b.atmosphere) group.add(new T.Mesh(new T.SphereGeometry(b.r * 1.2, 64, 48), new T.ShaderMaterial({
+          uniforms: { glowColor: { value: color(b.atmosphereColor || b.color) }, strength: { value: b.atmosphere === true ? 1 : b.atmosphere } },
+          vertexShader: "varying vec3 vN; varying vec3 vV; void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }",
+          fragmentShader: "uniform vec3 glowColor; uniform float strength; varying vec3 vN; varying vec3 vV; void main(){ float f = pow(clamp(abs(dot(vN, vV)), 0.0, 1.0), 4.0); gl_FragColor = vec4(glowColor, f * 0.55 * strength); }",
+          transparent: true, side: T.BackSide, blending: T.AdditiveBlending, depthWrite: false,
+        })));
+        const at = (lat, lon, alt) => {
+          const phi = (90 - lat) * Math.PI / 180, th = (lon + 180) * Math.PI / 180, rr = b.r * (1 + (alt || 0));
+          return new T.Vector3(-rr * Math.sin(phi) * Math.cos(th), rr * Math.cos(phi), rr * Math.sin(phi) * Math.sin(th));
+        };
+        return {
+          group, dots,
+          // A point on (or above) the surface, in the globe's own coordinates.
+          point: (lat, lon, alt) => at(lat, lon, alt),
+          // A glowing marker at a place.
+          pin(ll, q2) {
+            const c = Object.assign({ color: b.color, size: 0.06 }, q2 || {});
+            const m = new T.Mesh(new T.SphereGeometry(c.size, 24, 16), new T.MeshBasicMaterial({ color: color(c.color), toneMapped: false }));
+            m.position.copy(at(ll[0], ll[1], 0.01));
+            group.add(m);
+            return m;
+          },
+          // An arc between two places: draw() grows it, flow() sends a packet along it.
+          arc(from, to, q2) {
+            const c = Object.assign({ color: b.color, height: 0.22, width: 0.01 }, q2 || {});
+            const a = at(from[0], from[1], 0.005), z = at(to[0], to[1], 0.005);
+            const mid = a.clone().add(z).multiplyScalar(0.5);
+            mid.setLength(b.r * (1 + c.height * Math.min(1.2, a.distanceTo(z) / b.r)) + b.r * 0.04);
+            const curve = new T.QuadraticBezierCurve3(a, mid, z);
+            const segments = 64, radial = 8;
+            const tube = new T.TubeGeometry(curve, segments, b.r * c.width, radial, false);
+            const mesh = new T.Mesh(tube, new T.MeshBasicMaterial({ color: color(c.color), toneMapped: false, transparent: true, opacity: 0.95 }));
+            tube.setDrawRange(0, 0);
+            group.add(mesh);
+            const perSegment = radial * 6;
+            return {
+              mesh, curve,
+              draw(q3) {
+                const proxy = { p: 0 };
+                return gsap.to(proxy, { p: 1, duration: (q3 && q3.duration) || 1.2, ease: (q3 && q3.ease) || "power2.inOut", onUpdate: () => tube.setDrawRange(0, Math.round(proxy.p * segments) * perSegment) });
+              },
+              flow(q3) {
+                const f = Object.assign({ count: 2, duration: 1.2, size: 0.05 }, q3 || {});
+                const tl = gsap.timeline();
+                for (let i = 0; i < f.count; i++) {
+                  const dot = new T.Mesh(new T.SphereGeometry(f.size, 16, 12), new T.MeshBasicMaterial({ color: color(f.color || c.color), toneMapped: false }));
+                  dot.visible = false;
+                  group.add(dot);
+                  const proxy = { p: 0 };
+                  tl.to(proxy, { p: 1, duration: f.duration, ease: "none", onUpdate: () => { dot.visible = proxy.p > 0 && proxy.p < 1; dot.position.copy(curve.getPoint(proxy.p)); } }, i * (f.every || f.duration / f.count));
+                }
+                return tl;
+              },
+            };
+          },
+          // Turns the globe so a place faces the camera: g.face([48.8, 2.3]) now, or tl.add(g.face(place, { duration: 1.5 }), t)
+          face(ll, q2) {
+            const v = at(ll[0], ll[1], 0), world = group.getWorldPosition(new T.Vector3());
+            const angle = Math.atan2(camera.position.x - world.x, camera.position.z - world.z) - Math.atan2(v.x, v.z);
+            const tilt = Math.max(-0.6, Math.min(0.6, Math.asin(Math.max(-1, Math.min(1, v.y / b.r))) * 0.6));
+            if (!q2 || !q2.duration) { group.rotation.set(tilt, angle, 0); return gsap.timeline(); }
+            return gsap.to(group.rotation, { x: tilt, y: angle, duration: q2.duration, ease: q2.ease || "power2.inOut" });
+          },
+          // Turns the globe about its axis: tl.add(g.spin({ turns: 0.2, duration: 8 }), 0)
+          spin(q2) {
+            const c = Object.assign({ turns: 0.15, duration: config.duration, ease: "none" }, q2 || {});
+            return gsap.to(group.rotation, { y: "+=" + c.turns * Math.PI * 2, duration: c.duration, ease: c.ease });
+          },
+        };
       },
       // A glossy floor with a faint grid, for objects to stand on.
       floor(q) {
@@ -957,6 +1051,7 @@ export const KIT_SOURCE = String.raw`(() => {
     return img;
   }
 
+${KIT_EXPLAINER_SOURCE}
   const R = window.R = {
     width: config.stage.width,
     height: config.stage.height,
@@ -972,6 +1067,7 @@ export const KIT_SOURCE = String.raw`(() => {
     connect, line, ring, flow, code, highlight, count, bars, focus, grid, glow, particles,
     asset, image, assetIds: (config.assets || []).slice(), finish,
     three,
+    shots, arrow, callout, mark, steps, window: uiWindow, cursor, chart, stat, iso, headline, swap, drift, pulse,
   };
   if (window.gsap) {
     gsap.registerPlugin(...${JSON.stringify(gsapPlugins)}.map((name) => window[name]).filter(Boolean));

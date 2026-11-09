@@ -45,8 +45,8 @@ const plan = {
   ],
 };
 const good = (label: string) => `<scene>
-<html><div class="t">${label}</div><div class="dot"></div></html>
-<css>#stage{background:#0b1020}.t{position:absolute;left:160px;top:200px;font:700 96px "Space Grotesk";color:#e2e8f0}.dot{position:absolute;left:160px;top:600px;width:80px;height:80px;border-radius:50%;background:#38bdf8}</css>
+<html><div class="panel"></div><div class="t">${label}</div><div class="dot"></div></html>
+<css>#stage{background:#0b1020}.panel{position:absolute;left:120px;top:120px;width:1680px;height:840px;border:2px solid #334155;border-radius:24px}.t{position:absolute;left:160px;top:200px;font:700 96px "Space Grotesk";color:#e2e8f0}.dot{position:absolute;left:160px;top:600px;width:80px;height:80px;border-radius:50%;background:#38bdf8}</css>
 <js>gsap.timeline().from(".t",{opacity:0,y:40,duration:.8}).to(".dot",{x:1400,duration:5,ease:"none"},0);</js>
 </scene>`;
 
@@ -193,6 +193,9 @@ test("problems name errors, empty frames and frozen scenes", () => {
       errors: ["ReferenceError: x is not defined\n at line 1"],
       layout: ["At 2.0s: Text #a overlaps text #b."],
       bounds: null,
+      motion: [],
+      coverage: [],
+      stageArea: 1920 * 1080,
       frames: [
         frame(1, 10, null),
         frame(4, 0.5, 0.01),
@@ -210,6 +213,76 @@ test("problems name errors, empty frames and frozen scenes", () => {
     "Nothing visibly moves between the sampled moments.",
     "At 2.0s: Text #a overlaps text #b.",
   ]);
+});
+
+test("problems name frozen stretches and underfilled frames, but not the final hold or 3D", () => {
+  const motion = (changes: number[]) =>
+    changes.map((change, i) => ({ time: (i + 1) * 0.5, change }));
+  const box = (share: number) => ({
+    x: 0,
+    y: 0,
+    w: 1920 * Math.sqrt(share),
+    h: 1080 * Math.sqrt(share),
+  });
+  const preview = (
+    changes: number[],
+    shares: number[],
+  ): Parameters<typeof sceneProblems>[0] => ({
+    loaded: true,
+    errors: [],
+    layout: [],
+    bounds: null,
+    frames: [],
+    motion: motion(changes),
+    coverage: shares.map((share, i) => ({ time: 3 + i, bounds: box(share) })),
+    stageArea: 1920 * 1080,
+  });
+  // 10 s: busy until 3 s, frozen 3–6.5 s, busy, then a still final hold.
+  const changes = [
+    2, 2, 1, 1, 0.5, 0.01, 0.02, 0, 0, 0, 0, 0.03, 1, 1, 1, 1, 1, 0, 0, 0,
+  ];
+  const problems = sceneProblems(preview(changes, [0.6, 0.6, 0.6]), 10);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /^From 2\.5s to 6\.0s nothing on screen changes/);
+  // A short still final hold is expected.
+  assert.deepEqual(
+    sceneProblems(preview([...Array(17).fill(1), 0, 0, 0], [0.6]), 10),
+    [],
+  );
+  const sparse = sceneProblems(
+    preview(
+      changes.map(() => 1),
+      [0.2, 0.3, 0.5],
+    ),
+    10,
+  );
+  assert.equal(sparse.length, 1);
+  assert.match(
+    sparse[0],
+    /^The frame is underfilled: at 3\.0s, 4\.0s .*\(20% at 3\.0s\)/,
+  );
+  // One sparse moment is not enough, and 3D canvases are not measured.
+  assert.deepEqual(
+    sceneProblems(
+      preview(
+        changes.map(() => 1),
+        [0.2, 0.6, 0.6],
+      ),
+      10,
+    ),
+    [],
+  );
+  assert.deepEqual(
+    sceneProblems(
+      preview(
+        changes.map(() => 1),
+        [0.1, 0.1],
+      ),
+      10,
+      { threeD: true },
+    ),
+    [],
+  );
 });
 
 test("a fit brings overflowing content inside the stage and leaves fitting content alone", () => {

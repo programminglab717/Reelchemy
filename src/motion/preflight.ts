@@ -8,7 +8,11 @@ import {
 } from "../lib/chromium-flags";
 import { serveMotionFile } from "./motion-files";
 import { motionDocument, motionStages, type MotionCode } from "./document";
-import { CONTENT_BOUNDS_SOURCE, LAYOUT_AUDIT_SOURCE } from "./audit";
+import {
+  CONTENT_BOUNDS_SOURCE,
+  COVERAGE_SOURCE,
+  LAYOUT_AUDIT_SOURCE,
+} from "./audit";
 
 // Runs one code scene headlessly and captures stills at chosen times, with
 // every uncaught error and simple pixel measurements. Used to check generated
@@ -29,6 +33,16 @@ export type MotionPreview = {
   layout: string[];
   // Box of the visible content at `boundsAt`, in stage pixels.
   bounds: { x: number; y: number; w: number; h: number } | null;
+  // Change from the previous capture at every captured moment (stills and
+  // motion probes), in time order.
+  motion: { time: number; change: number }[];
+  // The stage's area in stage pixels (for coverage shares).
+  stageArea: number;
+  // Box of the visible content at each `coverageAt` time.
+  coverage: {
+    time: number;
+    bounds: { x: number; y: number; w: number; h: number } | null;
+  }[];
 };
 export async function previewMotionScene(input: {
   code: MotionCode;
@@ -44,6 +58,10 @@ export async function previewMotionScene(input: {
   // A time at which to measure the content's bounds (no still is captured
   // unless it is also one of `times`).
   boundsAt?: number;
+  // Extra moments captured only to measure motion (no still is returned).
+  probeTimes?: number[];
+  // Moments at which to measure how much of the frame the content covers.
+  coverageAt?: number[];
   // Bytes of the project images the scene declares (code.assets).
   assets?: Record<string, { bytes: Buffer; type: string }>;
 }): Promise<MotionPreview> {
@@ -173,16 +191,26 @@ window.seekScene = (time) => new Promise((resolve) => {
       input.boundsAt === undefined
         ? undefined
         : clampTime(input.boundsAt).toFixed(3);
+    const probes = new Set(
+      (input.probeTimes ?? []).map((t) => clampTime(t).toFixed(3)),
+    );
+    const coverageKeys = new Set(
+      (input.coverageAt ?? []).map((t) => clampTime(t).toFixed(3)),
+    );
+    const motion: MotionPreview["motion"] = [];
+    const coverage: MotionPreview["coverage"] = [];
     const audits = new Set(
       (input.auditAt ?? []).map((t) =>
         Math.max(0, Math.min(input.durationSeconds, t)).toFixed(3),
       ),
     );
     if (loaded) {
-      let previous: Buffer | undefined;
+      let previous: Buffer | undefined, previousCoarse: Buffer | undefined;
       const sequence = [
         ...new Set([
           ...stills,
+          ...probes,
+          ...coverageKeys,
           ...(boundsKey === undefined ? [] : [boundsKey]),
         ]),
       ]
@@ -226,8 +254,42 @@ window.seekScene = (time) => new Promise((resolve) => {
                 .catch(() => null)) as MotionPreview["bounds"])
             : null;
         }
-        if (!stills.has(clamped.toFixed(3))) continue;
-        const png = await page.screenshot({ type: "png" });
+        if (coverageKeys.has(clamped.toFixed(3))) {
+          const sceneFrame = page.frames().find((f) => f !== page.mainFrame());
+          coverage.push({
+            time: clamped,
+            bounds: sceneFrame
+              ? ((await sceneFrame
+                  .evaluate(COVERAGE_SOURCE)
+                  .catch(() => null)) as MotionPreview["bounds"])
+              : null,
+          });
+        }
+        const key = clamped.toFixed(3);
+        if (!stills.has(key) && !probes.has(key)) continue;
+        // Motion is measured without the ambience (grid, glows, particles,
+        // film finish), on a small softened copy: a frozen composition with
+        // drifting specks still reads as frozen.
+        const sceneFrame = page.frames().find((f) => f !== page.mainFrame());
+        await sceneFrame?.evaluate(PROBE_HIDE_AMBIENCE).catch(() => undefined);
+        const bare = await page.screenshot({ type: "png" });
+        await sceneFrame?.evaluate(PROBE_SHOW_AMBIENCE).catch(() => undefined);
+        const png = stills.has(key)
+          ? await page.screenshot({ type: "png" })
+          : bare;
+        const coarse = await sharp(bare)
+          .resize({ width: 160 })
+          .blur(0.8)
+          .greyscale()
+          .raw()
+          .toBuffer();
+        if (previousCoarse) {
+          let delta = 0;
+          for (let i = 0; i < coarse.length; i++)
+            delta += Math.abs(coarse[i] - previousCoarse[i]);
+          motion.push({ time: clamped, change: delta / coarse.length });
+        }
+        previousCoarse = coarse;
         const gray = await sharp(png).greyscale().raw().toBuffer();
         let sum = 0,
           squares = 0;
@@ -244,6 +306,7 @@ window.seekScene = (time) => new Promise((resolve) => {
           change = delta / gray.length;
         }
         previous = gray;
+        if (!stills.has(key)) continue;
         frames.push({
           time: clamped,
           png,
@@ -257,12 +320,24 @@ window.seekScene = (time) => new Promise((resolve) => {
         (window as unknown as HostWindow).sceneErrors.slice(0, 50),
       )),
     );
-    return { frames, errors, loaded, layout, bounds };
+    return {
+      frames,
+      errors,
+      loaded,
+      layout,
+      bounds,
+      motion,
+      coverage,
+      stageArea: stage.width * stage.height,
+    };
   } finally {
     await browser.close().catch(() => {});
     server.close();
   }
 }
+
+const PROBE_HIDE_AMBIENCE = `(() => { const s = document.createElement("style"); s.id = "r-probe"; s.textContent = ".r-grid,.r-glow,.r-particles,.r-particle,.r-finish{visibility:hidden !important}"; document.head.appendChild(s); })()`;
+const PROBE_SHOW_AMBIENCE = `document.getElementById("r-probe")?.remove()`;
 
 // A single image with the stills side by side in rows, for review.
 export async function contactSheet(frames: MotionPreviewFrame[], columns = 3) {

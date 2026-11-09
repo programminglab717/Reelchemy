@@ -9,6 +9,8 @@ import { renderFilm } from "../src/lib/render";
 import { motionCodeSchema, timelineSchema } from "../src/lib/schema";
 import { cacheAsideScene } from "../src/motion/examples/cache-aside";
 import { postgresIndexScene } from "../src/motion/examples/postgres-index";
+import { cdnGlobeScene } from "../src/motion/examples/cdn-globe";
+import { deployWalkthroughScene } from "../src/motion/examples/deploy-walkthrough";
 import {
   assertNoLegacyRenderWorker,
   renderToolEnvironment,
@@ -66,6 +68,8 @@ if (
     scenes: single
       ? [scene("scene", "Scene", Number(args.seconds ?? 8), single)]
       : [
+          scene("cdn-globe", "How a CDN serves you", 15, cdnGlobeScene),
+          scene("deploy", "Deploy in two minutes", 12, deployWalkthroughScene),
           scene("cache-aside", "Cache-aside with Redis", 14, cacheAsideScene),
           scene(
             "postgres-index",

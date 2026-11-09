@@ -4,6 +4,13 @@ import { previewMotionScene } from "../src/motion/preflight";
 import { cacheAsideScene } from "../src/motion/examples/cache-aside";
 import { compoundGrowthScene } from "../src/motion/examples/compound-growth";
 import { hero3dScene } from "../src/motion/examples/hero-3d";
+import { cdnGlobeScene } from "../src/motion/examples/cdn-globe";
+import { deployWalkthroughScene } from "../src/motion/examples/deploy-walkthrough";
+import {
+  coverageTimes,
+  motionProbeTimes,
+  sceneProblems,
+} from "../src/director/director";
 import sharp from "sharp";
 
 // A scene that checks the kit from inside: each check runs at a moment on the
@@ -252,3 +259,91 @@ check(refused, "undeclared images are refused");
     }
   },
 );
+
+// The explainer blocks, checked from inside a scene at moments on its timeline.
+const explainerChecks = {
+  html: '<section class="shot s1"><h1 class="t" style="position:absolute;left:120px;top:100px;margin:0;font:700 80px Inter;color:#fff">Edge <span class="w">fast</span></h1></section><section class="shot s2"></section>',
+  css: ".shot{position:absolute;inset:0}",
+  js: String.raw`
+const check = (ok, message) => { if (!ok) throw new Error("CHECK " + message); };
+const near = (a, b, t) => Math.abs(a - b) <= (t || 3);
+const a = R.node({ parent: ".s1", x: 400, y: 600, w: 300, label: "A" });
+const b = R.node({ parent: ".s1", x: 1400, y: 600, w: 300, label: "B" });
+const arrow = R.arrow(a, b, { label: "GET /" });
+const note = R.callout(b, { title: "Hit", text: "18 ms", side: "top", distance: 80 });
+const steps = R.steps({ parent: ".s2", x: 200, y: 300, items: ["One", "Two", "Three"] });
+const win = R.window({ parent: ".s2", kind: "browser", x: 1200, y: 540, w: 900, h: 600, url: "" });
+win.body.innerHTML = '<div class="btn" style="position:absolute;left:300px;top:300px;width:200px;height:60px;background:#38bdf8"></div>';
+const cursor = R.cursor({ parent: ".s2", x: 1700, y: 1000 });
+const chart = R.chart({ parent: ".s2", x: 200, y: 700, w: 600, h: 200, data: [0, 50, 100], suffix: "%" });
+const stat = R.stat({ parent: ".s2", x: 1600, y: 200, value: 42, label: "requests" });
+const tl = gsap.timeline();
+tl.add(arrow.draw({ duration: 0.6 }), 0.2).add(note.show(), 0.4).add(R.swap(".w", ["fast", "cheap"], { every: 0.8 }), 0)
+  .add(steps.reveal(), 1.6).add(steps.activate(1), 1.8).add(cursor.moveTo(".btn", { duration: 0.5 }), 1.6).add(chart.draw({ duration: 0.5 }), 1.6).add(stat.show({ duration: 0.4 }), 1.6)
+  .add(R.shots([".s1", ".s2"], { at: [0, 1.4], transition: "push", duration: 0.4 }), 0);
+tl.call(() => {
+  // On screen (R.box ignores the label's centring transform).
+  const mid = arrow.pointAt(0.5), r = arrow.label.getBoundingClientRect(), st = R.stage.getBoundingClientRect(), k = st.width / R.width;
+  check(near((r.left - st.left + r.width / 2) / k, mid.x, 4) && near((r.top - st.top + r.height / 2) / k, mid.y, 4), "the arrow label rides the middle of its path");
+  const n = R.box(note.element), bb = R.box(b);
+  check(n.y + n.h <= bb.y, "the callout sits above its target");
+  check(getComputedStyle(document.querySelector(".s2")).visibility === "hidden", "the second shot waits for its cut");
+  check(document.querySelector(".w").textContent.includes("fast"), "the swap starts on the first word");
+}, [], 1.0)
+  .call(() => {
+    check(getComputedStyle(document.querySelector(".s1")).visibility === "hidden", "the first shot is gone after the transition");
+    check(getComputedStyle(document.querySelector(".s2")).visibility === "visible", "the second shot is on screen");
+    const rows = document.querySelectorAll(".r-step");
+    check(rows.length === 3 && getComputedStyle(rows[1]).getPropertyValue("--r-on").trim() === "1", "step two is lit");
+    const c = R.box(cursor.element), btn = R.box(".btn", ".s2");
+    check(near(c.x, btn.x + btn.w * 0.5, 6) && near(c.y, btn.y + btn.h * 0.55, 6), "the cursor reached the button: " + JSON.stringify([c, btn]));
+    check(document.querySelector(".r-chart-value").textContent === "100%", "the chart tip lands on the last value");
+    check(document.querySelector(".r-stat-value").textContent === "42", "the stat counts to its value");
+  }, [], 2.4);
+`,
+};
+
+test(
+  "explainer blocks: labelled arrows, callouts, shots, steps, cursor, charts and stats",
+  { timeout: 120000 },
+  async () => {
+    const result = await previewMotionScene({
+      code: explainerChecks,
+      format: "landscape",
+      durationSeconds: 2.5,
+      times: [0, 1, 2.5],
+      width: 480,
+    });
+    assert.deepEqual(result.errors, []);
+  },
+);
+
+for (const [name, code, seconds] of [
+  ["the multi-shot CDN reference", cdnGlobeScene, 15],
+  ["the software tutorial reference", deployWalkthroughScene, 12],
+] as const)
+  test(
+    `${name} passes the director's own checks: no errors, frozen stretches, empty frames or layout notes`,
+    { timeout: 240000 },
+    async () => {
+      const times = [0.15, 0.4, 0.65, 0.9].map(
+        (f) => Math.round(seconds * f * 30) / 30,
+      );
+      const result = await previewMotionScene({
+        code,
+        format: "landscape",
+        durationSeconds: seconds,
+        times,
+        probeTimes: motionProbeTimes(seconds),
+        coverageAt: coverageTimes(seconds),
+        auditAt: times,
+        timeoutMs: 200000,
+      });
+      assert.deepEqual(
+        sceneProblems(result, seconds, {
+          threeD: !!code.libraries?.includes("three"),
+        }),
+        [],
+      );
+    },
+  );

@@ -61,6 +61,24 @@ export const LAYOUT_AUDIT_SOURCE = String.raw`(() => {
       if (!(r.x < -margin || r.y < -margin || r.x + r.w > W + margin || r.y + r.h > H + margin))
         notes.push("Text " + label(el) + " sits inside the edge safe margin (keep text 64px from the edges).");
   }
+  // One text lies under an opaque panel holding the other (a modal over
+  // cards, a callout card over a diagram): hidden, not a clash.
+  const opaque = (el) => {
+    const c = getComputedStyle(el).backgroundColor.match(/[\d.]+/g);
+    return !!c && (c.length < 4 || Number(c[3]) > 0.85);
+  };
+  const covered = (a, b, p, q) => {
+    const x = (Math.max(p.x, q.x) + Math.min(p.x + p.w, q.x + q.w)) / 2;
+    const y = (Math.max(p.y, q.y) + Math.min(p.y + p.h, q.y + q.h)) / 2;
+    const top = document.elementFromPoint(box.left + x * scale, box.top + y * scale);
+    if (!top) return false;
+    const upper = a.contains(top) || top.contains(a) ? a : b.contains(top) || top.contains(b) ? b : null;
+    if (!upper) return true;
+    const lower = upper === a ? b : a;
+    for (let node = upper; node && node !== stage && !node.contains(lower); node = node.parentElement)
+      if (opaque(node)) return true;
+    return false;
+  };
   // Overlapping text boxes (not nested).
   for (let i = 0; i < texts.length; i++)
     for (let j = i + 1; j < texts.length; j++) {
@@ -69,7 +87,7 @@ export const LAYOUT_AUDIT_SOURCE = String.raw`(() => {
       const p = local(a), q = local(b);
       const ix = Math.max(0, Math.min(p.x + p.w, q.x + q.w) - Math.max(p.x, q.x));
       const iy = Math.max(0, Math.min(p.y + p.h, q.y + q.h) - Math.max(p.y, q.y));
-      if (ix * iy > 0.25 * Math.min(p.w * p.h, q.w * q.h))
+      if (ix * iy > 0.25 * Math.min(p.w * p.h, q.w * q.h) && !covered(a, b, p, q))
         notes.push("Text " + label(a) + " overlaps text " + label(b) + ".");
     }
   // One note per kind of problem and element type, with a count.
@@ -89,7 +107,9 @@ export const LAYOUT_AUDIT_SOURCE = String.raw`(() => {
 // moment: text, icons, images, canvases and drawn strokes that at least touch
 // the stage. Decorative ambience (grids, glows, particles) and content inside
 // a moved camera are left out. Null when nothing qualifies.
-export const CONTENT_BOUNDS_SOURCE = String.raw`(() => {
+export function contentBoundsSource(options: { coverage?: boolean } = {}) {
+  return String.raw`(() => {
+  const coverage = ${options.coverage ? "true" : "false"};
   const stage = document.getElementById("stage");
   if (!stage) return null;
   const box = stage.getBoundingClientRect();
@@ -103,7 +123,15 @@ export const CONTENT_BOUNDS_SOURCE = String.raw`(() => {
     }
     return true;
   };
-  const decorative = (el) => !!el.closest(".r-grid,.r-glow,.r-particles");
+  // Ambience: kit backgrounds, and heavily blurred shapes (glow orbs).
+  const decorative = (el) => {
+    if (el.closest(".r-grid,.r-glow,.r-particles,.r-finish")) return true;
+    for (let node = el; node && node !== stage && node instanceof Element; node = node.parentElement) {
+      const blur = /blur\(([\d.]+)px\)/.exec(getComputedStyle(node).filter || "");
+      if (blur && Number(blur[1]) >= 20) return true;
+    }
+    return false;
+  };
   const framed = (el) => {
     const camera = el.closest("[data-r-camera]");
     if (!camera) return false;
@@ -114,21 +142,38 @@ export const CONTENT_BOUNDS_SOURCE = String.raw`(() => {
     if (el.closest(".r-layer") && !el.closest(".r-stroke")) return false;
     if (el.closest(".r-layer")) return el.matches(".r-stroke > path, .r-packet");
     const tag = el.tagName.toLowerCase();
+    // Coverage measures drawings by their shapes, not their (often
+    // full-frame) canvas; bounds keep the whole <svg>.
+    if (coverage && el.closest("svg")) return tag !== "svg" && /^(path|rect|circle|ellipse|polygon|polyline|line|text|image|use)$/.test(tag) && !el.closest("defs,clipPath,mask");
     if (el.closest("svg") && tag !== "svg") return false;
     if (tag === "svg" || tag === "img" || tag === "canvas") return true;
-    return [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+    if ([...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) return true;
+    // Panels count too: cards, windows and shapes with a visible fill or border.
+    const style = getComputedStyle(el);
+    const fill = style.backgroundColor.match(/[\d.]+/g);
+    const filled = fill && (fill.length < 4 || Number(fill[3]) > 0.05) && style.backgroundColor !== "transparent";
+    return !!filled || style.backgroundImage !== "none" || parseFloat(style.borderTopWidth) > 0.5;
   });
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const el of candidates) {
-    if (decorative(el) || framed(el) || !visible(el)) continue;
+    if (decorative(el) || (!coverage && framed(el)) || !visible(el)) continue;
     const r = el.getBoundingClientRect();
     if (r.width < 1 || r.height < 1) continue;
     const x = (r.left - box.left) / scale, y = (r.top - box.top) / scale;
     const w = r.width / scale, h = r.height / scale;
-    if (w * h > W * H * 0.6) continue;
+    // Near-full-frame boxes are backgrounds (coverage allows big panels).
+    if (w * h > W * H * (coverage ? 0.9 : 0.6)) continue;
+    // Hairlines (grid and guide lines) do not fill a frame.
+    if (coverage && Math.min(w, h) < 6) continue;
     if (x + w <= 0 || y + h <= 0 || x >= W || y >= H) continue;
-    x0 = Math.min(x0, x); y0 = Math.min(y0, y);
-    x1 = Math.max(x1, x + w); y1 = Math.max(y1, y + h);
+    // Coverage counts only what is on screen.
+    const cx0 = coverage ? Math.max(0, x) : x, cy0 = coverage ? Math.max(0, y) : y;
+    const cx1 = coverage ? Math.min(W, x + w) : x + w, cy1 = coverage ? Math.min(H, y + h) : y + h;
+    x0 = Math.min(x0, cx0); y0 = Math.min(y0, cy0);
+    x1 = Math.max(x1, cx1); y1 = Math.max(y1, cy1);
   }
   return x0 === Infinity ? null : { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
 })()`;
+}
+export const CONTENT_BOUNDS_SOURCE = contentBoundsSource();
+export const COVERAGE_SOURCE = contentBoundsSource({ coverage: true });

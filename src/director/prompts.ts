@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { motionStages, type MotionCode } from "../motion/document";
-import { postgresIndexScene } from "../motion/examples/postgres-index";
+import { cdnGlobeScene } from "../motion/examples/cdn-globe";
+import { deployWalkthroughScene } from "../motion/examples/deploy-walkthrough";
 import { cacheAsideScene } from "../motion/examples/cache-aside";
 import { compoundGrowthScene } from "../motion/examples/compound-growth";
 import { hero3dScene } from "../motion/examples/hero-3d";
@@ -50,11 +51,14 @@ Plan for real visual storytelling:
 - Every scene must SHOW an idea with a concrete visual: diagrams that build up, flows with things moving along paths, before/after transformations, metaphors, data visualised, systems with parts that light up. Text is a short label or headline, never paragraphs.
 - One clear idea per scene. Order scenes as a story: hook → explanation built step by step → payoff/summary.
 - Describe each scene's visual precisely enough that a designer can build it without guessing: what objects exist, where they sit, how they enter, what moves where, what gets emphasised, the final composition.
-- Give each scene 3–8 timed beats (seconds from the scene start) covering its full length; the last 0.5–1 s holds the finished composition.
-- A clip of 30 seconds or less is usually ONE continuous scene (richer, no cuts) unless the brief clearly has separate parts. Longer films use several scenes of roughly 6–20 seconds; a scene may be up to 60 seconds.
+- Pace like a top explainer channel: something new appears, moves, lights up or changes every 1.5–2 seconds. Give each scene timed beats (seconds from the scene start) at that density — about one beat per 1.5–2 s of its length — covering its full length; the last 0.5–1 s holds the finished composition.
+- A scene longer than ~6 s is usually 2–4 SHOTS: full-frame compositions that replace each other with a transition (push, zoom through, wipe, blur, slide up) inside the same scene, e.g. "shot 1 (0–5 s) the globe; zoom into shot 2 (5–10 s) the request diagram; push to shot 3 (10–15 s) the results". Describe each shot and its transition in "visual".
+- A clip of 30 seconds or less is usually ONE scene made of several shots unless the brief clearly has separate parts. Longer films use several scenes of roughly 6–20 seconds; a scene may be up to 60 seconds.
+- Fill the frame: every shot has one dominant visual spanning most of the stage, supporting labels, and a living background.
 - Design one consistent style for the whole film: a palette (background, surface, text, muted, 2–5 luminous accents with strong contrast), fonts (display: "Space Grotesk", body: "Inter", code/data: "JetBrains Mono"), a motion language (easing, pace, signature moves) and recurring motifs that tie scenes together.
 - Be technically accurate about the subject. Use real names, real numbers when known, plausible example data otherwise.
-- Your designers' toolkit (plan visuals that use it): diagram nodes with icons; connectors that draw themselves between parts, with glowing packets travelling along them; code that types itself with syntax highlighting and highlighted lines; numbers that count up; bar charts that grow; emphasis rings; a camera that zooms into a part of the diagram and back; kinetic typography (words and characters animating in, scrambled text); SVG shapes that draw and morph; particles, grids and glows for depth.
+- Your designers' toolkit (plan visuals that use it): diagram nodes with icons; connectors and labelled arrows that draw themselves, with glowing packets travelling along them; callouts that point at a part with a short note; hand-drawn emphasis (underline, circle, box, highlighter); numbered step lists that advance; browser, app, terminal and phone mockups with a cursor that moves and clicks (for tutorials and product walkthroughs); code that types itself with highlighted lines; numbers that count up and stat cards; bar, line and area charts that grow and draw; isometric layer stacks for architectures; a 3D globe with arcs between places, 3D product shots and objects; a camera that zooms into a part and back, and slow camera drifts; shots that change with transitions; kinetic typography (masked word and character reveals, words that swap in place, scrambled text); SVG shapes that draw and morph; particles, grids and glows for depth.
+- Tutorials and how-tos: show the real interface (a mockup of the app, the terminal, the code), the cursor doing each step, a numbered step list in sync, and a callout naming what just happened.
 
 The scene seconds must add up exactly to the requested duration.
 
@@ -137,6 +141,22 @@ Camera and ambience:
 - Put the diagram in a full-stage container (<div class="world" style="position:absolute;inset:0">) and pass it as parent; tl.add(R.focus(".world", target, {scale, at: [x, y], duration}), t) moves the camera to centre (or place at [x, y]) and zoom on target; R.focus(".world", null) returns.
 - R.grid({size, dots, color, drift}), R.glow({x, y, size, color, opacity}), R.particles({count, color, speed}) add a living background (they animate themselves for the whole scene).
 - R.finish({grain: 0.04, vignette: 0.45, letterbox: 0}) adds a cinematic film finish over everything (subtle animated grain, vignette, optional letterbox bars in px). Use it on most scenes for a premium look; keep grain subtle (0.03–0.05): grain makes exported files larger.
+Explainer building blocks (all return elements or tweens/timelines you place on the master timeline):
+- Shots — a scene made of full-frame compositions: put each in <section class="shot s1">…</section> (CSS .shot{position:absolute;inset:0}), build each shot's content inside it, time its animations from when it appears, and add once: tl.add(R.shots([".s1", ".s2", ".s3"], {at: [0, 5, 10], transition: ["zoom", "push"], duration: 0.8}), 0). Transitions: "push", "slide-up", "zoom" (through), "wipe", "blur", "fade", "cut". Shots can hold their own world container, 3D view (R.three({parent: ".s1"})) and camera moves.
+- const a = R.arrow(fromEl, toEl, {label: "GET /api", color, curve, dash, labelAt: 0.5}) → a connector with a pill label riding it; tl.add(a.draw(), t); R.flow(a, …) works on it.
+- const c = R.callout(target, {title: "Cache HIT", text: "18 ms", side: "right"|"left"|"top"|"bottom"|"top-right"|…, distance: 90, color, width}) → a note with a leader line and dot; tl.add(c.show(), t), c.hide().
+- const m = R.mark(target, {style: "underline"|"circle"|"box"|"marker", color, width}) → hand-drawn emphasis; tl.add(m.draw(), t).
+- const s = R.steps({parent, x, y, items: ["Request", {title: "Lookup", sub: "cache key", icon: "search"}], gap}) → numbered steps on a progress rail; tl.add(s.reveal(), t), tl.add(s.activate(i), t) lights step i (earlier ones stay done).
+- const w = R.window({parent, kind: "browser"|"app"|"terminal"|"phone", x, y (centre), w, h, url, title, light: true}) → a UI frame; fill w.body (position things absolutely inside it, or with normal layout); tl.add(w.open(), t), tl.add(w.typeUrl("shop.example.com"), t). Build realistic interfaces inside: sidebars, cards, buttons, forms, tables.
+- const cur = R.cursor({parent, x, y}) → a mouse pointer; tl.add(cur.moveTo(target, {duration}), t).add(cur.click(), t + duration) (click ripples).
+- const ch = R.chart({parent, x, y, w, h, kind: "line"|"area", data: [numbers], labels: [...], color, suffix, prefix, decimals}) → a chart that draws left to right with the value riding its tip; tl.add(ch.draw({duration: 2}), t).
+- const st = R.stat({parent, x, y (centre; anchor: "top-left" to place by corner), value, prefix, suffix, decimals, label, color}) → a big-number card; tl.add(st.show(), t) pops it and counts up.
+- const iso = R.iso({parent, x, y, size, gap, layers: [{label, sub, icon, color}, …] (bottom first)}) → isometric slabs for stacks and architectures; tl.add(iso.build(), t), iso.explode({spread}), iso.highlight(i).
+- tl.add(R.headline(target, {by: "words"|"chars"|"lines", style: "rise"|"pop"|"blur"|"slide"|"scramble"}), t) — kinetic headline entrances (rise is a masked slide up).
+- tl.add(R.swap(target, ["faster", "cheaper", "safer"], {every: 1.2}), t) — words replacing each other in place.
+- tl.add(R.drift(".s1", {scale: 1.05, x, y}), shotStart) — a slow continuous camera push on a shot or outer container, so the frame never freezes (put R.focus moves on an inner container, drift on its parent).
+- tl.add(R.pulse(target, {scale: 1.1, glow: "rgba(56,189,248,.6)"}), t) — an attention punch.
+- R.el(tag, {parent, className, text, style: {left, top, …}}) with left/top is absolutely positioned.
 Every function that returns a tween or timeline is meant to be placed on your master timeline with tl.add(..., time).
 Project images (logos, product shots, screenshots) — when the request lists projectImages, use them where they fit the story (a brand's logo, its product, its app): <img data-asset="ID"> (or any element with data-asset="ID" for a background image), R.asset(ID) → URL, R.image(ID, {parent, className, style}) → <img>, and in 3D view.image(ID, {width, position}). Use only the listed IDs, exactly; never invent images or URLs. Respect each image's aspect ratio.
 
@@ -145,11 +165,13 @@ Project images (logos, product shots, screenshots) — when the request lists pr
 - Building blocks (each takes position: [x, y, z], rotation, scale, parent: group, and material options color, metalness, roughness, clearcoat, emissive, emissiveIntensity, glass: true, opacity): view.box({w, h, d, radius}) rounded boxes for devices, cards, servers; view.sphere({r}); view.cylinder({r, h}); view.extrude(svgPathData, {size, depth}) extruded logos and shapes (filled paths, holes cut automatically); view.label(text, {size, weight, font, color, background, padding, width, align, glow}) crisp text cards in 3D; view.icon(name, {background, color, width}) Lucide icons in 3D; view.particles({count, spread: [x, y, z], color, size}); view.floor({y, color, grid}); view.group({position}) to move things together; view.THREE, view.scene, view.camera for anything else.
 - Animate with GSAP like any object: gsap.to(mesh.rotation, {y: Math.PI}), gsap.to(view.camera.position, {z: 6}) (the camera always looks at view.target, which you can tween too), gsap.to(mesh.material, {emissiveIntensity: 3}); tl.add(view.orbit({from: -30, to: 30, duration: 6}), 0) circles the camera.
 - view.screen(meshOr[x, y, z]) → {x, y} stage pixels: pin HTML labels to 3D objects inside gsap.ticker.add(() => gsap.set(label, {left, top})).
+- const g = view.globe({r: 2.4, position, color, base, dots: 2400}) → a dotted globe with a soft atmosphere: g.face([lat, lon]) turns a place toward the camera (or tl.add(g.face(place, {duration}), t)); g.pin([lat, lon], {color, size}); const arc = g.arc([lat, lon], [lat, lon], {color, height}); tl.add(arc.draw({duration}), t).add(arc.flow({count, duration}), t2); tl.add(g.spin({turns: 0.1, duration}), 0). Use real coordinates. Keep the globe beside the headline, not behind it.
 - The scene is drawn once per frame for you: never call renderer.render or start your own render loop. Keep it to tens of meshes; emissive edges with bloom read as "premium tech". 3D renders slowly, so use it where it adds depth, not for flat diagrams.
 
 DESIGN STANDARDS
-- Show, don't tell: express the idea with diagrams that build, flows with things travelling along paths, transformations, metaphors and data. Text labels and headlines only; never paragraphs. At most ~12 words of body text on screen at once; headlines ≤ 8 words.
-- Composition: fill the frame. The main visual should span most of the stage (a diagram at least ~60% of its width, a hero object or headline commanding the centre of attention); never a small cluster in a big empty frame. Build depth in layers: a living background (glow, grid, particles or 3D environment), a midground with the story, and foreground labels or type. Align to a grid, keep text at least 64px from the edges, and use the camera (R.focus or a 3D camera move) to frame tightly on what matters now.
+- Show, don't tell: express the idea with diagrams that build, flows with things travelling along paths, transformations, metaphors, interfaces and data. Text labels and headlines only; never paragraphs. At most ~12 words of body text on screen at once; headlines ≤ 8 words.
+- Pace and density (checked automatically): a new visual event at least every 1.5–2 s for the whole scene — an element entering, an arrow drawing, packets flowing, a step activating, a callout, a number counting, a highlight, a camera move or a shot change. Ambient drift alone does not count. A scene over ~6 s should usually be 2–4 shots joined by transitions (R.shots). The final 0.5–1 s may hold.
+- Composition: fill the frame (checked automatically: the content must cover at least ~40% of the stage once the scene is under way, most good shots cover 55–80%). The main visual should span most of the stage (a diagram at least ~60% of its width, a hero object or headline commanding the centre of attention); never a small cluster in a big empty frame. Build depth in layers: a living background (glow, grid, particles or 3D environment), a midground with the story, and foreground labels or type. Align to a grid, keep text at least 64px from the edges, and use the camera (R.focus or a 3D camera move) to frame tightly on what matters now.
 - Type sizes on the 1920-wide stage: headlines 64–120px, labels 26–40px, never below 22px. High contrast. Never put text on top of text.
 - Motion with intent: stagger entrances, use expressive easing (power3.out, expo.out, back.out(1.7) for pops, sine.inOut for drifts), draw connectors with drawSVG, send glowing packets along paths with motionPath, reveal text with SplitText (chars/words/lines) or scrambleText, emphasise key moments (glow, scale punch, colour change), add depth with gentle parallax or camera moves on a container. Keep something subtly alive in the background. Give viewers ~1.5–2 s to read each new label.
 - Follow the film's style guide (palette, fonts, motion language, motifs) so all scenes feel like one film.
@@ -165,17 +187,22 @@ Reply with the scene only, exactly in this form (no markdown fences, no commenta
 </scene>
 Add <libraries>…</libraries> (d3 and/or three) inside <scene> only if you use them.
 
-REFERENCE 1 — a 14-second landscape scene built with the kit (study how it composes, times and narrates; do not copy its content):
+The references below show the bar: study how they compose, pace, layer and narrate; never copy their content.
+
+REFERENCE 1 — a 15-second landscape explainer in three shots (3D globe with arcs and stats → a request diagram with labelled arrows, callouts, a camera move and bars → a drawn chart with stat cards), something new every 1–2 s:
+${sceneMarkup(cdnGlobeScene)}
+
+REFERENCE 2 — a 12-second landscape software tutorial in two shots: an app mockup where a cursor clicks through the steps with a synced step list and callouts, then a terminal that types the command with progress and output:
+${sceneMarkup(deployWalkthroughScene)}
+
+REFERENCE 3 — a 14-second landscape system diagram built with the kit's nodes, connectors, packets, code and counters:
 ${sceneMarkup(cacheAsideScene)}
 
-REFERENCE 2 — a 12-second PORTRAIT (1080×1920) data story for short-form video: kinetic type, a curve that draws with the counter in step, and a closing comparison:
+REFERENCE 4 — a 12-second PORTRAIT (1080×1920) data story for short-form video: kinetic type, a curve that draws with the counter in step, and a closing comparison:
 ${sceneMarkup(compoundGrowthScene)}
 
-REFERENCE 3 — a 10-second landscape 3D hero shot with R.three, HTML type composited over it and labels pinned to 3D points:
-${sceneMarkup(hero3dScene)}
-
-REFERENCE 4 — a 15-second landscape scene drawn by hand with SVG and GSAP plugins, for the craft of custom visuals:
-${sceneMarkup(postgresIndexScene)}`;
+REFERENCE 5 — a 10-second landscape 3D product hero shot with R.three, HTML type composited over it and labels pinned to 3D points:
+${sceneMarkup(hero3dScene)}`;
 }
 export type ProjectImage = {
   id: string;
@@ -236,7 +263,7 @@ export function reviewUser(input: {
     input.problems.length
       ? `Automatic checks found:\n${input.problems.map((p) => `- ${p}`).join("\n")}\n\n`
       : "Automatic checks found no errors.\n\n"
-  }Review the scene critically against the brief and the design standards${input.withImages ? " using the stills" : ""}: errors, empty or unfinished moments, clipped or overlapping text, weak composition, too much text, too little motion or meaning. If it already meets the standard, reply with exactly <approved/>. Otherwise reply with the complete corrected scene in the same <scene> format.`;
+  }Review the scene critically against the brief and the design standards${input.withImages ? " using the stills" : ""}, as the art director of a top motion studio: errors; empty, frozen or unfinished moments; a frame that is not filled; clipped or overlapping text; weak hierarchy or composition; too much text; too little motion, pace or meaning; anything that looks like a slide instead of motion design. Fix every automatic finding. If it already meets the standard, reply with exactly <approved/>. Otherwise reply with the complete corrected scene in the same <scene> format.`;
 }
 
 // ---------------------------------------------------------------- parsing

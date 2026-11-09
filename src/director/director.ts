@@ -109,8 +109,55 @@ export function reviewTimes(seconds: number) {
     (f) => Math.round(seconds * f * 30) / 30,
   );
 }
+// Moments sampled to measure motion (every half second) and how much of the
+// frame the content covers (every second after the opening).
+export function motionProbeTimes(seconds: number) {
+  return Array.from(
+    { length: Math.floor(seconds * 2) + 1 },
+    (_, i) => Math.round(i * 15) / 30,
+  ).filter((t) => t <= seconds);
+}
+export function coverageTimes(seconds: number) {
+  const times: number[] = [];
+  for (let t = Math.max(1, seconds * 0.3); t <= seconds - 0.5; t += 1)
+    times.push(Math.round(t * 30) / 30);
+  return times;
+}
+// Mean pixel change below which a half-second interval reads as frozen.
+const STILL = 0.06;
+// Frozen stretches longer than this (outside the final hold) are reported.
+const LONGEST_STILL = 2.5;
+// Content covering less of the frame than this reads as underfilled.
+const MIN_COVERAGE = 0.4;
+// Stretches where nothing on screen changes (ambience excluded), as
+// [from, to] seconds, ignoring the final hold.
+export function stillStretches(
+  motion: { time: number; change: number }[],
+  seconds: number,
+) {
+  const stretches: [number, number][] = [];
+  let start: number | null = null,
+    previous = 0;
+  const end = seconds - 1.2;
+  for (const sample of motion) {
+    if (sample.time > end) break;
+    if (sample.change < STILL) {
+      if (start === null) start = previous;
+    } else if (start !== null) {
+      stretches.push([start, previous]);
+      start = null;
+    }
+    previous = sample.time;
+  }
+  if (start !== null) stretches.push([start, previous]);
+  return stretches.filter(([a, b]) => b - a >= LONGEST_STILL);
+}
 // Problems an automatic pass can find, in words a model can act on.
-export function sceneProblems(preview: MotionPreview, seconds: number) {
+export function sceneProblems(
+  preview: MotionPreview,
+  seconds: number,
+  options: { threeD?: boolean } = {},
+) {
   const problems = [...new Set(preview.errors)].map(
     (error) => `JavaScript error: ${error.split("\n").slice(0, 3).join(" | ")}`,
   );
@@ -123,6 +170,33 @@ export function sceneProblems(preview: MotionPreview, seconds: number) {
     .filter((change): change is number => change !== null);
   if (changes.length >= 3 && changes.every((change) => change < 0.05))
     problems.push("Nothing visibly moves between the sampled moments.");
+  for (const [from, to] of stillStretches(preview.motion ?? [], seconds))
+    problems.push(
+      `From ${from.toFixed(1)}s to ${to.toFixed(1)}s nothing on screen changes (${(to - from).toFixed(1)}s, background ambience aside). Keep the frame alive: a new visual event at least every 1.5–2 s (a reveal, a callout, a packet, a highlight, a camera move or a shot change).`,
+    );
+  // Coverage is measured from the page's elements; a 3D canvas is not.
+  if (!options.threeD) {
+    const sparse = (preview.coverage ?? []).filter((c) => {
+      const area = c.bounds ? c.bounds.w * c.bounds.h : 0;
+      return area < MIN_COVERAGE * (preview.stageArea ?? Infinity);
+    });
+    if (preview.stageArea && sparse.length >= 2) {
+      const worst = sparse.reduce((a, b) =>
+        (a.bounds ? a.bounds.w * a.bounds.h : 0) <=
+        (b.bounds ? b.bounds.w * b.bounds.h : 0)
+          ? a
+          : b,
+      );
+      const share = worst.bounds
+        ? Math.round(
+            (100 * worst.bounds.w * worst.bounds.h) / preview.stageArea,
+          )
+        : 0;
+      problems.push(
+        `The frame is underfilled: at ${sparse.map((c) => c.time.toFixed(1) + "s").join(", ")} the content covers less than ${Math.round(MIN_COVERAGE * 100)}% of the frame (${share}% at ${worst.time.toFixed(1)}s). Make the main visual span most of the stage: larger nodes, cards and type, more of the story on screen, or move the camera in.`,
+      );
+    }
+  }
   return [...problems, ...preview.layout];
 }
 async function reviewSheet(preview: MotionPreview) {
@@ -262,6 +336,8 @@ async function writeScene(
       format: context.brief.format,
       durationSeconds: scene.seconds,
       times,
+      probeTimes: motionProbeTimes(scene.seconds),
+      coverageAt: coverageTimes(scene.seconds),
       auditAt: times.slice(1),
       // The finished composition, before any closing exit.
       boundsAt: Math.max(0, scene.seconds - 0.5),
@@ -274,7 +350,9 @@ async function writeScene(
           ]),
       ),
     });
-    const problems = sceneProblems(result, scene.seconds);
+    const problems = sceneProblems(result, scene.seconds, {
+      threeD: !!code.libraries?.includes("three"),
+    });
     if (!best || problems.length <= best.problems.length)
       best = { code, problems, bounds: result.bounds ?? null };
     // Clean, and no images to judge by: accept without another call.
