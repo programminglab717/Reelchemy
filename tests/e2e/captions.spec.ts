@@ -17,10 +17,10 @@ test("subtitle import is atomic, undoable and styled consistently in preview, ar
     })
   ).json();
   await page.goto("/");
-  await openTool(page, "Sound & captions");
   await page
     .getByRole("button", { name: "Caption studio", exact: false })
     .click();
+  await openTool(page, "Sound & captions");
   await page.getByLabel("Import subtitles", { exact: true }).setInputFiles({
     name: "story.srt",
     mimeType: "text/plain",
@@ -85,10 +85,10 @@ test("subtitle import is atomic, undoable and styled consistently in preview, ar
     "All changes saved",
   );
   await page.reload();
-  await openTool(page, "Sound & captions");
   await page
     .getByRole("button", { name: "Caption studio", exact: false })
     .click();
+  await openTool(page, "Sound & captions");
   await expect(
     page.getByLabel("Caption position", { exact: true }),
   ).toHaveValue("top");
