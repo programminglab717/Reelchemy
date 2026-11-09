@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 import { encodedFrame } from "./media-frame";
 import sharp from "sharp";
 
@@ -93,6 +93,7 @@ test("phone JPEG orientation survives normalization, portable import, preview an
   expect(meta.orientation).toBeUndefined();
   await page.goto("/");
   await page.getByRole("button", { name: copy.name, exact: false }).click();
+  await openTool(page, "Design");
   await expect(page.locator(".canvas-stage img")).toBeVisible();
   await expect
     .poll(() =>

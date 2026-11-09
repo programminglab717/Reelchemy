@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 import { zipSync, unzipSync, strToU8, strFromU8 } from "fflate";
 import { readFile } from "node:fs/promises";
 import sharp from "sharp";
@@ -111,6 +111,7 @@ test("large-history editable ZIP errors and cancellation recover without downloa
       await route.continue().catch(() => {});
     } else await route.continue();
   });
+  await openTool(page, "Project");
   await button.click();
   await expect(
     page
@@ -118,13 +119,16 @@ test("large-history editable ZIP errors and cancellation recover without downloa
       .filter({ hasText: "Synthetic archive recovery required" }),
   ).toBeVisible();
   expect(downloads).toBe(0);
+  await openTool(page, "Scene & layers");
   await expect(page.getByLabel("Scene title", { exact: true })).toBeEnabled();
+  await openTool(page, "Project");
   await button.click();
   await expect(
     page.getByText("Preparing your saved project. You can keep editing.", {
       exact: true,
     }),
   ).toBeVisible();
+  await openTool(page, "Scene & layers");
   await expect(page.getByLabel("Scene title", { exact: true })).toBeEnabled();
   await page
     .getByRole("button", { name: "Cancel download", exact: true })
@@ -141,6 +145,7 @@ test("large-history editable ZIP errors and cancellation recover without downloa
       response.status() === 200,
   );
   const downloading = page.waitForEvent("download");
+  await openTool(page, "Project");
   await button.click();
   const response = await receiving;
   expect(response.headers()["cache-control"]).toBe("private, no-store");

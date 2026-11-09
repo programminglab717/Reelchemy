@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 import { zipSync, strToU8 } from "fflate";
 import sharp from "sharp";
 import type { Project } from "../../src/lib/schema";
@@ -65,6 +65,7 @@ test("upload completion refreshes only media while a 400-version project keeps i
   const form = page
     .locator("form")
     .filter({ has: page.getByLabel("Upload image", { exact: true }) });
+  await openTool(page, "Media & voice");
   await form.getByLabel("Upload image", { exact: true }).setInputFiles({
     name: "Compact result.png",
     mimeType: "image/png",
@@ -95,6 +96,7 @@ test("upload completion refreshes only media while a 400-version project keeps i
   await expect(
     page.getByAltText("Compact result.png", { exact: true }),
   ).toBeVisible();
+  await openTool(page, "Scene & layers");
   await expect(page.getByLabel("Scene title", { exact: true })).toHaveValue(
     "Keep this unsaved large-project edit",
   );

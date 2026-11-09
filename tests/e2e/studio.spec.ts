@@ -1,4 +1,4 @@
-import { test, expect, account } from "./fixtures";
+import { test, expect, account, openTool } from "./fixtures";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs/promises";
 import sharp from "sharp";
@@ -143,6 +143,7 @@ test("scene revision preserves other scenes and history can be restored", async 
   expect(edited.brief.prompt).toBe(base.brief.prompt);
   await page.goto("/");
   await page.getByRole("button", { name: new RegExp(created.name) }).click();
+  await openTool(page, "Project");
   await page
     .getByLabel("Restore saved version")
     .selectOption(base.revisions[0].id);
@@ -166,6 +167,7 @@ test("uploaded PNG, keyframe editing and export history survive refresh", async 
   await request.post(`/api/projects/${p.id}/plan`, { data: {} });
   await page.goto("/");
   await page.getByRole("button", { name: new RegExp(name) }).click();
+  await openTool(page, "Media & voice");
   await page.getByLabel("Upload image").setInputFiles({
     name: "test.png",
     mimeType: "image/png",
@@ -182,6 +184,7 @@ test("uploaded PNG, keyframe editing and export history survive refresh", async 
   await expect(page.getByRole("status", { name: "Save status" })).toHaveText(
     "All changes saved",
   );
+  await openTool(page, "Scene & layers");
   await page
     .locator(".layer-row")
     .filter({ hasText: "text · title" })
@@ -249,6 +252,7 @@ test("uploaded PNG, keyframe editing and export history survive refresh", async 
   await page
     .getByRole("button", { name: new RegExp(jobs[0].id.slice(0, 6)) })
     .click();
+  await openTool(page, "Export");
   await expect(page.getByText("Your film is ready.")).toBeVisible();
 });
 test("cancelled exports stay cancelled and evidence cannot traverse directories", async ({
@@ -297,6 +301,7 @@ test("audio upload, timed mix and captions produce AAC and downloadable subtitle
   );
   await page.goto("/");
   await page.getByRole("button", { name: new RegExp(name) }).click();
+  await openTool(page, "Media & voice");
   await page
     .getByLabel("Upload audio", { exact: true })
     .setInputFiles({ name: "tone.wav", mimeType: "audio/wav", buffer: tone });
@@ -308,6 +313,7 @@ test("audio upload, timed mix and captions produce AAC and downloadable subtitle
     page.getByRole("button", { name: "Add audio: tone.wav" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Add audio: tone.wav" }).click();
+  await openTool(page, "Sound & captions");
   await page.getByLabel("durationFrames audio", { exact: true }).fill("60");
   await page.getByLabel("startFrame audio", { exact: true }).fill("30");
   await page.getByRole("button", { name: "Add caption", exact: true }).click();
@@ -352,6 +358,7 @@ test("editable project download and import preserve revisions in a separate proj
   await page.goto("/");
   await page.getByRole("button", { name: new RegExp(name) }).click();
   const downloadPromise = page.waitForEvent("download");
+  await openTool(page, "Project");
   await page.getByRole("button", { name: "Download editable project" }).click();
   const download = await downloadPromise;
   const file = await download.path();

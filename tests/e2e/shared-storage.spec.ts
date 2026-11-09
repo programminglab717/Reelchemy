@@ -1,4 +1,4 @@
-import { test, expect, account } from "./fixtures";
+import { test, expect, account, openTool } from "./fixtures";
 import { open, mkdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { randomUUID, createHash } from "node:crypto";
@@ -26,6 +26,7 @@ test("shared saturation keeps chosen uploads and private edits usable, permits z
   })
     .png()
     .toBuffer();
+  await openTool(page, "Media & voice");
   await page.getByLabel("Upload image", { exact: true }).setInputFiles({
     name: "reusable-shared.png",
     mimeType: "image/png",
@@ -127,6 +128,7 @@ test("shared saturation keeps chosen uploads and private edits usable, permits z
     await expect(
       page.getByRole("status", { name: "Save status", exact: true }),
     ).toHaveText("All changes saved");
+    await openTool(page, "Media & voice");
     await page.getByLabel("Upload image", { exact: true }).setInputFiles({
       name: "kept-after-capacity.png",
       mimeType: "image/png",
@@ -227,12 +229,14 @@ test("shared saturation keeps chosen uploads and private edits usable, permits z
         .getByLabel("Upload image", { exact: true })
         .evaluate((element: HTMLInputElement) => element.files?.length),
     ).toBe(1);
+    await openTool(page, "Media & voice");
     await page
       .getByRole("button", { name: "Upload asset", exact: true })
       .click();
     await expect(
       page.getByText("kept-after-capacity.png", { exact: true }),
     ).toBeVisible();
+    await openTool(page, "Scene & layers");
     await expect(page.getByLabel("Scene title", { exact: true })).toHaveValue(
       "Editing remains available at shared capacity",
     );

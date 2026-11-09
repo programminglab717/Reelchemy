@@ -1,4 +1,4 @@
-import { test, expect, account } from "./fixtures";
+import { test, expect, account, openTool } from "./fixtures";
 import { execFileSync } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -45,12 +45,14 @@ test("synthetic microphone take can be reviewed, recovered after failed upload, 
   await page
     .getByRole("button", { name: "Narration studio", exact: false })
     .click();
+  await openTool(page, "Media & voice");
   await page
     .getByRole("button", { name: "Start microphone recording", exact: true })
     .click();
   await expect(
     page.getByRole("button", { name: "Stop recording", exact: true }),
   ).toBeVisible();
+  await openTool(page, "Project");
   await expect(
     page.getByRole("button", { name: "Manage saved history", exact: true }),
   ).toBeDisabled();
@@ -65,6 +67,7 @@ test("synthetic microphone take can be reviewed, recovered after failed upload, 
       ),
     )
     .toBeGreaterThan(1.2);
+  await openTool(page, "Media & voice");
   await page
     .getByRole("button", { name: "Stop recording", exact: true })
     .click();
@@ -74,6 +77,7 @@ test("synthetic microphone take can be reviewed, recovered after failed upload, 
   const take = await page
     .getByLabel("Recorded narration preview", { exact: true })
     .getAttribute("src");
+  await openTool(page, "Project");
   await page
     .getByRole("button", { name: "Manage saved history", exact: true })
     .click();
@@ -84,9 +88,11 @@ test("synthetic microphone take can be reviewed, recovered after failed upload, 
     .getByRole("dialog", { name: "Manage saved history", exact: true })
     .getByRole("button", { name: "Close", exact: true })
     .click();
+  await openTool(page, "Media & voice");
   await expect(
     page.getByLabel("Recorded narration preview", { exact: true }),
   ).toHaveAttribute("src", take!);
+  await openTool(page, "Project");
   await expect(
     page.getByRole("button", { name: "Browse saved versions", exact: true }),
   ).toBeDisabled();
@@ -106,6 +112,7 @@ test("synthetic microphone take can be reviewed, recovered after failed upload, 
   await expect(page.getByRole("alert", { name: "Studio error" })).toContainText(
     "Save or discard your narration take before leaving this project.",
   );
+  await openTool(page, "Media & voice");
   await expect(
     page.getByLabel("Recorded narration preview", { exact: true }),
   ).toBeVisible();
@@ -212,6 +219,7 @@ test("synthetic microphone take can be reviewed, recovered after failed upload, 
     await page
       .getByRole("button", { name: "New creation", exact: false })
       .click();
+    await openTool(page, "Design");
     await expect(
       page.getByRole("button", {
         name: "Start from a blank canvas",
@@ -243,6 +251,7 @@ test("denied microphone permission explains recovery without blocking manual edi
   await page
     .getByRole("button", { name: "Denied recording", exact: false })
     .click();
+  await openTool(page, "Media & voice");
   await page
     .getByRole("button", { name: "Start microphone recording", exact: true })
     .click();
@@ -258,6 +267,7 @@ test("denied microphone permission explains recovery without blocking manual edi
   await page
     .getByRole("button", { name: "New creation", exact: false })
     .click();
+  await openTool(page, "Design");
   await expect(
     page.getByRole("button", {
       name: "Start from a blank canvas",

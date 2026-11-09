@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 
 test("canvas gestures, locks, visibility, stacking and timeline work without JSON", async ({
   page,
@@ -6,6 +6,7 @@ test("canvas gestures, locks, visibility, stacking and timeline work without JSO
 }) => {
   await page.goto("/");
   await page.getByLabel("Duration", { exact: true }).selectOption("5");
+  await openTool(page, "Design");
   await page.getByRole("button", { name: "Start from a blank canvas" }).click();
   const stage = page.locator(".canvas-stage");
   await stage.scrollIntoViewIfNeeded();
@@ -86,9 +87,11 @@ test("canvas gestures, locks, visibility, stacking and timeline work without JSO
   await expect(
     stage.getByText("Your story starts here", { exact: true }),
   ).toHaveCount(0);
+  await openTool(page, "Scene & layers");
   await page
     .getByRole("button", { name: "Add rectangle", exact: true })
     .click();
+  await openTool(page, "Design");
   await page
     .getByRole("button", { name: "Choose title in layer stack" })
     .click();

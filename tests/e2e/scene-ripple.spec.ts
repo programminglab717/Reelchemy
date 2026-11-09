@@ -49,6 +49,7 @@ test("a captioned starter closes a deleted scene's gap through undo, reload and 
     const read = async () =>
       await (await request.get(`/api/projects/${project.id}`)).json();
     const saved = page.getByRole("status", { name: "Save status" });
+    await openTool(page, "Media & voice");
     await page
       .getByLabel("Upload audio", { exact: true })
       .setInputFiles(source);
@@ -71,6 +72,7 @@ test("a captioned starter closes a deleted scene's gap through undo, reload and 
         exact: true,
       })
       .click();
+    await openTool(page, "Scene & layers");
     await page
       .getByRole("button", { name: "Delete scene and close gap", exact: true })
       .click();

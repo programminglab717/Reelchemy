@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool, openRecords } from "./fixtures";
 import { randomUUID, createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -89,6 +89,7 @@ test("full export storage can be reclaimed across projects without losing an uns
           { timeout: 180000 },
         )
         .toBe("completed");
+      await openRecords(page);
       await expect
         .poll(
           async () =>
@@ -146,6 +147,7 @@ test("full export storage can be reclaimed across projects without losing an uns
         await route.fulfill({ response });
       },
     );
+    await openRecords(page);
     await storage
       .getByRole("button", { name: "Manage export files", exact: true })
       .click();
@@ -219,6 +221,7 @@ test("full export storage can be reclaimed across projects without losing an uns
     await dialog.screenshot({
       path: testInfo.outputPath("export-manager-mobile.png"),
     });
+    await openTool(page, "Export");
     await review
       .getByLabel("Export file removal confirmation")
       .fill("REMOVE EXPORT");
@@ -241,6 +244,7 @@ test("full export storage can be reclaimed across projects without losing an uns
       storage.getByRole("button", { name: "Manage export files", exact: true }),
     ).toBeFocused();
     await expect(storage).toContainText("99 of 100 retained exports");
+    await openTool(page, "Scene & layers");
     await expect(page.getByLabel("Scene title", { exact: true })).toHaveValue(
       "Keep this unsaved cross-project edit",
     );

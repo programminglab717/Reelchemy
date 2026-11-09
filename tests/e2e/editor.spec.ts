@@ -1,11 +1,13 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 
 test("blank canvas autosaves, undo/redo survives saves, and navigation reopens current data", async ({
   page,
   request,
 }) => {
   await page.goto("/");
+  await openTool(page, "Design");
   await page.getByRole("button", { name: "Start from a blank canvas" }).click();
+  await openTool(page, "Scene & layers");
   await expect(page.getByLabel("Scene title", { exact: true })).toHaveValue(
     "Scene 1",
   );
@@ -36,6 +38,7 @@ test("edits made while a save is in flight are kept and saved in order", async (
   request,
 }) => {
   await page.goto("/");
+  await openTool(page, "Design");
   await page.getByRole("button", { name: "Start from a blank canvas" }).click();
   let release!: () => void;
   const gate = new Promise<void>((resolve) => {
@@ -55,6 +58,7 @@ test("edits made while a save is in flight are kept and saved in order", async (
     await route.continue();
   });
   const title = page.getByLabel("Scene title", { exact: true });
+  await openTool(page, "Scene & layers");
   await title.fill("First draft");
   await began;
   await title.fill("Newer edit during save");
@@ -73,7 +77,9 @@ test("a stale tab gets a conflict without overwriting the newer saved project", 
   request,
 }) => {
   await page.goto("/");
+  await openTool(page, "Design");
   await page.getByRole("button", { name: "Start from a blank canvas" }).click();
+  await openTool(page, "Scene & layers");
   await expect(page.getByLabel("Scene title", { exact: true })).toBeVisible();
   const [p] = await (await request.get("/api/projects")).json();
   const timeline = structuredClone(p.timeline);

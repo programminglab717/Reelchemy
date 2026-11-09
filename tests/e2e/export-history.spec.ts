@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 import { randomUUID, createHash } from "node:crypto";
 import path from "node:path";
 import Database from "better-sqlite3";
@@ -107,6 +107,7 @@ test("compact export pages reach an older real MP4, recover read failures and pr
       name: "Export history",
       exact: true,
     });
+    await openTool(page, "Export");
     await expect(
       history.getByRole("alert", { name: "Export history error", exact: true }),
     ).toContainText("Could not load export history");
@@ -128,6 +129,7 @@ test("compact export pages reach an older real MP4, recover read failures and pr
         new URL(response.url()).pathname === `/api/projects/${project.id}` &&
         response.request().method() === "PATCH",
     );
+    await openTool(page, "Scene & layers");
     await page
       .getByLabel("Scene title", { exact: true })
       .fill("My unsaved film stays here");
@@ -138,6 +140,7 @@ test("compact export pages reach an older real MP4, recover read failures and pr
     await expect(
       page.getByRole("status", { name: "Save status", exact: true }),
     ).toHaveText("Unsaved changes");
+    await openTool(page, "Export");
     await history
       .getByRole("button", { name: "Older exports", exact: true })
       .click();
@@ -163,13 +166,16 @@ test("compact export pages reach an older real MP4, recover read failures and pr
     await expect(
       history.getByRole("alert", { name: "Export history error", exact: true }),
     ).toContainText("Could not open this export");
+    await openTool(page, "Scene & layers");
     await expect(page.getByLabel("Scene title", { exact: true })).toHaveValue(
       "My unsaved film stays here",
     );
+    await openTool(page, "Export");
     await older.click();
     await expect(
       page.getByText("Your film is ready.", { exact: true }),
     ).toBeVisible();
+    await openTool(page, "Scene & layers");
     await expect(page.getByLabel("Scene title", { exact: true })).toHaveValue(
       "My unsaved film stays here",
     );
@@ -182,6 +188,7 @@ test("compact export pages reach an older real MP4, recover read failures and pr
         .scenes[0].title,
     ).toBe("Scene 1");
     await page.setViewportSize({ width: 390, height: 844 });
+    await openTool(page, "Export");
     await history
       .getByRole("button", { name: "Newer exports", exact: true })
       .click();

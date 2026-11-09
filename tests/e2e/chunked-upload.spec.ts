@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import path from "node:path";
@@ -54,6 +54,7 @@ test("a file larger than one request uploads in pieces from the browser and beco
     await page
       .getByRole("button", { name: "Chunked upload studio", exact: false })
       .click();
+    await openTool(page, "Media & voice");
     await page.getByLabel("Upload audio", { exact: true }).setInputFiles({
       name: "long-narration.wav",
       mimeType: "audio/wav",

@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 import type { APIRequestContext, Page } from "@playwright/test";
 import { readFile, realpath } from "node:fs/promises";
 import path from "node:path";
@@ -30,6 +30,7 @@ async function fillImage(page: Page, name = "Queued badge.png") {
   const form = page
     .locator("form")
     .filter({ has: page.getByLabel("Upload image", { exact: true }) });
+  await openTool(page, "Media & voice");
   await form
     .getByLabel("Upload image", { exact: true })
     .setInputFiles({ name, mimeType: "image/png", buffer: await badge() });
@@ -128,6 +129,7 @@ test("a lost asynchronous upload response retries one attachment, preserves edit
     } else await route.fulfill({ response });
   });
   const form = await fillImage(page);
+  await openTool(page, "Media & voice");
   await form.getByRole("button", { name: "Upload asset", exact: true }).click();
   await expect(
     page.getByText("Synthetic response lost after upload admission", {
@@ -149,6 +151,7 @@ test("a lost asynchronous upload response retries one attachment, preserves edit
   expect(
     (await (await request.get(`/api/projects/${target.id}`)).json()).assets,
   ).toHaveLength(1);
+  await openTool(page, "Scene & layers");
   await expect(page.getByLabel("Scene title", { exact: true })).toHaveValue(
     "Keep this draft while preparing media",
   );
@@ -267,6 +270,7 @@ test("processing survives refresh, can be cancelled from the mobile queue, and a
         response.url().endsWith(`/api/projects/${target.id}/assets`) &&
         response.request().method() === "POST",
     );
+    await openTool(page, "Media & voice");
     await form
       .getByRole("button", { name: "Upload asset", exact: true })
       .click();
@@ -281,6 +285,7 @@ test("processing survives refresh, can be cancelled from the mobile queue, and a
     });
     const row = panel.locator(`[data-media-request="${id}"]`);
     await expect(row).toContainText("Waiting to prepare");
+    await openTool(page, "Media & voice");
     await row
       .getByRole("button", { name: "Cancel media processing", exact: true })
       .click();
@@ -334,11 +339,13 @@ test("a background upload finishes after leaving its form and reopens its projec
         response.url().endsWith(`/api/projects/${target.id}/assets`) &&
         response.request().method() === "POST",
     );
+    await openTool(page, "Media & voice");
     await form
       .getByRole("button", { name: "Upload asset", exact: true })
       .click();
     id = (await (await accepted).json()).request.id;
     await page.reload();
+    await openTool(page, "Media & voice");
     await expect(
       page
         .getByRole("region", { name: "Media processing", exact: true })

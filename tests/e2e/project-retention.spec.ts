@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 import { zipSync, strToU8 } from "fflate";
 import { createHash } from "node:crypto";
 import sharp from "sharp";
@@ -73,6 +73,7 @@ test("reviewed history cleanup rejects a stale preview, retries a lost response 
   await expect(
     page.getByText("Synthetic cleanup save outage", { exact: true }),
   ).toBeVisible();
+  await openTool(page, "Project");
   await page
     .getByRole("button", { name: "Manage saved history", exact: true })
     .click();
@@ -139,15 +140,18 @@ test("reviewed history cleanup rejects a stale preview, retries a lost response 
   expect(receipts).toHaveLength(2);
   expect(receipts[1]).toBe(receipts[0]);
   await dialog.getByRole("button", { name: "Done", exact: true }).click();
+  await openTool(page, "Scene & layers");
   await expect(page.getByLabel("Scene title", { exact: true })).toHaveValue(
     "Unsaved film stays with me",
   );
+  await openTool(page, "Project");
   await expect(
     page
       .getByRole("combobox", { name: "Restore saved version", exact: true })
       .locator("option"),
   ).toHaveCount(3);
   await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await openTool(page, "Scene & layers");
   await expect(page.getByLabel("Scene title", { exact: true })).toHaveValue(
     target.timeline!.scenes[0].title,
   );
@@ -170,6 +174,7 @@ test("reviewed history cleanup rejects a stale preview, retries a lost response 
     (await (await request.get(`/api/projects/${source.id}`)).json()).revisions,
   ).toHaveLength(source.revisions.length);
   await page.setViewportSize({ width: 390, height: 844 });
+  await openTool(page, "Project");
   await page
     .getByRole("button", { name: "Manage saved history", exact: true })
     .click();
@@ -223,6 +228,7 @@ test("a full retained-version allowance preserves an unsaved film, frees reviewe
     )[0],
     before = await (await request.get(`/api/jobs/${first.id}/download`)).body(),
     beforeHash = hash(before);
+  await openTool(page, "Media & voice");
   await page.getByLabel("Upload image", { exact: true }).setInputFiles({
     name: "retained-owned.png",
     mimeType: "image/png",
@@ -242,6 +248,7 @@ test("a full retained-version allowance preserves an unsaved film, frees reviewe
   await page
     .getByRole("button", { name: "Add to selected scene", exact: true })
     .click();
+  await openTool(page, "Scene & layers");
   await page
     .getByLabel("Scene title", { exact: true })
     .fill("Save this artwork after cleanup");
@@ -260,6 +267,7 @@ test("a full retained-version allowance preserves an unsaved film, frees reviewe
   expect(retained.timeline.scenes[0].title).not.toBe(
     "Save this artwork after cleanup",
   );
+  await openTool(page, "Project");
   await page
     .getByRole("button", { name: "Manage saved history", exact: true })
     .click();
@@ -282,6 +290,7 @@ test("a full retained-version allowance preserves an unsaved film, frees reviewe
     "Removed 9998 saved versions",
   );
   await dialog.getByRole("button", { name: "Done", exact: true }).click();
+  await openTool(page, "Scene & layers");
   await expect(page.getByLabel("Scene title", { exact: true })).toHaveValue(
     "Save this artwork after cleanup",
   );

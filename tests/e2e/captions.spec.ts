@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 import { encodedFrame } from "./media-frame";
 
 test("subtitle import is atomic, undoable and styled consistently in preview, archives and MP4", async ({
@@ -17,6 +17,7 @@ test("subtitle import is atomic, undoable and styled consistently in preview, ar
     })
   ).json();
   await page.goto("/");
+  await openTool(page, "Sound & captions");
   await page
     .getByRole("button", { name: "Caption studio", exact: false })
     .click();
@@ -84,6 +85,7 @@ test("subtitle import is atomic, undoable and styled consistently in preview, ar
     "All changes saved",
   );
   await page.reload();
+  await openTool(page, "Sound & captions");
   await page
     .getByRole("button", { name: "Caption studio", exact: false })
     .click();

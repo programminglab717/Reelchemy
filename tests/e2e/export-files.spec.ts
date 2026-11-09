@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 import { createHash } from "node:crypto";
 import { appendFile, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -77,6 +77,7 @@ test("reviewed file removal rejects stale consent, replays a lost response, pres
   ).toBeVisible();
   // Timeline edits deliberately clear the selected output. Reopen its saved
   // report only after the local edit settles, avoiding a race with that reset.
+  await openTool(page, "Export");
   await page
     .getByRole("region", { name: "Export history", exact: true })
     .getByRole("button", { name: new RegExp(selected.slice(0, 6)) })
@@ -175,6 +176,7 @@ test("reviewed file removal rejects stale consent, replays a lost response, pres
   ).json();
   expect(savedAfter.timeline).toEqual(savedBefore.timeline);
   expect(savedAfter.revisions).toEqual(savedBefore.revisions);
+  await openTool(page, "Scene & layers");
   await expect(page.getByLabel("Scene title", { exact: true })).toHaveValue(
     "Keep my unsaved cleanup film",
   );
@@ -182,6 +184,7 @@ test("reviewed file removal rejects stale consent, replays a lost response, pres
     page.getByRole("button", { name: "Undo", exact: true }),
   ).toBeEnabled();
   await page.setViewportSize({ width: 390, height: 844 });
+  await openTool(page, "Export");
   await expect(panel.getByRole("status")).toContainText("Export files removed");
   await testInfo.attach("mobile-layout", {
     contentType: "application/json",

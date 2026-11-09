@@ -1,4 +1,4 @@
-import { test, expect, account } from "./fixtures";
+import { test, expect, account, openTool } from "./fixtures";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
@@ -49,9 +49,11 @@ test("uploaded footage trims/splits with exact source pictures and audible inter
     ]);
     await page.goto("/");
     await page.getByLabel("Duration", { exact: true }).selectOption("5");
+    await openTool(page, "Design");
     await page
       .getByRole("button", { name: "Start from a blank canvas" })
       .click();
+    await openTool(page, "Media & voice");
     await page.getByLabel("Upload video").setInputFiles(source);
     await page
       .getByPlaceholder("I own this footage")
@@ -68,6 +70,7 @@ test("uploaded footage trims/splits with exact source pictures and audible inter
     const textRow = page
       .locator(".layer-row")
       .filter({ hasText: "text · title" });
+    await openTool(page, "Scene & layers");
     await textRow.locator("summary").first().click();
     await textRow.getByRole("button", { name: "Remove layer" }).click();
     await expect(page.getByRole("status", { name: "Save status" })).toHaveText(

@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 import { encodedFrame } from "./media-frame";
 import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, writeFile, rm } from "node:fs/promises";
@@ -20,12 +20,14 @@ test("a five-minute film survives editing and archive transfer and exports its l
       (r) =>
         r.url().endsWith("/api/projects") && r.request().method() === "POST",
     );
+    await openTool(page, "Design");
     await page
       .getByRole("button", { name: "Start from a blank canvas" })
       .click();
     const project = await (await created).json();
     expect(project.timeline.scenes).toHaveLength(15);
     const saved = page.getByRole("status", { name: "Save status" });
+    await openTool(page, "Scene & layers");
     await expect(
       page.getByRole("button", { name: "Duplicate scene", exact: true }),
     ).toBeDisabled();
@@ -112,6 +114,7 @@ test("a five-minute film survives editing and archive transfer and exports its l
     await page
       .getByRole("button", { name: project.name, exact: false })
       .click();
+    await openTool(page, "Sound & captions");
     await expect(
       page.getByLabel("startFrame audio", { exact: true }),
     ).toHaveValue("8850");
@@ -231,6 +234,7 @@ test("500 imported caption cues stay searchable and paged through undo, reload a
   }));
   await page.goto("/");
   await page.getByRole("button", { name: project.name, exact: false }).click();
+  await openTool(page, "Sound & captions");
   await page.getByLabel("Import subtitles", { exact: true }).setInputFiles({
     name: "long.srt",
     mimeType: "text/plain",
@@ -269,6 +273,7 @@ test("500 imported caption cues stay searchable and paged through undo, reload a
   await expect(saved).toHaveText("All changes saved");
   await page.reload();
   await page.getByRole("button", { name: project.name, exact: false }).click();
+  await openTool(page, "Sound & captions");
   await page.getByLabel("Find caption", { exact: true }).fill("final words");
   await expect(
     page.getByLabel("Caption 500 text", { exact: true }),
@@ -299,6 +304,7 @@ test("500 imported caption cues stay searchable and paged through undo, reload a
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.reload();
   await page.getByRole("button", { name: short.name, exact: false }).click();
+  await openTool(page, "Sound & captions");
   await page.getByRole("button", { name: "Add caption", exact: true }).click();
   await expect(page.getByLabel("Caption 1 text", { exact: true })).toHaveValue(
     "Your caption",

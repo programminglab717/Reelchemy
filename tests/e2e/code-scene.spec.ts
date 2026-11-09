@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import sharp from "sharp";
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 
 test("a scene can be written in code, edited, checked for errors and kept", async ({
   page,
@@ -20,6 +20,7 @@ test("a scene can be written in code, edited, checked for errors and kept", asyn
   await page.goto("/");
   await page.getByRole("button", { name: "Code studio", exact: false }).click();
   page.once("dialog", (dialog) => void dialog.accept());
+  await openTool(page, "Design");
   await page.getByRole("button", { name: "Write scene in code" }).click();
   const editor = page.getByRole("region", { name: "Code of scene 1" });
   await expect(editor).toBeVisible();
@@ -64,6 +65,7 @@ test("a scene can be written in code, edited, checked for errors and kept", asyn
     .toContain('"Kept"');
   await page.reload();
   await page.getByRole("button", { name: "Code studio", exact: false }).click();
+  await openTool(page, "Design");
   await expect(
     page
       .getByRole("region", { name: "Code of scene 1" })
@@ -174,6 +176,7 @@ test("a layer past the frame's edge can be fitted back in one click", async ({
   ).toBe(true);
   await page.goto("/");
   await page.getByRole("button", { name: "Edge case", exact: false }).click();
+  await openTool(page, "Design");
   await expect(
     page.getByText("Some layers extend past the video frame"),
   ).toBeVisible();
@@ -234,6 +237,7 @@ test("a 3D scene previews live in the studio player", async ({
   await page.getByRole("button", { name: "Depth", exact: false }).click();
   const scene = page.frameLocator(".player-wrap iframe[title^='Code scene']");
   try {
+    await openTool(page, "Design");
     await expect(scene.locator("#t")).toHaveText(/^THREE \d+/);
   } catch (error) {
     throw new Error(
@@ -259,6 +263,7 @@ test("an uploaded image can be used in a code scene and reaches the export", asy
   });
   await page.goto("/");
   await page.getByRole("button", { name: "Brand film", exact: false }).click();
+  await openTool(page, "Media & voice");
   await page.getByLabel("Upload image").setInputFiles({
     name: "logo.png",
     mimeType: "image/png",
@@ -272,6 +277,7 @@ test("an uploaded image can be used in a code scene and reaches the export", asy
   await page.getByRole("button", { name: "Upload asset", exact: true }).click();
   await expect(page.getByText("logo.png", { exact: true })).toBeVisible();
   page.once("dialog", (dialog) => void dialog.accept());
+  await openTool(page, "Design");
   await page.getByRole("button", { name: "Write scene in code" }).click();
   const editor = page.getByRole("region", { name: "Code of scene 1" });
   await editor.getByText("Project images (1)").click();

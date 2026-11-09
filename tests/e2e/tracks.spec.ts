@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import path from "node:path";
@@ -109,6 +109,7 @@ test("audio and caption bars move/trim with source limits, undo and non-overlap"
       name: "Move Caption 2",
       exact: true,
     });
+    await openTool(page, "Sound & captions");
     await move.scrollIntoViewIfNeeded();
     const box = (await move.boundingBox())!,
       lane = (await page
@@ -144,6 +145,7 @@ test("audio and caption bars move/trim with source limits, undo and non-overlap"
     await page
       .getByRole("button", { name: "Track editing", exact: false })
       .click();
+    await openTool(page, "Sound & captions");
     await expect(
       page.getByRole("button", { name: "Move Caption 2", exact: true }),
     ).toBeVisible();

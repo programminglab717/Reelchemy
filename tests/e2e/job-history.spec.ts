@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openRecords } from "./fixtures";
 import { randomUUID, createHash } from "node:crypto";
 import Database from "better-sqlite3";
 import path from "node:path";
@@ -184,6 +184,7 @@ test("full activity storage retires only reviewed details, retries uncertain con
     await expect(
       page.getByText("Synthetic activity-review save outage", { exact: true }),
     ).toBeVisible();
+    await openRecords(page);
     const allowance = page.getByRole("region", {
       name: "Export activity allowance",
       exact: true,

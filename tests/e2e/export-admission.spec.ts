@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 
 test("retrying a lost export response reuses the admitted job and the just-saved timeline", async ({
   page,
@@ -102,6 +102,7 @@ test("a stale saved tab cannot export another tab's video and can open the lates
   );
   page.once("dialog", (dialog) => void dialog.accept());
   await page.getByRole("button", { name: "Open latest saved version" }).click();
+  await openTool(page, "Scene & layers");
   await expect(page.getByLabel("Scene title", { exact: true })).toHaveValue(
     "Saved from another tab",
   );

@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { createRequire } from "node:module";
@@ -37,6 +37,7 @@ test("an uploaded brand font previews, applies to scene text and reaches the exp
   const fontForm = page
     .locator("form")
     .filter({ has: page.getByLabel("Upload font", { exact: true }) });
+  await openTool(page, "Media & voice");
   await page.getByLabel("Upload font", { exact: true }).setInputFiles({
     name: "logo.woff2",
     mimeType: "font/woff2",
@@ -69,6 +70,7 @@ test("an uploaded brand font previews, applies to scene text and reaches the exp
   await page
     .getByRole("button", { name: "Use for text in selected scene" })
     .click();
+  await openTool(page, "Design");
   await expect(
     page.getByLabel("Canvas title brand font", { exact: true }),
   ).toHaveValue(asset.id);

@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 import type { APIRequestContext, Page } from "@playwright/test";
 import { zipSync, strToU8 } from "fflate";
 import type { Project } from "../../src/lib/schema";
@@ -62,6 +62,7 @@ test("saved versions page and preview without edits, then an uncertain restore r
     name: "Browse saved versions",
     exact: true,
   });
+  await openTool(page, "Project");
   await browse.click();
   const dialog = page.getByRole("dialog", {
     name: "Saved versions",
@@ -123,6 +124,7 @@ test("saved versions page and preview without edits, then an uncertain restore r
     .getByRole("button", { name: "Reload current saved film", exact: true })
     .click();
   await expect(dialog).not.toBeVisible();
+  await openTool(page, "Scene & layers");
   await expect(page.getByLabel("Scene title", { exact: true })).toHaveValue(
     "Cut 25",
   );
@@ -179,6 +181,7 @@ test("mobile history read failures retry while preview and keyboard commands pre
       } else await route.continue();
     },
   );
+  await openTool(page, "Project");
   await page
     .getByRole("button", { name: "Browse saved versions", exact: true })
     .click();
@@ -238,6 +241,7 @@ test("mobile history read failures retry while preview and keyboard commands pre
   await page.keyboard.press("Control+z");
   await page.keyboard.press("Escape");
   await expect(dialog).not.toBeVisible();
+  await openTool(page, "Scene & layers");
   await expect(page.getByLabel("Scene title", { exact: true })).toHaveValue(
     "Keep this unsaved cut",
   );

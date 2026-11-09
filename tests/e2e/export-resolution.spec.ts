@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 import { encodedFrame } from "./media-frame";
 
 for (const format of ["landscape", "portrait"] as const)
@@ -19,6 +19,7 @@ for (const format of ["landscape", "portrait"] as const)
     const resolution = page.getByLabel("Export resolution", { exact: true });
     const saved = page.getByRole("status", { name: "Save status" });
     await expect(resolution).toHaveValue("standard");
+    await openTool(page, "Export");
     await resolution.selectOption("1080p");
     await expect(saved).toHaveText("All changes saved");
     const read = async () =>
@@ -48,6 +49,7 @@ for (const format of ["landscape", "portrait"] as const)
     expect(copy.timeline.exportResolution).toBe("1080p");
     expect(copy.revisions.at(-1).timeline.exportResolution).toBe("1080p");
     await page.setViewportSize({ width: 390, height: 844 });
+    await openTool(page, "Export");
     await resolution.scrollIntoViewIfNeeded();
     expect((await resolution.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     expect(

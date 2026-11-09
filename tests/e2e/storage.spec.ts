@@ -1,4 +1,4 @@
-import { test, expect, account } from "./fixtures";
+import { test, expect, account, openTool } from "./fixtures";
 import sharp from "sharp";
 test("private media allowance refreshes after uploads/imports and a failed check can be retried on mobile", async ({
   page,
@@ -29,6 +29,7 @@ test("private media allowance refreshes after uploads/imports and a failed check
   await page
     .getByRole("button", { name: "Media allowance studio", exact: false })
     .click();
+  await openTool(page, "Media & voice");
   await expect(
     page.getByRole("alert", { name: "Media storage error" }),
   ).toContainText("Temporary media allowance outage");

@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 import sharp from "sharp";
 import type { APIRequestContext } from "@playwright/test";
 import type { Project } from "../../src/lib/schema";
@@ -82,6 +82,7 @@ test("reuse preserves unsaved edits, shared storage and actual MP4 pixels after 
   await expect(
     page.getByText("Synthetic save outage during media reuse", { exact: true }),
   ).toBeVisible();
+  await openTool(page, "Media & voice");
   await page.getByText("Reuse media from your studio", { exact: true }).click();
   const library = page.getByRole("region", { name: "Studio media library" });
   await library.getByLabel("Search studio media").fill("Reusable brand");
@@ -98,6 +99,7 @@ test("reuse preserves unsaved edits, shared storage and actual MP4 pixels after 
       exact: true,
     }),
   ).toBeDisabled();
+  await openTool(page, "Scene & layers");
   await expect(page.getByLabel("Scene title", { exact: true })).toHaveValue(
     "Keep this unsaved campaign edit",
   );
@@ -181,6 +183,7 @@ test("an uncertain reuse response retries safely even after the original source 
       } else await route.continue();
     },
   );
+  await openTool(page, "Media & voice");
   await page.getByText("Reuse media from your studio", { exact: true }).click();
   const library = page.getByRole("region", { name: "Studio media library" });
   await library
@@ -231,6 +234,7 @@ test("library search/type/pagination and failure recovery remain usable at mobil
       });
     else await route.continue();
   });
+  await openTool(page, "Media & voice");
   await page.getByText("Reuse media from your studio", { exact: true }).click();
   const library = page.getByRole("region", { name: "Studio media library" });
   await expect(

@@ -1,11 +1,12 @@
 import { readFile } from "node:fs/promises";
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 
 test("a downloaded recovery copy can be loaded after browser storage is cleared and keeps version history", async ({
   page,
   request,
 }) => {
   await page.goto("/");
+  await openTool(page, "Design");
   await page.getByRole("button", { name: "Start from a blank canvas" }).click();
   await page.route("**/api/projects/*", async (route) => {
     if (route.request().method() === "PATCH")
@@ -16,6 +17,7 @@ test("a downloaded recovery copy can be loaded after browser storage is cleared 
       });
     else await route.continue();
   });
+  await openTool(page, "Scene & layers");
   await page
     .getByLabel("Scene title", { exact: true })
     .fill("My downloaded story");
@@ -47,6 +49,7 @@ test("a downloaded recovery copy can be loaded after browser storage is cleared 
   await expect(
     page.getByRole("region", { name: "Browser recovery drafts" }),
   ).toHaveCount(0);
+  await openTool(page, "Project");
   await page
     .getByLabel("Recover a downloaded draft", { exact: true })
     .setInputFiles({
@@ -54,6 +57,7 @@ test("a downloaded recovery copy can be loaded after browser storage is cleared 
       mimeType: "application/json",
       buffer,
     });
+  await openTool(page, "Scene & layers");
   await expect(page.getByLabel("Scene title", { exact: true })).toHaveValue(
     "My downloaded story",
   );
@@ -72,6 +76,7 @@ test("invalid, oversized and different-project recovery files cannot overwrite s
   request,
 }) => {
   await page.goto("/");
+  await openTool(page, "Design");
   await page.getByRole("button", { name: "Start from a blank canvas" }).click();
   const [p] = await (await request.get("/api/projects")).json();
   const input = page.getByLabel("Recover a downloaded draft", { exact: true });
@@ -92,6 +97,7 @@ test("invalid, oversized and different-project recovery files cannot overwrite s
       error: "This recovery copy belongs to a different account or project.",
     },
   ]) {
+    await openTool(page, "Project");
     await input.setInputFiles({
       name: invalid.name,
       mimeType: "application/json",
@@ -101,17 +107,20 @@ test("invalid, oversized and different-project recovery files cannot overwrite s
     expect(await (await request.get(`/api/projects/${p.id}`)).json()).toEqual(
       p,
     );
+    await openTool(page, "Scene & layers");
     await expect(page.getByLabel("Scene title", { exact: true })).toHaveValue(
       "Scene 1",
     );
   }
   const legacy = structuredClone(p);
   legacy.timeline.scenes[0].title = "Legacy recovery works";
+  await openTool(page, "Project");
   await input.setInputFiles({
     name: "older-unsaved-project.json",
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(legacy)),
   });
+  await openTool(page, "Scene & layers");
   await expect(page.getByLabel("Scene title", { exact: true })).toHaveValue(
     "Legacy recovery works",
   );

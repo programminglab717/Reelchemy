@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 import path from "node:path";
 
 const evidence = process.env.REELCHEMY_ARTIFACT_DIR || "artifacts";
@@ -45,6 +45,7 @@ test("studio icons render without symbol fonts and preserve keyboard/control nam
     ),
   ).toBeTruthy();
   await page.screenshot({ path: path.join(evidence, "studio-svg-mobile.png") });
+  await openTool(page, "Design");
   await page
     .getByRole("button", { name: "Start from a blank canvas", exact: true })
     .click();

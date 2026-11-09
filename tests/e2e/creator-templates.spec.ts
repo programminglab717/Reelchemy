@@ -47,9 +47,11 @@ for (const template of creatorTemplates)
     expect(project.timeline).toEqual(original);
     expect(project.revisions).toHaveLength(1);
     expect(plans).toHaveLength(0);
+    await openTool(page, "Export");
     await expect(
       page.getByLabel("Export resolution", { exact: true }),
     ).toHaveValue("1080p");
+    await openTool(page, "Scene & layers");
     await expect(page.getByLabel("Scene notes", { exact: true })).toHaveValue(
       original.scenes[0].intent,
     );
@@ -57,6 +59,7 @@ for (const template of creatorTemplates)
       name: "Record narration",
       exact: true,
     });
+    await openTool(page, "Media & voice");
     await recorder
       .getByText("Scene notes to read while recording", { exact: true })
       .click();
@@ -118,6 +121,7 @@ for (const template of creatorTemplates)
       contentType: "image/png",
     });
     await page.setViewportSize({ width: 390, height: 844 });
+    await openTool(page, "Media & voice");
     await recorder.scrollIntoViewIfNeeded();
     expect(
       await page.evaluate(
@@ -177,6 +181,7 @@ test("scene notes and captions save as undoable edits while a live microphone ta
     name: "Record narration",
     exact: true,
   });
+  await openTool(page, "Media & voice");
   await recorder
     .getByText("Scene notes to read while recording", { exact: true })
     .click();
@@ -211,8 +216,10 @@ test("scene notes and captions save as undoable edits while a live microphone ta
     .click();
   const secondNotes =
     "Read this scene at a calm pace and leave room for the example.";
+  await openTool(page, "Scene & layers");
   await page.getByLabel("Scene notes", { exact: true }).fill(secondNotes);
   await expect(saved).toHaveText("All changes saved");
+  await openTool(page, "Media & voice");
   await expect(
     recorder.getByLabel("Recording notes text", { exact: true }),
   ).toHaveText(secondNotes);
@@ -238,6 +245,7 @@ test("scene notes and captions save as undoable edits while a live microphone ta
   await expect(add).toBeVisible({ timeout: 120000 });
   await add.click();
   await expect(saved).toHaveText("All changes saved");
+  await openTool(page, "Sound & captions");
   await page.getByLabel("startFrame audio", { exact: true }).fill("450");
   await expect(saved).toHaveText("All changes saved");
   expect((await read()).timeline.audioTracks[0].startFrame).toBe(450);
@@ -252,6 +260,7 @@ test("scene notes and captions save as undoable edits while a live microphone ta
   await expect(page.getByLabel("Scene notes", { exact: true })).toHaveValue(
     secondNotes,
   );
+  await openTool(page, "Media & voice");
   await recorder
     .getByText("Scene notes to read while recording", { exact: true })
     .click();
@@ -329,6 +338,7 @@ test("scene notes and captions save as undoable edits while a live microphone ta
       const row = page.locator(".layer-row").filter({
         has: page.locator("summary", { hasText: `${kind} · ${layer.id}` }),
       });
+      await openTool(page, "Scene & layers");
       await row.locator("summary").first().click();
       for (const [field, value] of [
         ["width", width],
@@ -347,6 +357,7 @@ test("scene notes and captions save as undoable edits while a live microphone ta
       return layer.assetId;
     };
     const imageId = await place("image", 0.5, 0.18);
+    await openTool(page, "Media & voice");
     await page
       .getByLabel("Upload video", { exact: true })
       .setInputFiles(footage);

@@ -1,4 +1,4 @@
-import { test, expect, account } from "./fixtures";
+import { test, expect, account, openTool } from "./fixtures";
 test("Studio exports shows private capacity, cancels queued work and frees admission without blocking another studio", async ({
   page,
   request,
@@ -75,6 +75,7 @@ test("Studio exports shows private capacity, cancels queued work and frees admis
     await expect(
       panel.getByText("Other private export", { exact: true }),
     ).toHaveCount(0);
+    await openTool(page, "Export");
     await panel
       .getByRole("button", {
         name: "Cancel export Queued second export",
@@ -163,7 +164,9 @@ test("Studio exports can recover from an unavailable check without blocking manu
   await expect(
     panel.getByRole("alert", { name: "Studio exports error" }),
   ).toContainText("Temporary export queue outage");
+  await openTool(page, "Design");
   await page.getByRole("button", { name: "Start from a blank canvas" }).click();
+  await openTool(page, "Scene & layers");
   await expect(page.getByLabel("Scene title", { exact: true })).toBeVisible();
   unavailable = false;
   await panel

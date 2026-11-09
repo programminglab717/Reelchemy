@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 import { encodedFrame } from "./media-frame";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -39,9 +39,11 @@ test("native-HD footage, fixed title and caption gaps use compositing and yield 
     );
     await page.goto("/");
     await page.getByLabel("Duration", { exact: true }).selectOption("5");
+    await openTool(page, "Design");
     await page
       .getByRole("button", { name: "Start from a blank canvas" })
       .click();
+    await openTool(page, "Media & voice");
     await expect(
       page.getByRole("heading", { name: "Project assets", exact: true }),
     ).toHaveCount(1);
@@ -129,6 +131,7 @@ test("native-HD footage, fixed title and caption gaps use compositing and yield 
     await page
       .getByRole("button", { name: project.name, exact: false })
       .click();
+    await openTool(page, "Export");
     await expect(
       page.getByLabel("Export resolution", { exact: true }),
     ).toHaveValue("1080p");

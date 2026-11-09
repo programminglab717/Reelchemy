@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 import { encodedFrame } from "./media-frame";
 test("canvas text styling autosaves, respects locks/undo and reaches a real MP4", async ({
   page,
@@ -27,6 +27,7 @@ test("canvas text styling autosaves, respects locks/undo and reaches a real MP4"
     name: "Canvas title typography",
     exact: true,
   });
+  await openTool(page, "Design");
   await controls
     .getByLabel("Canvas title text", { exact: true })
     .fill("Words with character");
@@ -80,6 +81,7 @@ test("canvas text styling autosaves, respects locks/undo and reaches a real MP4"
   await page
     .getByRole("button", { name: "Typography studio", exact: false })
     .click();
+  await openTool(page, "Design");
   await expect(
     page.getByLabel("Canvas title font", { exact: true }),
   ).toHaveValue("mono");
@@ -138,6 +140,7 @@ test("mobile canvas exposes text controls without horizontal overflow", async ({
     name: "Canvas title typography",
     exact: true,
   });
+  await openTool(page, "Design");
   await controls
     .getByLabel("Canvas title text", { exact: true })
     .fill("Make something worth sharing.");

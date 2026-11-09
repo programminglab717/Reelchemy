@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 import { zipSync, strToU8 } from "fflate";
 import type { Project } from "../../src/lib/schema";
 import {
@@ -78,6 +78,7 @@ test("a large editor transfers bounded summaries while earlier directions retry 
       exact: true,
     }),
   ).toBeVisible();
+  await openTool(page, "Project");
   await expect(
     page
       .getByRole("combobox", { name: "Restore saved version", exact: true })
@@ -99,6 +100,7 @@ test("a large editor transfers bounded summaries while earlier directions retry 
       });
     else await route.continue();
   });
+  await openTool(page, "Scene & layers");
   await page
     .getByLabel("Scene title", { exact: true })
     .fill("Keep this compact unsaved edit");

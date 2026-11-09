@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 import { encodedFrame } from "./media-frame";
 test("rotation previews/cancels as one gesture, resizes in local axes and survives history, reload, archive and encoded MP4", async ({
   page,
@@ -56,6 +56,7 @@ test("rotation previews/cancels as one gesture, resizes in local axes and surviv
   });
   await expect(slider).toHaveValue("0");
   async function drag() {
+    await openTool(page, "Design");
     await slider.scrollIntoViewIfNeeded();
     const b = (await slider.boundingBox())!;
     await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
@@ -168,6 +169,7 @@ test("rotation previews/cancels as one gesture, resizes in local axes and surviv
   };
   expect(cyan(640, 180)).toBeTruthy();
   expect(cyan(800, 324)).toBeFalsy();
+  await openTool(page, "Design");
   await controls
     .getByRole("button", { name: "Reset rotation", exact: true })
     .click();
@@ -186,6 +188,7 @@ test("mobile rotation uses keyboard/numeric controls and invalid or cancelled in
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
+  await openTool(page, "Design");
   await page.getByRole("button", { name: "Start from a blank canvas" }).click();
   const controls = page.getByRole("group", {
     name: "Canvas rotation title controls",

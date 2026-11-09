@@ -1,4 +1,4 @@
-import { test, expect, account } from "./fixtures";
+import { test, expect, account, openTool } from "./fixtures";
 import sharp from "sharp";
 test("Trash hides private routes/cancels jobs and restores the saved editor, media and revisions", async ({
   page,
@@ -41,6 +41,7 @@ test("Trash hides private routes/cancels jobs and restores the saved editor, med
     .getByLabel("Scene title", { exact: true })
     .fill("Saved before Trash");
   page.once("dialog", (dialog) => dialog.dismiss());
+  await openTool(page, "Project");
   await page
     .getByRole("button", { name: "Move project to Trash", exact: true })
     .click();
@@ -51,6 +52,7 @@ test("Trash hides private routes/cancels jobs and restores the saved editor, med
   await page
     .getByRole("button", { name: "Move project to Trash", exact: true })
     .click();
+  await openTool(page, "Design");
   await expect(
     page.getByRole("button", {
       name: "Start from a blank canvas",
@@ -127,6 +129,7 @@ test("Trash hides private routes/cancels jobs and restores the saved editor, med
   await page
     .getByRole("button", { name: "Recoverable story", exact: false })
     .click();
+  await openTool(page, "Scene & layers");
   await expect(page.getByLabel("Scene title", { exact: true })).toHaveValue(
     "Saved before Trash",
   );

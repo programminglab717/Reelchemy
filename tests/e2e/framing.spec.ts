@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 import { encodedFrame } from "./media-frame";
 import sharp from "sharp";
 import { execFileSync } from "node:child_process";
@@ -125,6 +125,7 @@ for (const kind of ["image", "video"] as const)
         name: "Media framing",
         exact: true,
       });
+      await openTool(page, "Design");
       await controls
         .getByLabel("Media fit", { exact: true })
         .selectOption("cover");
@@ -179,6 +180,7 @@ for (const kind of ["image", "video"] as const)
       await page
         .getByRole("button", { name: `${kind} framing`, exact: false })
         .click();
+      await openTool(page, "Design");
       await expect(
         page.getByLabel("Horizontal media framing", { exact: true }),
       ).toHaveValue("100");

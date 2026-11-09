@@ -1,4 +1,4 @@
-import { browserTest as test, expect, account } from "./fixtures";
+import { browserTest as test, expect, account, openTool } from "./fixtures";
 import { readFile } from "node:fs/promises";
 import type { Page } from "@playwright/test";
 import { ACCOUNT_HEADER } from "../../src/lib/account-session";
@@ -30,6 +30,7 @@ test("switching accounts stops stale studio requests, preserves the original dra
   await expect(
     page.getByRole("group", { name: "Signed-in account" }),
   ).toContainText("Original creator");
+  await openTool(page, "Design");
   await page.getByRole("button", { name: "Start from a blank canvas" }).click();
   await holdDraft(page, "Only the original creator's draft");
   const [firstProject] = await (await request.get("/api/projects")).json();
@@ -115,6 +116,7 @@ test("switching accounts stops stale studio requests, preserves the original dra
   await expect(
     page.getByRole("region", { name: "Browser recovery drafts" }),
   ).toHaveCount(0);
+  await openTool(page, "Scene & layers");
   await expect(page.getByLabel("Scene title", { exact: true })).toHaveValue(
     "Scene 1",
   );
@@ -225,6 +227,7 @@ test("an expired session leaves unsaved work downloadable and does not silently 
 }) => {
   await account(request, "Expiring creator");
   await page.goto("/");
+  await openTool(page, "Design");
   await page.getByRole("button", { name: "Start from a blank canvas" }).click();
   await holdDraft(page, "Keep this after session expiry");
   await page.unroute("**/api/projects/*");

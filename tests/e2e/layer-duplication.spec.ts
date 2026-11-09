@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 import { encodedFrame } from "./media-frame";
 import { createHash, randomUUID } from "node:crypto";
 import sharp from "sharp";
@@ -69,6 +69,7 @@ test("duplicate keeps owned media/style, selects the copy, undoes once and expor
       exact: true,
     })
     .click();
+  await openTool(page, "Design");
   await page
     .getByRole("button", { name: "Duplicate selected layer", exact: true })
     .click();
@@ -160,6 +161,7 @@ test("duplicate keeps owned media/style, selects the copy, undoes once and expor
   await page.goto("/");
   await page.getByRole("button", { name: project.name, exact: true }).click();
   await chooseCopy().click();
+  await openTool(page, "Design");
   await expect(
     page.getByRole("button", { name: "Duplicate selected layer", exact: true }),
   ).toBeDisabled();
