@@ -366,6 +366,7 @@ test("a background upload finishes after leaving its form and reopens its projec
   await expect(
     page.getByRole("heading", { level: 1, name: target.name, exact: true }),
   ).toBeVisible();
+  await openTool(page, "Media & voice");
   await expect(
     page.getByAltText("Background badge.png", { exact: true }),
   ).toBeVisible();
