@@ -286,9 +286,7 @@ test("processing survives refresh, can be cancelled from the mobile queue, and a
       exact: true,
     });
     const row = panel.locator(`[data-media-request="${id}"]`);
-    await openTool(page, "Media & voice");
     await expect(row).toContainText("Waiting to prepare");
-    await openTool(page, "Media & voice");
     await row
       .getByRole("button", { name: "Cancel media processing", exact: true })
       .click();
@@ -348,7 +346,6 @@ test("a background upload finishes after leaving its form and reopens its projec
       .click();
     id = (await (await accepted).json()).request.id;
     await page.reload();
-    await openTool(page, "Media & voice");
     await expect(
       page
         .getByRole("region", { name: "Media processing", exact: true })
