@@ -286,6 +286,7 @@ test("processing survives refresh, can be cancelled from the mobile queue, and a
       exact: true,
     });
     const row = panel.locator(`[data-media-request="${id}"]`);
+    await openTool(page, "Media & voice");
     await expect(row).toContainText("Waiting to prepare");
     await openTool(page, "Media & voice");
     await row

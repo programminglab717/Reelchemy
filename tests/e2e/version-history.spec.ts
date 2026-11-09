@@ -124,7 +124,7 @@ test("saved versions page and preview without edits, then an uncertain restore r
     .getByRole("button", { name: "Reload current saved film", exact: true })
     .click();
   await expect(dialog).not.toBeVisible();
-  await openTool(page, "Scene & layers");
+  // Read while Project stays open: closing the dialog returns focus to it.
   await expect(page.getByLabel("Scene title", { exact: true })).toHaveValue(
     "Cut 25",
   );

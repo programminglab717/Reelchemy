@@ -315,6 +315,7 @@ test("library search/type/pagination and failure recovery remain usable at mobil
     name: "Add to selected scene",
     exact: true,
   });
+  await openTool(page, "Media & voice");
   await expect(add).toBeDisabled();
   await page.locator(".storyboard").getByRole("button").nth(1).click();
   await expect(add).toBeEnabled();

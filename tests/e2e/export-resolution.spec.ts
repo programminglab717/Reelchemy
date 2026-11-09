@@ -18,6 +18,7 @@ for (const format of ["landscape", "portrait"] as const)
       .click();
     const resolution = page.getByLabel("Export resolution", { exact: true });
     const saved = page.getByRole("status", { name: "Save status" });
+    await openTool(page, "Export");
     await expect(resolution).toHaveValue("standard");
     await openTool(page, "Export");
     await resolution.selectOption("1080p");
@@ -37,6 +38,7 @@ for (const format of ["landscape", "portrait"] as const)
     await page
       .getByRole("button", { name: project.name, exact: false })
       .click();
+    await openTool(page, "Export");
     await expect(resolution).toHaveValue("1080p");
     const archive = await request.get(`/api/projects/${project.id}/archive`);
     expect(archive.ok()).toBeTruthy();

@@ -54,6 +54,7 @@ test("rotation previews/cancels as one gesture, resizes in local axes and surviv
   const degrees = controls.getByLabel("Canvas rotation graphic degrees", {
     exact: true,
   });
+  await openTool(page, "Design");
   await expect(slider).toHaveValue("0");
   async function drag() {
     await openTool(page, "Design");
@@ -129,6 +130,7 @@ test("rotation previews/cancels as one gesture, resizes in local axes and surviv
   );
   await page.reload();
   await page.getByRole("button", { name: p.name, exact: false }).click();
+  await openTool(page, "Design");
   await expect(slider).toHaveValue("90");
   const archive = await (
     await request.get(`/api/projects/${p.id}/archive`)
