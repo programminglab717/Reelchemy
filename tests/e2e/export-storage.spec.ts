@@ -89,7 +89,6 @@ test("full export storage can be reclaimed across projects without losing an uns
           { timeout: 180000 },
         )
         .toBe("completed");
-      await openRecords(page);
       await expect
         .poll(
           async () =>
