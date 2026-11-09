@@ -249,10 +249,10 @@ test("uploaded PNG, keyframe editing and export history survive refresh", async 
   expect(Math.abs(pixel[1] - 170)).toBeLessThan(5);
   await page.reload();
   await page.getByRole("button", { name: new RegExp(name) }).click();
+  await openTool(page, "Export");
   await page
     .getByRole("button", { name: new RegExp(jobs[0].id.slice(0, 6)) })
     .click();
-  await openTool(page, "Export");
   await expect(page.getByText("Your film is ready.")).toBeVisible();
 });
 test("cancelled exports stay cancelled and evidence cannot traverse directories", async ({
