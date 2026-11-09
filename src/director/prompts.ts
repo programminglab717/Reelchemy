@@ -204,6 +204,59 @@ ${sceneMarkup(compoundGrowthScene)}
 REFERENCE 5 — a 10-second landscape 3D product hero shot with R.three, HTML type composited over it and labels pinned to 3D points:
 ${sceneMarkup(hero3dScene)}`;
 }
+// The writer's instructions for assistants connected over MCP: the same
+// runtime contract, kit and standards, with the tools in place of the reply
+// format, and the references available separately.
+export function motionGuide(options: { references?: boolean } = {}) {
+  const full = writerSystem();
+  const [head, refs] = full.split("\nOUTPUT FORMAT\n");
+  const references = refs.slice(refs.indexOf("The references below"));
+  return (
+    head
+      .replace(
+        /^You are a senior motion designer[^\n]*\n/,
+        "REELCHEMY MOTION GUIDE — how to write code scenes that export to broadcast-quality video. You (an AI assistant connected over MCP) write each scene as HTML, CSS and JavaScript with the write_scene tool, check it with preview_scene (stills plus automatic checks: errors, frozen stretches, underfilled frames, clipped or overlapping text), revise until the checks pass, then export.\n",
+      )
+      .trim() +
+    "\n\nWORKFLOW\n- Plan the film first: a story (hook → explanation built step by step → payoff), a style guide (palette, fonts, motion language, motifs) shared by every scene, and per scene its shots and beats (a new visual event every 1.5–2 s).\n- create_project (or use an existing one), then for each scene write_scene with its html, css, js and libraries, and read the preview: fix every reported problem and anything weak in the stills. Use add_scene / set_scene_length to shape the film.\n- export_video when every scene passes; export_status reports progress.\n" +
+    (options.references
+      ? "\n" + references
+      : "\nReference scenes that show the bar are available as resources (reelchemy://examples/…) or with get_motion_guide({ references: true }).")
+  );
+}
+export const motionExamples = {
+  "cdn-globe": {
+    title: "15 s three-shot explainer: 3D globe, request diagram, results",
+    seconds: 15,
+    format: "landscape",
+    code: cdnGlobeScene,
+  },
+  "deploy-walkthrough": {
+    title: "12 s software tutorial: app mockup with cursor, then terminal",
+    seconds: 12,
+    format: "landscape",
+    code: deployWalkthroughScene,
+  },
+  "cache-aside": {
+    title: "14 s system diagram with the kit",
+    seconds: 14,
+    format: "landscape",
+    code: cacheAsideScene,
+  },
+  "compound-growth": {
+    title: "12 s portrait data story",
+    seconds: 12,
+    format: "portrait",
+    code: compoundGrowthScene,
+  },
+  "hero-3d": {
+    title: "10 s 3D product hero shot",
+    seconds: 10,
+    format: "landscape",
+    code: hero3dScene,
+  },
+} as const;
+export const motionExampleMarkup = (code: MotionCode) => sceneMarkup(code);
 export type ProjectImage = {
   id: string;
   name: string;

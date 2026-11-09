@@ -1,4 +1,9 @@
-export type LimitedOperation = "writes" | "media" | "planning" | "render";
+export type LimitedOperation =
+  | "writes"
+  | "media"
+  | "planning"
+  | "render"
+  | "previews";
 export class LimitConfigurationError extends Error {
   constructor() {
     super("Service limits need administrator attention.");
@@ -14,6 +19,7 @@ export class RequestRateError extends Error {
       media: "media uploads or imports",
       planning: "planning requests",
       render: "export requests",
+      previews: "scene previews",
     };
     const amount =
       retryAfter >= 3600
@@ -54,6 +60,11 @@ export function limitsPolicy(
     render: {
       count: number("REELCHEMY_EXPORT_REQUESTS_PER_DAY", 30, 10000),
       windowMs: 86400000,
+    },
+    // Rendered stills for assistants (each runs a headless browser).
+    previews: {
+      count: number("REELCHEMY_PREVIEWS_PER_HOUR", 120, 10000),
+      windowMs: 3600000,
     },
   };
 }

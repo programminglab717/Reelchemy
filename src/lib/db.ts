@@ -119,6 +119,7 @@ import {
   type ProviderAccess,
 } from "./provider-usage-store";
 import { StudioAiCredentialStore } from "./studio-ai-credentials";
+import { McpTokenStore } from "./mcp-tokens";
 import { StudioAiEntitlementStore } from "./studio-ai-access";
 import {
   migrateAccountErasures,
@@ -226,6 +227,7 @@ db.transaction(() => {
 export const mediaProcessing = new MediaProcessingStore(db);
 export const providerUsage = new ProviderUsageStore(db);
 export const studioAiCredentials = new StudioAiCredentialStore(db);
+export const mcpTokens = new McpTokenStore(db);
 export const studioAiEntitlements = new StudioAiEntitlementStore(db);
 export const studioAiUsage = (workspaceId: string, access: ProviderAccess) =>
   providerUsageSummary(db, workspaceId).sources[access];

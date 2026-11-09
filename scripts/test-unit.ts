@@ -126,6 +126,7 @@ try {
       "director.test.ts",
       "director-api.test.ts",
       "director-reference.test.ts",
+      "mcp.test.ts",
       "shared-media-worker.test.ts",
     ].includes(path.basename(arg)),
   );

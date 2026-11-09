@@ -18,6 +18,14 @@ export type Access = {
   user: { id: string; name: string; email: string };
 };
 type Params = Record<string, string>;
+// Requests made inside the server on behalf of an already authenticated
+// caller (the MCP endpoint, for a personal access token). Only server code
+// can register a request here, so outside requests always need a session.
+const internal = new WeakMap<Request, Access>();
+export function internalRequest(request: Request, access: Access) {
+  internal.set(request, access);
+  return request;
+}
 export function secureRoute<P extends Params>(
   handler: (
     req: Request,
@@ -31,26 +39,32 @@ export function secureRoute<P extends Params>(
   } = {},
 ) {
   return async (req: Request, context: { params: Promise<P> }) => {
-    let session;
-    try {
-      session = await (
-        await getAuth()
-      ).api.getSession({ headers: req.headers });
-    } catch {
-      return Response.json(
-        { error: "Authentication service unavailable." },
-        { status: 503 },
-      );
+    const granted = internal.get(req);
+    let workspace: Workspace, user: Access["user"];
+    if (granted) ({ workspace, user } = granted);
+    else {
+      let session;
+      try {
+        session = await (
+          await getAuth()
+        ).api.getSession({ headers: req.headers });
+      } catch {
+        return Response.json(
+          { error: "Authentication service unavailable." },
+          { status: 503 },
+        );
+      }
+      if (!session?.user || !session.user.emailVerified)
+        return Response.json(
+          { error: "Sign in with a verified account to continue." },
+          { status: 401 },
+        );
+      const mismatch = accountMismatch(req.headers, session.user.id);
+      if (mismatch) return mismatch;
+      workspace = ensureWorkspace(session.user.id, session.user.name);
+      user = session.user;
     }
-    if (!session?.user || !session.user.emailVerified)
-      return Response.json(
-        { error: "Sign in with a verified account to continue." },
-        { status: 401 },
-      );
-    const mismatch = accountMismatch(req.headers, session.user.id);
-    if (mismatch) return mismatch;
-    const workspace = ensureWorkspace(session.user.id, session.user.name),
-      params = await context.params;
+    const params = await context.params;
     let projectId: string | undefined;
     if (resource === "project") projectId = params.id;
     else if (resource === "job") projectId = jobProjectId(params.id);
@@ -84,6 +98,6 @@ export function secureRoute<P extends Params>(
         return failure(e);
       }
     }
-    return handler(req, context, { workspace, user: session.user });
+    return handler(req, context, { workspace, user });
   };
 }

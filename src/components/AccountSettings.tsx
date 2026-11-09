@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useAccountFetch } from "./AccountBoundary";
 import { DeletionProgress, downloadDeletionReceipt } from "./DeletionProgress";
 import { AiProviderSettings } from "./AiProviderSettings";
+import { AssistantTokens } from "./AssistantTokens";
 import {
   createDeletionReceipt,
   deletionStatusSchema,
@@ -72,6 +73,7 @@ export function AccountSettings({
             <h1>Account settings</h1>
             <p>Signed in as {email}</p>
             <AiProviderSettings />
+            <AssistantTokens />
             <section
               className="account-delete-warning"
               aria-label="Permanent account deletion"

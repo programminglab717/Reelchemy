@@ -9,6 +9,8 @@ for (const page of [
   "/trash",
   "/account",
   "/api/account/deletion",
+  "/api/account/mcp-tokens",
+  "/api/mcp",
   "/api/projects",
   "/api/workspace/storage",
   "/api/workspace/export-storage",
