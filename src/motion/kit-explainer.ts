@@ -125,6 +125,9 @@ export const KIT_EXPLAINER_SOURCE = String.raw`
         if (tag) tl.fromTo(tag, { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.45, ease: "back.out(2)", onStart: placeTag }, d * o.labelAt);
         return tl;
       },
+      // The arrow and its label fade together.
+      hide(q) { return gsap.timeline().add(link.hide(q), 0).to(tag || {}, { opacity: 0, duration: (q && q.duration) || 0.3 }, 0); },
+      show(q) { return gsap.timeline().add(link.show(q), 0).to(tag || {}, { opacity: 1, duration: (q && q.duration) || 0.3 }, 0); },
     });
   }
   const callDirs = { right: [1, 0], left: [-1, 0], top: [0, -1], bottom: [0, 1], "top-right": [0.75, -0.66], "top-left": [-0.75, -0.66], "bottom-right": [0.75, 0.66], "bottom-left": [-0.75, 0.66] };
@@ -364,7 +367,13 @@ export const KIT_EXPLAINER_SOURCE = String.raw`
     const card = el("div", { parent: o.parent, className: "r-stat" + (o.className ? " " + o.className : "") });
     if (o.color) card.style.setProperty("--r-accent", o.color);
     const v = el("div", { parent: card, className: "r-stat-value", text: format(o.value, o) });
-    el("div", { parent: card, className: "r-stat-label", text: o.label || "" });
+    const label = el("div", { parent: card, className: "r-stat-label", text: o.label || "" });
+    // size: the number's height in px (default 76); the card scales with it.
+    if (o.size) {
+      v.style.fontSize = o.size + "px";
+      label.style.fontSize = Math.max(24, Math.round(o.size * 0.3)) + "px";
+      card.style.padding = Math.round(o.size * 0.36) + "px " + Math.round(o.size * 0.44) + "px";
+    }
     const w = card.offsetWidth, h = card.offsetHeight;
     css(card, { left: (o.x || 0) - (o.anchor === "top-left" ? 0 : w / 2), top: (o.y || 0) - (o.anchor === "top-left" ? 0 : h / 2) });
     return {
@@ -473,6 +482,35 @@ export const KIT_EXPLAINER_SOURCE = String.raw`
         .set(spans[i], { autoAlpha: 1 }, at)
         .fromTo(spans[i], { yPercent: 105 }, { yPercent: 0, duration: o.duration, ease: "power3.inOut", immediateRender: false }, at);
     }
+    return tl;
+  }
+  // Lines of text that replace each other in one place (step captions,
+  // narration lines), each at its own time, crossfading:
+  // tl.add(R.captions(".caption", [[0, "1 · Start one new pod"], [2.5, "2 · Wait until it is Ready"]]), 5)
+  function captions(target, lines, options) {
+    const o = Object.assign({ duration: 0.35, y: 14 }, options || {});
+    const host = resolve(target, "R.captions");
+    if (getComputedStyle(host).position === "static") host.style.position = "relative";
+    host.textContent = "";
+    const items = lines.map((line) => {
+      const [at, text] = Array.isArray(line) ? line : [line.at, line.text];
+      const node = document.createElement("div");
+      node.className = "r-caption-line";
+      node.textContent = text;
+      host.appendChild(node);
+      return { at, node };
+    });
+    // The host keeps the size of its largest line; lines share one place.
+    const height = Math.max(...items.map((i) => i.node.offsetHeight), 1);
+    items.forEach((i) => css(i.node, { position: "absolute", left: 0, top: 0, width: "100%" }));
+    if (!host.style.height) host.style.height = height + "px";
+    gsap.set(items.map((i) => i.node), { autoAlpha: 0 });
+    const tl = gsap.timeline();
+    items.forEach((item, index) => {
+      tl.fromTo(item.node, { autoAlpha: 0, y: o.y }, { autoAlpha: 1, y: 0, duration: o.duration, ease: "power2.out", immediateRender: false }, item.at);
+      const next = items[index + 1];
+      if (next) tl.to(item.node, { autoAlpha: 0, y: -o.y, duration: o.duration * 0.8, ease: "power2.in" }, Math.max(item.at + o.duration, next.at - o.duration * 0.8));
+    });
     return tl;
   }
   // A slow, continuous camera push on a container so the frame never freezes:

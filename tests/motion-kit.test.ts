@@ -347,3 +347,42 @@ for (const [name, code, seconds] of [
       );
     },
   );
+
+// Options added after a fresh model wrote a scene from the guide alone and
+// reported what it had to guess: caption lines, hiding arrows, sub text that
+// follows the label size, and big stat cards.
+const guideGapChecks = {
+  html: '<div class="world" style="position:absolute;inset:0"></div><div class="cap" style="position:absolute;left:120px;top:900px;width:1200px;font:500 40px Inter;color:#e2e8f0"></div>',
+  css: "",
+  js: String.raw`R.theme({background:'#050816'});
+const check=(ok,m)=>{if(!ok)throw new Error('CHECK '+m)};
+const w=document.querySelector('.world');
+const a=R.node({parent:w,x:420,y:400,label:'Load balancer',sub:'Service',icon:'network',fontSize:42,iconSize:64});
+const b=R.node({parent:w,x:1400,y:400,label:'web-v2',sub:'image v2',icon:'box',fontSize:42,iconSize:64});
+const sub=a.querySelector('.r-sub');check(Math.abs(parseFloat(getComputedStyle(sub).fontSize)-29.4)<0.6,'sub scales with fontSize: '+getComputedStyle(sub).fontSize);
+const link=R.arrow(a,b,{label:'12.4k req/s'});
+const st=R.stat({parent:w,x:960,y:700,value:0,from:37,label:'failed requests',size:160});
+check(st.element.offsetHeight>240,'big stat card: '+st.element.offsetHeight);
+const tl=gsap.timeline();
+tl.add(link.draw({duration:0.5}),0.2).add(st.show({duration:0.8}),0.3).add(R.captions('.cap',[[0,'1 · Start one new pod'],[1,'2 · Wait until it is Ready'],[2,'3 · Remove one old pod']]),0.5).add(link.hide(),2.6);
+const shown=()=>[...document.querySelectorAll('.r-caption-line')].filter(n=>getComputedStyle(n).visibility==='visible'&&Number(getComputedStyle(n).opacity)>0.9).map(n=>n.textContent);
+tl.call(()=>{check(shown().join('|')==='1 · Start one new pod','first caption: '+shown().join('|'));check(Number(getComputedStyle(link.group).opacity)===1,'arrow visible')},[],1.2)
+.call(()=>{check(shown().join('|')==='2 · Wait until it is Ready','second caption: '+shown().join('|'));check(st.value.textContent==='0','stat counted down to 0: '+st.value.textContent)},[],2.2)
+.call(()=>{check(shown().join('|')==='3 · Remove one old pod','third caption: '+shown().join('|'));check(Number(getComputedStyle(link.group).opacity)===0&&Number(getComputedStyle(link.label).opacity)===0,'arrow and label hidden')},[],3.4);`,
+};
+
+test(
+  "captions swap in place, arrows hide with their labels, sub text and stat cards scale",
+  { timeout: 120000 },
+  async () => {
+    const result = await previewMotionScene({
+      code: guideGapChecks,
+      format: "landscape",
+      durationSeconds: 3.5,
+      times: [0.5, 3.4],
+      width: 480,
+    });
+    assert.deepEqual(result.errors, []);
+    assert.deepEqual(result.layout, []);
+  },
+);

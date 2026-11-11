@@ -35,7 +35,7 @@ export const KIT_SOURCE = String.raw`(() => {
     ".r-node .r-icon{display:flex;color:var(--r-accent);flex:none}",
     ".r-node .r-text{display:flex;flex-direction:column;gap:4px;align-items:inherit}",
     ".r-node:not(.r-column) .r-text{align-items:flex-start;text-align:left}",
-    ".r-node .r-sub{font:500 21px var(--r-mono);color:var(--r-muted);letter-spacing:.02em}",
+    ".r-node .r-sub{font:500 .7em var(--r-mono);color:var(--r-muted);letter-spacing:.02em}",
     ".r-node.r-lit{border-color:var(--r-accent);background:color-mix(in srgb,var(--r-accent) 18%,var(--r-surface));box-shadow:0 0 0 4px color-mix(in srgb,var(--r-accent) 22%,transparent),0 0 70px color-mix(in srgb,var(--r-accent) 45%,transparent)}",
     ".r-code{font:500 30px/1.6 var(--r-mono);color:var(--r-text);white-space:pre;tab-size:2}",
     ".r-code .r-ln{position:relative;display:block;padding-left:0}",
@@ -253,6 +253,9 @@ export const KIT_SOURCE = String.raw`(() => {
         return gsap.fromTo(proxy, { p: 1 }, { p: 0, duration: q.duration || 0.6, ease: q.ease || "power2.in", onUpdate: () => apply(proxy.p), immediateRender: false });
       },
       flow(opts) { return flow(api, opts); },
+      // Fades the whole stroke (line, arrowheads, packets) out or back in.
+      hide(opts) { return gsap.to(group, { opacity: 0, duration: (opts && opts.duration) || 0.3, ease: "power1.out" }); },
+      show(opts) { return gsap.to(group, { opacity: o.opacity === undefined ? 1 : o.opacity, duration: (opts && opts.duration) || 0.3, ease: "power1.out" }); },
     };
     return api;
   }
@@ -1067,7 +1070,7 @@ ${KIT_EXPLAINER_SOURCE}
     connect, line, ring, flow, code, highlight, count, bars, focus, grid, glow, particles,
     asset, image, assetIds: (config.assets || []).slice(), finish,
     three,
-    shots, arrow, callout, mark, steps, window: uiWindow, cursor, chart, stat, iso, headline, swap, drift, pulse,
+    shots, arrow, callout, mark, steps, window: uiWindow, cursor, chart, stat, iso, headline, swap, captions, drift, pulse,
   };
   if (window.gsap) {
     gsap.registerPlugin(...${JSON.stringify(gsapPlugins)}.map((name) => window[name]).filter(Boolean));
