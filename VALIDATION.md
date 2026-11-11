@@ -1582,6 +1582,8 @@ Goal: confirm that 0.74 (explainer kit, quality gates, MCP server, workspace red
 2. Same brief after the fix: **finished in 462 seconds with 8 model calls.** Two 15-second scenes, each approved after two revisions. The checks and stills caught real problems: text overlaps from a class tween that stripped a node's classes, a zoom that slid a diagram under its headline, a half-empty shot, a label overflowing its pill. Result: a browser mockup with a cursor signing in, a TLS sequence diagram, a certificate chain with a checklist, an encrypted tunnel, a padlock with three stat cards.
 3. 20-second 3D launch teaser: **finished in 359 seconds with 4 model calls.** One scene, three shots (globe with routes and a live counter, an API call typing in a code window, four stat cards). It exposed the globe defects above.
 
+Both finished films were exported through the real pipeline as 1080p H.264 by a non-root user on a frozen copy, and frames from the MP4s were inspected: the explainer as two 15-second scenes (294 and 376 seconds), and the 20-second 3D teaser, with the new globe, in about 22 minutes (3D on software rendering runs at roughly a minute per second of video on this 4-core machine).
+
 Each session also listed what it had to guess; those lists became guide text (scene transition values, lighting a node later, camera and headline layering, window and isometric sizes, 3D pixel sizes, a view per shot).
 
 **Honest assessment of the output**
