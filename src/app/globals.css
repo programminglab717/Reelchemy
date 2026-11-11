@@ -3229,3 +3229,113 @@ body {
   white-space: normal;
   text-align: left;
 }
+/* The workspace body. A project opens as an overview: the player and its
+   scenes, with the director (and the export, once started) beside them. The
+   editor adds the timeline and every tool as a tab below. */
+.workspace-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+.workspace-main,
+.workspace-side {
+  min-width: 0;
+}
+.workspace-side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  align-content: start;
+}
+.workspace-side > [hidden],
+.workspace-timeline[hidden],
+.editor-actions > [hidden] {
+  display: none;
+}
+.workspace-side .tool-panel {
+  padding-top: 0;
+}
+.workspace-main > .section-heading {
+  margin: 22px 0 10px;
+}
+.workspace-body.editing {
+  display: block;
+}
+.workspace-body.editing .workspace-side {
+  gap: 0;
+}
+.workspace-body.editing .workspace-side .tool-panel {
+  padding-top: 18px;
+}
+.mode-switch[aria-pressed="true"] {
+  border-color: var(--dark);
+  color: var(--ink);
+}
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+@media (min-width: 1001px) {
+  /* In the editor the scenes list stands beside a smaller player, so the
+     timeline and the tools start on the first screen. */
+  .workspace-body.editing .workspace-main {
+    display: grid;
+    /* The player column is as wide as the player; the scenes take the rest. */
+    grid-template-columns:
+      minmax(0, calc(max(250px, 100vh - 520px) * var(--video-ratio, 1.7778)))
+      minmax(240px, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    column-gap: 22px;
+  }
+  .workspace-body.editing .workspace-main > .preview-panel {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+  .workspace-body.editing .workspace-main > .section-heading {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0 0 10px;
+  }
+  .workspace-body.editing .workspace-main > .storyboard {
+    grid-column: 2;
+    grid-row: 2;
+    /* Sized by the player beside it, scrolling inside. */
+    contain: size;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    align-content: start;
+    overflow: hidden auto;
+    padding: 0 4px 0 0;
+  }
+  .workspace-body.editing .workspace-main > .workspace-timeline {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+}
+@media (max-width: 1000px) {
+  .workspace-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* The editor is compact above the timeline: a one-line project heading and a
+   player sized to the screen, so the timeline starts on the first screen. */
+.project-workspace.editing .project-heading {
+  margin-bottom: 12px;
+}
+.project-workspace.editing .project-heading h1 {
+  font-size: 19px;
+  margin-top: 0;
+  display: inline;
+  margin-right: 10px;
+}
+.project-workspace.editing .project-heading p {
+  display: none;
+}
+@media (min-width: 1001px) {
+  .workspace-body.editing .player-wrap {
+    min-height: 0;
+  }
+}

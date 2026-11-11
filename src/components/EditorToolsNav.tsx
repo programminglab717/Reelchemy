@@ -1,6 +1,7 @@
 "use client";
-// The editing tools below the player and timeline, one open at a time.
+// The editor's tools beside the player and timeline, one open at a time.
 export const studioTools = [
+  ["director", "Director", "studio-tool-director"],
   ["scene", "Scene & layers", "studio-tool-scene"],
   ["design", "Design", "studio-tool-canvas"],
   ["media", "Media & voice", "studio-tool-media"],

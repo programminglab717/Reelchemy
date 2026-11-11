@@ -123,8 +123,18 @@ const overflowReport = () => {
   }
   return { scrollWidth: document.documentElement.scrollWidth, width, items };
 };
-export const browserTest = base.extend({
-  page: async ({ page }, runFixture, testInfo) => {
+// Most tests work in the editor, so they choose "Always open projects in the
+// editor" (the browser preference the editor's Project tool sets). Tests of
+// the overview turn it off with overviewFirst.
+export const browserTest = base.extend<{ overviewFirst: boolean }>({
+  overviewFirst: [false, { option: true }],
+  page: async ({ page, overviewFirst }, runFixture, testInfo) => {
+    if (!overviewFirst)
+      await page.addInitScript(() => {
+        try {
+          window.localStorage.setItem("reelchemy.openInEditor", "1");
+        } catch {}
+      });
     await runFixture(page);
     if (testInfo.status !== testInfo.expectedStatus && !page.isClosed())
       try {
@@ -157,6 +167,7 @@ export { expect };
 
 // The studio shows one editing tool at a time below the player and timeline.
 export type StudioToolName =
+  | "Director"
   | "Scene & layers"
   | "Design"
   | "Media & voice"
