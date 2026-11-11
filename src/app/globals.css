@@ -624,11 +624,6 @@ main {
   font-size: 11px;
   white-space: nowrap;
 }
-.work-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);
-  gap: 22px;
-}
 .preview-panel,
 .director-panel {
   border: 1px solid var(--line);
@@ -938,9 +933,6 @@ main {
   }
   .topbar {
     padding: 0 35px;
-  }
-  .work-grid {
-    grid-template-columns: 1fr;
   }
   .project-workspace {
     padding: 30px;
@@ -3351,4 +3343,11 @@ body {
     z-index: 30;
     background: var(--bg);
   }
+}
+/* The phone header's two buttons keep their words (the breadcrumb beside
+   them wraps instead). */
+.topbar .mobile-sign-out {
+  flex: none;
+  max-width: none;
+  overflow: visible;
 }
