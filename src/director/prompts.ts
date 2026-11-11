@@ -10,31 +10,47 @@ import type { CreativeBrief } from "../lib/schema";
 // ---------------------------------------------------------------- plan
 const color = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 const font = z.enum(["Inter", "Space Grotesk", "JetBrains Mono"]);
+// Models overshoot length limits; over-long text and lists are cut rather
+// than refused (a refused plan costs a whole extra planning call).
+const cut = (max: number) =>
+  z.string().transform((value) => value.slice(0, max));
 export const filmPlanSchema = z.object({
-  title: z.string().min(1).max(100),
-  logline: z.string().max(400).default(""),
+  title: z
+    .string()
+    .min(1)
+    .transform((value) => value.slice(0, 100)),
+  logline: cut(400).default(""),
   style: z.object({
     background: color,
     surface: color,
     text: color,
     muted: color,
-    accents: z.array(color).min(1).max(6),
+    accents: z
+      .array(color)
+      .min(1)
+      .transform((list) => list.slice(0, 6)),
     displayFont: font.default("Space Grotesk"),
     bodyFont: font.default("Inter"),
-    motion: z.string().max(600),
-    motifs: z.string().max(600),
+    motion: cut(600),
+    motifs: cut(600),
   }),
   scenes: z
     .array(
       z.object({
-        title: z.string().min(1).max(100),
+        title: z
+          .string()
+          .min(1)
+          .transform((value) => value.slice(0, 100)),
         seconds: z.number().min(3).max(60),
-        goal: z.string().max(500),
-        visual: z.string().max(2000),
-        onScreenText: z.array(z.string().max(160)).max(12).default([]),
+        goal: cut(500),
+        visual: cut(4000),
+        onScreenText: z
+          .array(cut(160))
+          .transform((list) => list.slice(0, 24))
+          .default([]),
         beats: z
-          .array(z.object({ at: z.number().min(0), do: z.string().max(400) }))
-          .max(20)
+          .array(z.object({ at: z.number().min(0), do: cut(400) }))
+          .transform((list) => list.slice(0, 40))
           .default([]),
         transition: z.enum(["cut", "fade"]).default("cut"),
       }),
@@ -53,7 +69,7 @@ Plan for real visual storytelling:
 - Describe each scene's visual precisely enough that a designer can build it without guessing: what objects exist, where they sit, how they enter, what moves where, what gets emphasised, the final composition.
 - Pace like a top explainer channel: something new appears, moves, lights up or changes every 1.5–2 seconds. Give each scene timed beats (seconds from the scene start) at that density — about one beat per 1.5–2 s of its length — covering its full length; the last 0.5–1 s holds the finished composition.
 - A scene longer than ~6 s is usually 2–4 SHOTS: full-frame compositions that replace each other with a transition (push, zoom through, wipe, blur, slide up) inside the same scene, e.g. "shot 1 (0–5 s) the globe; zoom into shot 2 (5–10 s) the request diagram; push to shot 3 (10–15 s) the results". Describe each shot and its transition in "visual".
-- A clip of 30 seconds or less is usually ONE scene made of several shots unless the brief clearly has separate parts. Longer films use several scenes of roughly 6–20 seconds; a scene may be up to 60 seconds.
+- A clip of 20 seconds or less is usually ONE scene made of several shots. Longer films use several scenes of roughly 8–20 seconds each, one per part of the story (a 30-second film is usually two or three scenes), each with its own shots.
 - Fill the frame: every shot has one dominant visual spanning most of the stage, supporting labels, and a living background.
 - Design one consistent style for the whole film: a palette (background, surface, text, muted, 2–5 luminous accents with strong contrast), fonts (display: "Space Grotesk", body: "Inter", code/data: "JetBrains Mono"), a motion language (easing, pace, signature moves) and recurring motifs that tie scenes together.
 - Be technically accurate about the subject. Use real names, real numbers when known, plausible example data otherwise.
@@ -61,6 +77,7 @@ Plan for real visual storytelling:
 - Tutorials and how-tos: show the real interface (a mockup of the app, the terminal, the code), the cursor doing each step, a numbered step list in sync, and a callout naming what just happened.
 
 The scene seconds must add up exactly to the requested duration.
+Keep within these sizes: "visual" up to 2,500 characters per scene, each beat up to 300 characters, at most 30 beats and 12 on-screen texts per scene, "goal" up to 400 characters, "motion" and "motifs" up to 500 each, 2–5 accents, at most 12 scenes.
 
 Reply with JSON only (no markdown), exactly this shape:
 {"title": "...", "logline": "...",

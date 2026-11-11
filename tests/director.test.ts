@@ -90,6 +90,31 @@ test("scene replies are parsed from tagged parts, even with commentary", () => {
   assert.throws(() => parseScene("<scene><html>x</html></scene>"));
 });
 
+test("an over-long plan is cut to size rather than refused", () => {
+  const long = parsePlan(
+    JSON.stringify({
+      ...plan,
+      scenes: [
+        {
+          ...plan.scenes[0],
+          visual: "v".repeat(5000),
+          beats: Array.from({ length: 45 }, (_, at) => ({
+            at,
+            do: "d".repeat(500),
+          })),
+          onScreenText: Array.from({ length: 30 }, () => "t".repeat(200)),
+        },
+        plan.scenes[1],
+      ],
+    }),
+    14,
+  );
+  assert.equal(long.scenes[0].visual.length, 4000);
+  assert.equal(long.scenes[0].beats.length, 40);
+  assert.equal(long.scenes[0].beats[0].do.length, 400);
+  assert.equal(long.scenes[0].onScreenText.length, 24);
+  assert.equal(long.scenes[0].onScreenText[0].length, 160);
+});
 test(
   "the director plans, writes, checks, reviews with stills and fixes broken scenes",
   { timeout: 180000 },

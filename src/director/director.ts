@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
+import { z } from "zod";
 import {
   timelineSchema,
   type CreativeBrief,
@@ -413,6 +414,16 @@ function sceneContext(options: DirectorOptions): Omit<SceneContext, "step"> {
     reference: options.reference,
   };
 }
+// What was wrong with a plan, in words the model can act on.
+function planProblem(error: unknown) {
+  if (error instanceof z.ZodError)
+    return error.issues
+      .slice(0, 6)
+      .map((issue) => `${issue.path.join(".") || "plan"}: ${issue.message}`)
+      .join("; ");
+  if (error instanceof SyntaxError) return "it is not valid JSON";
+  return error instanceof Error ? error.message.slice(0, 300) : "invalid";
+}
 async function planFilm(
   options: DirectorOptions & { previous?: FilmPlan; instruction?: string },
 ) {
@@ -441,13 +452,13 @@ async function planFilm(
     try {
       return parsePlan(reply.text, brief.duration);
     } catch (error) {
-      if (attempt)
+      if (attempt >= 2)
         throw new Error("The director could not produce a valid plan.");
       messages.push(
         { role: "assistant", content: reply.text || "(empty)" },
         {
           role: "user",
-          content: `That plan could not be used (${error instanceof Error ? error.message.slice(0, 300) : "invalid"}). Reply with the complete plan as valid JSON only, with scene seconds adding up to ${brief.duration}.`,
+          content: `That plan could not be used (${planProblem(error)}). Reply with the complete plan as valid JSON only, with scene seconds adding up to ${brief.duration}.`,
         },
       );
     }
