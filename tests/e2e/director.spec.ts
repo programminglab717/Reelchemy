@@ -1,4 +1,4 @@
-import { test, expect } from "./fixtures";
+import { test, expect, openTool } from "./fixtures";
 
 test("the director shows progress, can be stopped, and its film previews as live code scenes", async ({
   page,
@@ -41,6 +41,7 @@ test("the director shows progress, can be stopped, and its film previews as live
     .getByRole("button", { name: "Director studio", exact: false })
     .click();
   const revise = async (instruction: string) => {
+    await openTool(page, "Director");
     await page
       .getByLabel("Revision scope", { exact: true })
       .selectOption("story");

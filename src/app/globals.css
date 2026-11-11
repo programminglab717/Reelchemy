@@ -3327,15 +3327,28 @@ body {
 }
 .project-workspace.editing .project-heading h1 {
   font-size: 19px;
-  margin-top: 0;
-  display: inline;
-  margin-right: 10px;
+  margin: 0;
+}
+.project-workspace.editing .project-heading > div:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
 }
 .project-workspace.editing .project-heading p {
-  display: none;
+  margin: 0;
 }
 @media (min-width: 1001px) {
   .workspace-body.editing .player-wrap {
     min-height: 0;
+  }
+}
+/* In the editor the tool tabs stay in reach while a long tool scrolls. */
+@media (min-width: 801px) {
+  .workspace-body.editing .workspace-side > div:first-child {
+    position: sticky;
+    top: 64px;
+    z-index: 30;
+    background: var(--bg);
   }
 }

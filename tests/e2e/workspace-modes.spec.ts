@@ -40,6 +40,11 @@ test("a project opens as an overview, Edit video opens the editor, and the choic
   const done = page.getByRole("button", { name: "Done editing", exact: true });
   await expect(done).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator(".workspace-timeline")).toBeVisible();
+  await page.screenshot({
+    path: process.env.UI_SHOTS
+      ? `${process.env.UI_SHOTS}/editor-top.png`
+      : "artifacts/ui-editor-top.png",
+  });
   const tabs = page.getByRole("tablist", { name: "Editing tools" });
   await expect(tabs.getByRole("tab")).toHaveText([
     "Director",

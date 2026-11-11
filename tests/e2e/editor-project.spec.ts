@@ -84,6 +84,7 @@ test("a large editor transfers bounded summaries while earlier directions retry 
       .getByRole("combobox", { name: "Restore saved version", exact: true })
       .locator("option"),
   ).toHaveCount(22);
+  await openTool(page, "Director");
   const conversation = page.getByRole("region", {
     name: "Creative conversation",
     exact: true,
@@ -121,6 +122,7 @@ test("a large editor transfers bounded summaries while earlier directions retry 
       } else await route.continue();
     },
   );
+  await openTool(page, "Director");
   await conversation
     .getByRole("button", { name: "Earlier directions", exact: true })
     .click();
