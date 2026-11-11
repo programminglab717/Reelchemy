@@ -95,7 +95,46 @@ function withOrigin(request: APIRequestContext, origin: string) {
     },
   });
 }
+// What makes the page wider than the viewport, for a failed test's report:
+// elements past the right edge that are not inside a scrolling container.
+const overflowReport = () => {
+  const width = innerWidth;
+  const items: string[] = [];
+  for (const element of document.querySelectorAll("body *")) {
+    const rect = element.getBoundingClientRect();
+    if (rect.width === 0 || rect.right <= width + 1) continue;
+    let clipped = false;
+    for (
+      let parent = element.parentElement;
+      parent && parent !== document.body;
+      parent = parent.parentElement
+    )
+      if (
+        /(auto|scroll|hidden|clip)/.test(getComputedStyle(parent).overflowX)
+      ) {
+        clipped = true;
+        break;
+      }
+    if (clipped) continue;
+    items.push(
+      `${element.tagName.toLowerCase()}.${String(element.className).slice(0, 50)} "${(element.textContent || "").trim().slice(0, 40)}" right=${Math.round(rect.right)} width=${Math.round(rect.width)}`,
+    );
+    if (items.length >= 15) break;
+  }
+  return { scrollWidth: document.documentElement.scrollWidth, width, items };
+};
 export const browserTest = base.extend({
+  page: async ({ page }, runFixture, testInfo) => {
+    await runFixture(page);
+    if (testInfo.status !== testInfo.expectedStatus && !page.isClosed())
+      try {
+        const report = await page.evaluate(overflowReport);
+        if (report.scrollWidth > report.width)
+          console.log(
+            `Page overflow in "${testInfo.title.slice(0, 60)}": ${JSON.stringify(report)}`,
+          );
+      } catch {}
+  },
   request: async ({ context }, runFixture) => {
     await runFixture(
       withOrigin(

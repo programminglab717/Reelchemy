@@ -3218,3 +3218,14 @@ body {
   max-width: 100%;
   min-width: 0;
 }
+/* Buttons never push the page wider than a phone: long names wrap in the
+   project list, and any other long label is cut with an ellipsis. */
+.subtle {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mobile-project-library li button {
+  white-space: normal;
+  text-align: left;
+}

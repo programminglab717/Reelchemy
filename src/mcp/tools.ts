@@ -115,7 +115,7 @@ function assertNoTimedMedia(timeline: Timeline) {
       "This film has audio or captions placed on its timeline. Change scene lengths in the studio so they stay in sync.",
     );
 }
-const summary = (project: Project) => ({
+const summary = (project: Project, ctx?: McpContext) => ({
   projectId: project.id,
   name: project.name ?? project.brief?.prompt ?? "Untitled",
   format: project.timeline?.format ?? project.brief?.format,
@@ -133,7 +133,8 @@ const summary = (project: Project) => ({
   images: (project.assets ?? [])
     .filter((a) => a.mime === "image/png")
     .map((a) => ({ id: a.id, name: a.name, width: a.width, height: a.height })),
-  studioUrl: `/?project=${project.id}`,
+  // Opens the project in the studio (the owner must be signed in).
+  studioUrl: `${ctx?.origin ?? ""}/?project=${project.id}`,
 });
 const text = (value: unknown): ToolContent => ({
   type: "text",
@@ -324,7 +325,7 @@ export const tools = [
         "/api/projects",
         { body: { prompt: title, duration: seconds, format, blank: true } },
       )) as Project;
-      const result = summary(project);
+      const result = summary(project, ctx);
       return { content: [text(result)], structuredContent: result };
     },
   }),
@@ -336,7 +337,7 @@ export const tools = [
     input: z.object({ project_id: z.string().uuid() }),
     readOnly: true,
     run: async ({ project_id }, ctx) => {
-      const result = summary(await getProject(ctx, project_id));
+      const result = summary(await getProject(ctx, project_id), ctx);
       return { content: [text(result)], structuredContent: result };
     },
   }),
@@ -421,7 +422,7 @@ export const tools = [
         `Saved scene ${args.scene_index} ("${next.title}", ${next.durationFrames / 30}s). Revision ${revisionId(saved)}.`,
       );
       if (args.preview === false)
-        return { content: [done], structuredContent: summary(saved) };
+        return { content: [done], structuredContent: summary(saved, ctx) };
       const checked = await preview(
         ctx,
         code,
@@ -520,7 +521,7 @@ export const tools = [
         ...project.timeline,
         scenes: [...project.timeline.scenes, scene],
       });
-      const result = summary(saved);
+      const result = summary(saved, ctx);
       return { content: [text(result)], structuredContent: result };
     },
   }),
@@ -544,7 +545,7 @@ export const tools = [
         ...timeline,
         scenes: timeline.scenes.filter((_, i) => i !== scene_index),
       });
-      const result = summary(saved);
+      const result = summary(saved, ctx);
       return { content: [text(result)], structuredContent: result };
     },
   }),

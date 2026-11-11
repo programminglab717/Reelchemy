@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { mcpOAuth } from "@/lib/db";
+import { RegistrationBusy } from "@/lib/mcp-oauth";
 import { readLimitedBody } from "@/lib/http";
 import { oauthError, oauthHeaders } from "@/lib/mcp-oauth-http";
 
@@ -44,6 +45,11 @@ export async function POST(request: Request) {
       { status: 201, headers: oauthHeaders },
     );
   } catch (error) {
+    if (error instanceof RegistrationBusy)
+      return Response.json(
+        { error: "temporarily_unavailable", error_description: error.message },
+        { status: 429, headers: { ...oauthHeaders, "Retry-After": "3600" } },
+      );
     return oauthError(
       "invalid_redirect_uri",
       error instanceof Error ? error.message : "Registration failed.",

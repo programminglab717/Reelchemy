@@ -228,6 +228,11 @@ test(
     assert(!created.isError, JSON.stringify(created));
     const projectId = created.structuredContent!.projectId as string;
     assert.equal((created.structuredContent!.scenes as unknown[]).length, 1);
+    // The studio link is absolute, so an assistant can hand it to its user.
+    assert.equal(
+      created.structuredContent!.studioUrl,
+      `${origin}/?project=${projectId}`,
+    );
     const added = await call(token, "add_scene", {
       project_id: projectId,
       seconds: 4,
@@ -349,6 +354,39 @@ test("apps connect by OAuth: discovery, registration, PKCE consent, tokens and r
     )
   ).json();
   const clientId = registered.client_id as string;
+  // Registration needs no sign-in, so it is bounded: 30 an hour, and
+  // registrations that never connected are forgotten after a day.
+  const registerAgain = () =>
+    register.POST(
+      new Request(`${origin}/api/oauth/register`, {
+        method: "POST",
+        body: JSON.stringify({
+          client_name: "Flood",
+          redirect_uris: ["https://flood.example/cb"],
+        }),
+      }),
+    );
+  for (let i = 0; i < 29; i++)
+    assert.equal((await registerAgain()).status, 201);
+  const refused = await registerAgain();
+  assert.equal(refused.status, 429);
+  assert.equal(refused.headers.get("retry-after"), "3600");
+  {
+    const studio = new Database(path.join(root, "data", "studio.sqlite"));
+    studio
+      .prepare("UPDATE oauth_clients SET created_at=? WHERE name='Flood'")
+      .run(new Date(Date.now() - 2 * 86400000).toISOString());
+    assert.equal((await registerAgain()).status, 201);
+    assert.equal(
+      (
+        studio.prepare("SELECT count(*) AS n FROM oauth_clients").get() as {
+          n: number;
+        }
+      ).n,
+      2,
+    );
+    studio.close();
+  }
   const verifier = randomBytes(32).toString("base64url");
   const challenge = (await import("node:crypto"))
     .createHash("sha256")

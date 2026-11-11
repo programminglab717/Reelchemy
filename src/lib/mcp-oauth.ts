@@ -14,6 +14,16 @@ import type Database from "better-sqlite3";
 export const OAUTH_SCOPE = "studio";
 const CODE_SECONDS = 300;
 const MAX_CLIENTS = 1000;
+// Registration needs no sign-in (clients register before their user
+// approves anything), so it is bounded: a few per hour, and registrations
+// that never led to a connection are forgotten after a day.
+const REGISTRATIONS_PER_HOUR = 30;
+const UNUSED_CLIENT_MS = 86400000;
+export class RegistrationBusy extends Error {
+  constructor() {
+    super("Too many apps registered recently. Try again in an hour.");
+  }
+}
 export type OAuthClient = {
   id: string;
   name: string;
@@ -71,12 +81,28 @@ export class McpOAuthStore {
       );
     return this.db
       .transaction(() => {
-        const count = (
-          this.db.prepare("SELECT count(*) AS n FROM oauth_clients").get() as {
-            n: number;
-          }
-        ).n;
-        if (count >= MAX_CLIENTS)
+        const now = Date.now();
+        this.db
+          .prepare(
+            `DELETE FROM oauth_clients WHERE created_at<?
+               AND id NOT IN (SELECT client_id FROM mcp_tokens WHERE client_id IS NOT NULL)
+               AND id NOT IN (SELECT client_id FROM oauth_codes)`,
+          )
+          .run(new Date(now - UNUSED_CLIENT_MS).toISOString());
+        const counted = (since: string) =>
+          (
+            this.db
+              .prepare(
+                "SELECT count(*) AS n FROM oauth_clients WHERE created_at>=?",
+              )
+              .get(since) as { n: number }
+          ).n;
+        if (
+          counted(new Date(now - 3600000).toISOString()) >=
+          REGISTRATIONS_PER_HOUR
+        )
+          throw new RegistrationBusy();
+        if (counted("") >= MAX_CLIENTS)
           throw new Error("This studio cannot register more apps.");
         const client = {
           id: randomUUID(),

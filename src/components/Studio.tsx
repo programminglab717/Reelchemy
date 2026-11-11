@@ -130,7 +130,13 @@ export function Studio({
   );
 
   const editor = useProjectEditor(userId);
-  const { project, dirty, save, change: editorChange } = editor;
+  const {
+    project,
+    dirty,
+    save,
+    change: editorChange,
+    open: openProject,
+  } = editor;
   const [projects, setProjects] = useState<ProjectSummary[]>([]),
     [prompt, setPrompt] = useState(""),
     [duration, setDuration] = useState(15),
@@ -177,6 +183,24 @@ export function Studio({
     [revision, setRevision] = useState(""),
     [revisionScope, setRevisionScope] = useState("scene"),
     [reference, setReference] = useState("");
+  // A link to a project (for example from an AI assistant), /?project=<id>,
+  // opens it once. The address is then cleared: the studio keeps no
+  // per-project addresses, so a later refresh returns to the studio home.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("project");
+    if (!id) return;
+    window.history.replaceState(null, "", window.location.pathname);
+    if (!/^[0-9a-f-]{36}$/.test(id)) return;
+    let live = true;
+    api<Project>(`/api/projects/${id}`)
+      .then((linked) => {
+        if (live) openProject(linked);
+      })
+      .catch(() => live && setError("The linked project could not be opened."));
+    return () => {
+      live = false;
+    };
+  }, [api, openProject]);
   const openProjectId = useRef<string | undefined>(undefined);
   useEffect(() => {
     openProjectId.current = project?.id;

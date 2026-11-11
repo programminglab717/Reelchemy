@@ -430,3 +430,29 @@ test("scene-only preview and generic character/arrow/camera primitives render to
     page.getByText(/Verifying encoded frames and scene previews/).first(),
   ).toBeVisible();
 });
+test("a project link opens that project and leaves a clean address", async ({
+  page,
+  request,
+}) => {
+  const project = await (
+    await request.post("/api/projects", {
+      data: {
+        prompt: "Opened from a link",
+        duration: 5,
+        format: "landscape",
+        blank: true,
+      },
+    })
+  ).json();
+  await page.goto(`/?project=${project.id}`);
+  await expect(
+    page.getByRole("heading", { level: 1, name: project.name, exact: true }),
+  ).toBeVisible();
+  expect(new URL(page.url()).search).toBe("");
+  // Another studio's or a malformed link opens nothing and says so.
+  await page.goto(`/?project=${crypto.randomUUID()}`);
+  await expect(page.getByRole("alert", { name: "Studio error" })).toContainText(
+    "The linked project could not be opened.",
+  );
+  await expect(page.getByLabel("Video idea")).toBeVisible();
+});
