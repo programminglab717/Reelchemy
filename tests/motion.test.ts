@@ -257,3 +257,36 @@ test("the committed three.js bundle matches the installed three.js and add-ons",
     `${THREE_BUNDLE_PATH} is out of date: run npm run vendor:three`,
   );
 });
+
+test("the globe's land map puts continents and oceans where they are", async () => {
+  const { LAND_MASK } = await import("../src/motion/land-mask");
+  const bits = Buffer.from(LAND_MASK, "base64");
+  assert.equal(bits.length, (180 * 90) / 8);
+  const land = (lat: number, lon: number) => {
+    const i = Math.floor((90 - lat) / 2) * 180 + Math.floor((lon + 180) / 2);
+    return ((bits[i >> 3] >> (i & 7)) & 1) === 1;
+  };
+  // Paris, Nairobi, Denver, Manaus, Alice Springs, Novosibirsk, the South Pole.
+  for (const [lat, lon] of [
+    [48.8, 2.3],
+    [-1.3, 36.8],
+    [39.7, -105],
+    [-3.1, -60],
+    [-23.7, 133.9],
+    [55, 82.9],
+    [-88, 0],
+  ])
+    assert.equal(land(lat, lon), true, `${lat}, ${lon} is land`);
+  // Mid-Atlantic, mid-Pacific, the Indian Ocean, the Arctic Ocean.
+  for (const [lat, lon] of [
+    [30, -40],
+    [0, -150],
+    [-30, 80],
+    [87, 0],
+  ])
+    assert.equal(land(lat, lon), false, `${lat}, ${lon} is sea`);
+  // About a third of the cells are land (29% of the area; polar cells are small).
+  let count = 0;
+  for (const byte of bits) for (let b = 0; b < 8; b++) count += (byte >> b) & 1;
+  assert.ok(count > 4800 && count < 6000);
+});

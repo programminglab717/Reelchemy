@@ -39,7 +39,7 @@ view.particles({ count: 500, spread: [34, 18, 22], size: 0.03, color: "#93c5fd",
 const globe = view.globe({ r: 2.6, position: [3.7, -0.75, 0], color: "#7dd3fc" });
 const origin = [38.9, -77.0];
 const pops = [[51.5, -0.1], [50.1, 8.7], [48.9, 2.3], [40.4, -3.7], [59.3, 18.1], [41.0, 28.9], [25.2, 55.3], [19.1, 72.9], [1.35, 103.8], [35.7, 139.7], [-23.5, -46.6], [19.4, -99.1], [37.8, -122.4], [43.7, -79.4]];
-globe.face([18, -25]);
+globe.face([36, -38]);
 globe.pin(origin, { color: "#f472b6", size: 0.09 });
 tl.add(globe.spin({ turns: -0.05, duration: 5 }), 0);
 pops.forEach((p, i) => {

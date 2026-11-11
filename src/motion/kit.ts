@@ -1,5 +1,6 @@
 import { gsapPlugins, motionFonts } from "./libraries";
 import { KIT_EXPLAINER_SOURCE } from "./kit-explainer";
+import { LAND_MASK } from "./land-mask";
 
 // The helper kit available to scene code as `R`: stage facts, icons, and
 // layout-aware motion primitives (connectors, packets, nodes, code, counters,
@@ -875,18 +876,36 @@ export const KIT_SOURCE = String.raw`(() => {
       // A dotted globe with glowing arcs between places (lat, lon in degrees):
       // const g = view.globe({ r: 2.2 }); tl.add(g.arc([51.5, -0.1], [40.7, -74]).draw(), 1)
       globe(q) {
-        const b = Object.assign({ r: 2, dots: 2400, color: "#7dd3fc", dotSize: 0.03, base: "#0b1222", atmosphere: true }, q || {});
+        const b = Object.assign({ r: 2, dots: 2400, color: "#7dd3fc", dotSize: 0.03, base: "#0b1222", atmosphere: true, land: true }, q || {});
         const group = place(new T.Group(), b);
         group.add(new T.Mesh(new T.SphereGeometry(b.r * 0.985, 64, 48), new T.MeshStandardMaterial({ color: color(b.base), roughness: 0.85, metalness: 0.1 })));
-        const positions = new Float32Array(b.dots * 3);
-        for (let i = 0; i < b.dots; i++) {
-          const y = 1 - ((i + 0.5) / b.dots) * 2, rad = Math.sqrt(1 - y * y), th = i * 2.399963229728653;
-          positions[i * 3] = Math.cos(th) * rad * b.r; positions[i * 3 + 1] = y * b.r; positions[i * 3 + 2] = Math.sin(th) * rad * b.r;
+        // Dots spread evenly over the sphere. With land (the default) the
+        // continents are bright and the oceans a faint, sparser field;
+        // "dots" is roughly the number of bright ones either way.
+        const mask = b.land ? atob("${LAND_MASK}") : null;
+        const isLand = (x, y, z) => {
+          const row = Math.min(89, Math.floor(Math.acos(Math.max(-1, Math.min(1, y))) * 90 / Math.PI));
+          let lon = Math.atan2(z, -x) * 180 / Math.PI - 180;
+          if (lon < -180) lon += 360;
+          const i = row * 180 + Math.min(179, Math.floor((lon + 180) / 2));
+          return (mask.charCodeAt(i >> 3) >> (i & 7)) & 1;
+        };
+        const total = mask ? Math.round(b.dots * 3) : b.dots, bright = [], faint = [];
+        for (let i = 0; i < total; i++) {
+          const y = 1 - ((i + 0.5) / total) * 2, rad = Math.sqrt(1 - y * y), th = i * 2.399963229728653;
+          const x = Math.cos(th) * rad, z = Math.sin(th) * rad;
+          if (!mask || isLand(x, y, z)) bright.push(x * b.r, y * b.r, z * b.r);
+          else if (i % 3 === 0) faint.push(x * b.r, y * b.r, z * b.r);
         }
-        const geometry = new T.BufferGeometry();
-        geometry.setAttribute("position", new T.BufferAttribute(positions, 3));
-        const dots = new T.Points(geometry, new T.PointsMaterial({ color: color(b.color), size: b.dotSize * 2, map: dotSprite(), transparent: true, opacity: 0.85, depthWrite: false }));
-        group.add(dots);
+        const points = (list, opacity, size) => {
+          const geometry = new T.BufferGeometry();
+          geometry.setAttribute("position", new T.BufferAttribute(new Float32Array(list), 3));
+          const cloud = new T.Points(geometry, new T.PointsMaterial({ color: color(b.color), size, map: dotSprite(), transparent: true, opacity, depthWrite: false }));
+          group.add(cloud);
+          return cloud;
+        };
+        const dots = points(bright, mask ? 1 : 0.85, b.dotSize * (mask ? 2.7 : 2));
+        const sea = mask ? points(faint, 0.16, b.dotSize * 1.4) : null;
         // A soft glow at the rim (stronger where the surface turns away).
         if (b.atmosphere) group.add(new T.Mesh(new T.SphereGeometry(b.r * 1.2, 64, 48), new T.ShaderMaterial({
           uniforms: { glowColor: { value: color(b.atmosphereColor || b.color) }, strength: { value: b.atmosphere === true ? 1 : b.atmosphere } },
@@ -899,7 +918,7 @@ export const KIT_SOURCE = String.raw`(() => {
           return new T.Vector3(-rr * Math.sin(phi) * Math.cos(th), rr * Math.cos(phi), rr * Math.sin(phi) * Math.sin(th));
         };
         return {
-          group, dots,
+          group, dots, sea,
           // A point on (or above) the surface, in the globe's own coordinates.
           point: (lat, lon, alt) => at(lat, lon, alt),
           // A glowing marker at a place.
@@ -913,10 +932,17 @@ export const KIT_SOURCE = String.raw`(() => {
           // An arc between two places: draw() grows it, flow() sends a packet along it.
           arc(from, to, q2) {
             const c = Object.assign({ color: b.color, height: 0.22, width: 0.01 }, q2 || {});
-            const a = at(from[0], from[1], 0.005), z = at(to[0], to[1], 0.005);
-            const mid = a.clone().add(z).multiplyScalar(0.5);
-            mid.setLength(b.r * (1 + c.height * Math.min(1.2, a.distanceTo(z) / b.r)) + b.r * 0.04);
-            const curve = new T.QuadraticBezierCurve3(a, mid, z);
+            // Along the great circle, lifted most at the middle (a straight
+            // lift of the chord's midpoint sinks long arcs under the surface).
+            const a = at(from[0], from[1], 0).normalize(), z = at(to[0], to[1], 0).normalize();
+            const angle = a.angleTo(z), lift = 0.02 + c.height * Math.min(1.2, a.distanceTo(z)) * 0.6;
+            const along = [];
+            for (let i = 0; i <= 32; i++) {
+              const t = i / 32, sin = Math.sin(angle);
+              const p = sin < 1e-4 ? a.clone().lerp(z, t) : a.clone().multiplyScalar(Math.sin((1 - t) * angle) / sin).add(z.clone().multiplyScalar(Math.sin(t * angle) / sin));
+              along.push(p.normalize().multiplyScalar(b.r * (1.005 + lift * Math.sin(Math.PI * t))));
+            }
+            const curve = new T.CatmullRomCurve3(along);
             const segments = 64, radial = 8;
             const tube = new T.TubeGeometry(curve, segments, b.r * c.width, radial, false);
             const mesh = new T.Mesh(tube, new T.MeshBasicMaterial({ color: color(c.color), toneMapped: false, transparent: true, opacity: 0.95 }));
