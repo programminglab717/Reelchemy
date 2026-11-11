@@ -50,7 +50,7 @@ Scene code runs on a fixed stage (1920×1080, 1080×1920 or 1080×1080) under a 
 - The composer offers style presets and **Extra polish**.
 - `R.finish` adds grain, a vignette and letterbox bars.
 
-To render a scene file through the real export pipeline, run `npx tsx scripts/render-showcase.ts --scene=scene.json --seconds=10`. To preview a scene from the command line, run `npx tsx scripts/motion-preview.ts scene.json sheet.png landscape 15`; it writes a contact sheet and reports errors and layout notes.
+To render a scene file through the real export pipeline, run `npx tsx scripts/render-showcase.ts --scene=scene.json --seconds=10`. To preview a scene from the command line, run `npx tsx scripts/motion-preview.ts scene.json sheet.png landscape 15`; it writes a contact sheet and reports errors and layout notes. To run the whole director without a provider key (requests are written to a folder and answered by hand or by another model session), run `npx tsx scripts/director-standin.ts out-dir "brief" 20 landscape`.
 
 In the studio, a code scene opens in a code editor (HTML, CSS and JavaScript, with Apply, Revert and the errors the scene throws in the player). A layered scene can be turned into code with **Write scene in code**. Revising a code scene by instruction sends it to the director, which keeps the scene's length.
 

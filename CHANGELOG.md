@@ -640,10 +640,18 @@ Fixes from a review of 0.74 before its first deployment.
 
 - **Project links.** `/?project=<id>` opens that project in the studio and then leaves a clean address. The MCP tools return this link as an absolute URL; before, the link they returned opened the home page.
 - **App registration is bounded.** OAuth client registration needs no sign-in, so it now allows 30 registrations an hour (HTTP 429 with Retry-After beyond that) and forgets registrations that never led to a connection after a day.
-- **Phone home page.** A long project name no longer makes the home page wider than a phone screen.
+- **Phone home page.** Long project names wrap in the project list.
 - **Motion kit.**
   - R.captions: step captions that replace each other in one place.
   - hide() and show() on connectors and arrows, so a connector can leave with its node.
   - A size option on R.stat, and node sub text that follows the label size.
 - **Motion guide.** Sizing for small diagrams, minimum gaps for labelled arrows, how flow timing works, where chart and window coordinates anchor, how far the camera can zoom on a wide diagram, and a layout recipe for each shot. These came from two trials in which a model wrote a scene from the guide alone.
+- **Director planning.** The first run of the director with a real model failed at planning: the planner was asked for more detail than a plan could hold. Now:
+  - over-long plan text and lists are cut to size instead of refused, and the sizes are stated in the prompt;
+  - a refused plan gets a message naming each problem, and two repairs instead of one;
+  - films over 20 seconds are planned as several scenes of 8–20 seconds, each with its own shots;
+  - an unknown scene transition becomes a cut.
+- **3D globe.** The globe draws the continents in bright dots over faint oceans (a 2-degree land map from Natural Earth's public-domain outline), and routes follow the great circle instead of sinking under the surface on long hops. `land: false` keeps the plain dotted sphere.
+- **3D guide.** How big a unit is on screen, one view per shot, fading a view, what a pin returns, and where to aim the globe.
+- **Phone layout.** Long button labels shrink with an ellipsis instead of widening the page. This was the cause of ten failed phone-width checks on the 0.74.0 commit (the "Use notes as captions for this scene" button was 21 px too wide).
 - **Tests.** A failed browser test now prints what made the page wider than the screen.
