@@ -46,11 +46,15 @@ The owner's goal: the AI should produce sophisticated, motion-graphics explainer
   - the director's plan schema cuts over-long text and lists to size (`cut` in `prompts.ts`); the planner prompt states the sizes; `planFilm` allows two repairs with a readable message (`planProblem`);
   - the globe's land map is `src/motion/land-mask.ts` (how it was made is in its header);
   - a failed browser test prints what made the page wider than the viewport (`overflowReport` in `tests/e2e/fixtures.ts`).
+- 0.75 added:
+  - the workspace's two views in `Studio.tsx`: `editing` (from `mode`, or the browser preference `reelchemy.openInEditor`) switches between the overview and the editor. Everything stays mounted; `hidden` and the `.workspace-body.editing` styles do the rest. The body has a main column (preview, scenes, timeline) and a side column (tabs, the director panel, the tool panels). `/?project=<id>&open=<tool>` opens a tool;
+  - browser tests run in the editor by default (the `overviewFirst` option in `tests/e2e/fixtures.ts` is off); `workspace-modes.spec.ts` covers the overview. The director's conversation is the "Director" tab in the editor: `openTool(page, "Director")`;
+  - MCP links (`src/lib/mcp-links.ts`, `src/app/api/mcp/files/[token]/route.ts`, `src/mcp/media.ts`): one-time upload links and one-hour download links, random tokens stored as hashes. The route reaches the studio's own upload and download handlers through `internalRequest`. New tools: `upload_image`, `create_upload_link`, `get_download_link`, `list_exports`, `set_captions`, `rename_project`.
 - Known weak spots, in the order they matter:
   - scenes from the live runs are accurate, well paced and use the kit as intended (mockups with a cursor, sequence diagrams, checklists, a 3D globe, stat cards), but they are solid explainer quality rather than "high-end": sub-labels run small, some shots leave a third of the frame empty, charts look generic, and nothing yet has depth of field, light sweeps or camera moves through 3D space. The coverage gate measures the outline of the content, not the composition;
   - the review sees six small stills per scene, so a collision between sampled times can pass (one did: a callout over a checklist at 6 s of a 15 s scene);
   - no run has used a real provider with the owner's key: billing, rate limits and each provider's real response shape are covered by mocked tests only;
-  - the workspace is a reorganised single page, not an editor layout: the scene strip and the timeline repeat each other, and the editing tabs start below the fold on a laptop;
+  - in the editor the tools are still below the timeline, so a laptop screen shows the player, scenes and timeline first and the tools after a scroll (the tabs then stay in reach). A side inspector would need every tool panel reworked for a narrow column;
   - the two 0.74 reference scenes passed preflight but were not exported through the renderer.
 - Open ideas: transparent/alpha clip exports (ProRes 4444 or WebM), a whole-film critique pass, sound design (music bed and synced effects), richer cross-scene transitions, and more reference scenes for other genres.
 

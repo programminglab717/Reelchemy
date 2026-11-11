@@ -660,6 +660,11 @@ Fixes from a review of 0.74 before its first deployment.
 
 Assistants can bring images in and take finished videos out, and the workspace opens as a simple view with the editor one click away.
 
+- **Overview first.** A project opens with the player, its scenes, the AI director and the export button, and nothing else. **Edit video** opens the editor; **Done editing** returns to the overview. Work done in either stays.
+- **The editor.** A compact heading, the player beside the scene list, the timeline under them, then every tool as a tab: Director, Scene & layers, Design, Media & voice, Sound & captions, Export and Project. The tabs stay in reach while a long tool scrolls.
+- **Your choice of start.** "Always open projects in the editor" (Project tab) is remembered in the browser.
+- **Links into the editor.** `/?project=<id>&open=media` (or `editor`, `director`, `scene`, `design`, `captions`, `export`, `project`) opens a project at that tool. The MCP upload tool hands this link to people who add images by hand.
+- **Less decoration.** The small capital labels above the project name, the preview, the director and the storyboard are gone.
 - **MCP: images.** `upload_image` adds a small image from base64. `create_upload_link` gives a one-time link (15 minutes) that an assistant with a shell sends a file to (`curl -T logo.png <link>`), up to 25 MB. Both go through the studio's normal upload checks, storage limits and processing.
 - **MCP: finished videos.** `export_status` gives a `downloadUrl` when the MP4 is ready: it works without a sign-in for one hour, with range requests. `get_download_link` makes a new link; `list_exports` lists a project's exports.
 - **MCP: captions and names.** `set_captions` replaces the film's captions from a list of timed lines. `rename_project` renames a project.
