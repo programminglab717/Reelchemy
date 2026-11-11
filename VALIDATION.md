@@ -1547,3 +1547,49 @@ Goal from the owner: output on par with AI motion-graphics tools that write ever
   3. Only the flag permitting software WebGL remains.
   4. The plain-script bundle was first built on demand by esbuild inside the web server. In the production image the scene then still had no `window.THREE` ("R.three needs <libraries>three</libraries>"), although the studio job and local production builds served it. esbuild's Go runtime has crashed before under this project's container task limits (see the earlier privacy-service crash note), and spawning a compiler from the web process is fragile either way. The bundle is now generated ahead of time and committed, so serving only reads a file. A unit test regenerates it and compares bytes. Scene script tags now report a failed load by file name.
 - **Not verified:** a live run with a real model. Whether a given model writes good 3D scenes from these instructions is unmeasured.
+
+## Review before the first deployment of 0.74 — 0.74.1 (11 November 2026)
+
+Goal: confirm that 0.74 (explainer kit, quality gates, MCP server, workspace redesign) does what was asked before it is deployed, and fix what the review finds.
+
+**What the review found and fixed**
+
+- **`main` was red.** Hosted CI run 54 on `2dd8ad6` (0.74.0): the studio job passed; the production job finished **89 passed, 10 failed**. All ten were the same phone-width check (`scrollWidth <= innerWidth` at 390 px) in nine spec files.
+  - It did not reproduce outside the image (development mode, production mode, Debian Chromium 156, Liberation Sans forced through fontconfig).
+  - It did reproduce in CI's own production-check image built here from `2dd8ad6`: **10 failed, 6 passed** of the 16 tests in those nine files. The new overflow report named the cause each time: the button "Use notes as captions for this scene" was 311 px wide and ended at 411 px on a 390 px screen.
+  - Fix: long button labels shrink with an ellipsis (`.subtle`), and long project names wrap in the phone project list.
+- **The director failed on its first run with a real model** (see the live runs below): planning asked for more than a plan could hold.
+- **The MCP `studioUrl` opened the home page**, not the project. `/?project=<id>` now opens the project.
+- **OAuth client registration was unbounded** (it needs no sign-in). Now 30 an hour, and unused registrations are forgotten after a day.
+- **The 3D globe** was a uniform dot sphere and long routes sank under its surface.
+
+**Results**
+
+- **Complete production check in CI's image, built here** (`Dockerfile` target `test`, the same `docker run` limits as the workflow; the only difference is that apt uses HTTPS through this sandbox's proxy):
+  - on `5994188`: **100/100** in 48.8 minutes;
+  - on `986bca2` (after the director and globe changes): **100/100** in 48.8 minutes.
+  - Later commits add a developer script and documentation only.
+- **Production-mode browser suite outside the image** (Debian Chromium 156): **99/99** in 50.6 minutes, on the tree before the deep-link test was added.
+- **Complete backend/native suite** on the final tree: **625/627** in 1,000 seconds when run as root. The two failures are tests that only hold for a non-root user (an unwritable volume must fail readiness; a same-user child must not be readable through `/proc`); their two files pass **7/7** as a non-root user on a frozen copy of the same tree. Earlier full runs were made as that non-root user.
+- **OAuth connector flow over real HTTP** with the official MCP SDK client: discovery, dynamic registration, consent page (signed out: redirect to sign-in), code with PKCE, tokens, 13 tools listed, a project created.
+- **Hosted CI did not run on these commits**: the repository's Actions minutes for the month are used up. The in-image runs above stand in for it.
+
+**Live director runs (no provider key)**
+
+`scripts/director-standin.ts` runs the real director against a local HTTPS stand-in for the Messages API. A separate model session, shown only each request (system prompt, conversation, stills), wrote the answers.
+
+1. 30-second HTTPS explainer: **failed at planning.** The model returned one 30-second scene with 23 beats and a 2,300-character visual; the plan schema allowed 20 beats and 2,000 characters, the prompt stated neither, the repair message was cut-off JSON, and one repair was allowed. Fixed as listed in the changelog.
+2. Same brief after the fix: **finished in 462 seconds with 8 model calls.** Two 15-second scenes, each approved after two revisions. The checks and stills caught real problems: text overlaps from a class tween that stripped a node's classes, a zoom that slid a diagram under its headline, a half-empty shot, a label overflowing its pill. Result: a browser mockup with a cursor signing in, a TLS sequence diagram, a certificate chain with a checklist, an encrypted tunnel, a padlock with three stat cards.
+3. 20-second 3D launch teaser: **finished in 359 seconds with 4 model calls.** One scene, three shots (globe with routes and a live counter, an API call typing in a code window, four stat cards). It exposed the globe defects above.
+
+Each session also listed what it had to guess; those lists became guide text (scene transition values, lighting a node later, camera and headline layering, window and isometric sizes, 3D pixel sizes, a view per shot).
+
+**Honest assessment of the output**
+
+The films are accurate, paced, and use the kit as intended. They are solid explainer quality, not yet the "high-end" look asked for: small sub-labels, some shots with a third of the frame empty, generic charts, no depth of field or camera travel through 3D space. One collision (a callout over a checklist at 6 s) passed because the review samples six stills per scene.
+
+**Not verified**
+
+- A real provider with the owner's key: billing, rate limits and the provider's real responses are covered by mocked tests and the stand-in only.
+- The claude.ai and ChatGPT connector screens.
+- A deployment: nothing was installed on a server.
