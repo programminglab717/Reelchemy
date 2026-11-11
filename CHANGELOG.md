@@ -633,3 +633,17 @@ Higher-end motion design from the director, AI assistants working inside the stu
   - One editing tool is open at a time: Scene & layers, Design, Media & voice, Sound & captions, Export and Project.
   - Version history, recovery and Trash moved to Project. Storage and export records are folded away, and the studio-exports line is quiet when nothing renders.
   - A readable type scale replaces 7–11 px labels.
+
+## 0.74.1 — 2026-11-11
+
+Fixes from a review of 0.74 before its first deployment.
+
+- **Project links.** `/?project=<id>` opens that project in the studio and then leaves a clean address. The MCP tools return this link as an absolute URL; before, the link they returned opened the home page.
+- **App registration is bounded.** OAuth client registration needs no sign-in, so it now allows 30 registrations an hour (HTTP 429 with Retry-After beyond that) and forgets registrations that never led to a connection after a day.
+- **Phone home page.** A long project name no longer makes the home page wider than a phone screen.
+- **Motion kit.**
+  - R.captions: step captions that replace each other in one place.
+  - hide() and show() on connectors and arrows, so a connector can leave with its node.
+  - A size option on R.stat, and node sub text that follows the label size.
+- **Motion guide.** Sizing for small diagrams, minimum gaps for labelled arrows, how flow timing works, where chart and window coordinates anchor, how far the camera can zoom on a wide diagram, and a layout recipe for each shot. These came from two trials in which a model wrote a scene from the guide alone.
+- **Tests.** A failed browser test now prints what made the page wider than the screen.

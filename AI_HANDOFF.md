@@ -39,7 +39,17 @@ The owner's goal: the AI should produce sophisticated, motion-graphics explainer
   - references `cdn-globe.ts` and `deploy-walkthrough.ts` (both tested against the director's own problems in `tests/motion-kit.test.ts`);
   - the MCP server: `src/mcp/server.ts` (JSON-RPC, resources, prompt), `src/mcp/tools.ts` (tools call the studio's route handlers through `internalRequest` in `access.ts`), `src/app/api/mcp/route.ts` (token auth), `src/lib/mcp-tokens.ts`, token management at `/api/account/mcp-tokens` and `AssistantTokens.tsx`; `tests/mcp.test.ts`;
   - the workspace tabs (`EditorToolsNav.tsx` and the `tool-panel` regions in `Studio.tsx`); e2e tests open a tool with `openTool(page, name)` and the folded records with `openRecords(page)` from `tests/e2e/fixtures.ts`.
-- Open ideas: OAuth for claude.ai and ChatGPT connectors, transparent/alpha clip exports (ProRes 4444 or WebM), a whole-film critique pass, sound design (music bed and synced effects), richer cross-scene transitions, and more reference scenes for other genres.
+- 0.74.1 (review before the first deployment of 0.74):
+  - `/?project=<id>` deep links (`Studio.tsx`), which the MCP tools return as `studioUrl`; bounded OAuth client registration (`mcp-oauth.ts`); `R.captions`, `hide()`/`show()` on strokes and arrows, `size` on `R.stat`;
+  - OAuth for connectors exists since 0.74 (`src/lib/mcp-oauth.ts`, `src/app/api/oauth/*`, `src/app/oauth/authorize`, `/.well-known/*`). It was exercised over real HTTP with the official MCP SDK client; the real claude.ai and ChatGPT connector screens are untested;
+  - how to judge the writer's instructions: give a model only `motionGuide()`, the two example scenes and `scripts/motion-preview.ts`, ask for a scene on a topic, and read both the contact sheet and the model's list of things it had to guess. Two such trials shaped the 0.74.1 guide text;
+  - a failed browser test prints what made the page wider than the viewport (`overflowReport` in `tests/e2e/fixtures.ts`).
+- Known weak spots, in the order they matter:
+  - scenes written from the guide are accurate and well paced but not yet "high-end": sub-labels run small, diagram shots get crowded, and charts look generic. The coverage gate measures the outline of the content, not the composition;
+  - the workspace is a reorganised single page, not an editor layout: the scene strip and the timeline repeat each other, and the editing tabs start below the fold on a laptop;
+  - MCP cannot upload images or return a download link for a finished export;
+  - the two 0.74 reference scenes passed preflight but were not exported through the renderer.
+- Open ideas: transparent/alpha clip exports (ProRes 4444 or WebM), a whole-film critique pass, sound design (music bed and synced effects), richer cross-scene transitions, and more reference scenes for other genres.
 
 ## User instructions
 
