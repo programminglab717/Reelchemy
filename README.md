@@ -19,7 +19,13 @@ Connect in one of two ways:
 
 Then ask, for example: "Make a 30-second explainer about how DNS works in Reelchemy."
 
-Tools: `get_motion_guide`, `list_projects`, `create_project`, `get_project`, `get_scene`, `write_scene` (saves, then previews), `preview_scene` (saved or unsaved code), `add_scene`, `remove_scene`, `direct_film` and `director_status` (the built-in director, with your AI key), `export_video` and `export_status`. Resources: the motion guide and five reference scenes. Prompt: `make_explainer`.
+Tools: `get_motion_guide`, `list_projects`, `create_project`, `get_project`, `get_scene`, `write_scene` (saves, then previews), `preview_scene` (saved or unsaved code), `add_scene`, `remove_scene`, `direct_film` and `director_status` (the built-in director, with your AI key), `export_video`, `export_status`, `list_exports` and `get_download_link`, `upload_image` and `create_upload_link`, `set_captions`, `rename_project`. Resources: the motion guide and five reference scenes. Prompt: `make_explainer`.
+
+Images and finished videos move by link, because an assistant's shell has no studio session:
+
+- **Images in.** `upload_image` takes a small image as base64. `create_upload_link` gives a one-time link (15 minutes) that an assistant with a shell sends a file to, for example `curl -T logo.png "<uploadUrl>"`, for images up to 25 MB. Either way the image goes through the studio's normal upload checks and limits, and scenes use it by its ID. An assistant without a shell (a chat app) sends you to the project's media in the studio instead.
+- **Videos out.** When an export finishes, `export_status` includes a `downloadUrl` that works without a sign-in for one hour: the assistant can save the MP4 with `curl -L -o film.mp4 "<downloadUrl>"` or hand you the link. `get_download_link` makes a new one later.
+- Each link is a random token stored as a hash, tied to one project or one export, and gone with its studio. Anyone holding a live link can use it, so treat a download link like the video itself.
 
 The endpoint is stateless (every call is a POST with a JSON reply). Each call goes through the studio's own handlers for your studio: the same ownership, validation, revision checks and limits as the browser. Previews run one at a time per server and are limited per studio (`REELCHEMY_PREVIEWS_PER_HOUR`, default 120). Tokens open only the MCP endpoint, never the studio's other APIs, and token management needs a signed-in session. OAuth follows the MCP authorization spec: protected-resource and authorization-server metadata under `/.well-known/`, dynamic client registration (public clients, redirect URIs over HTTPS or loopback HTTP), PKCE S256 codes approved by the signed-in owner (single-use, five minutes), one-hour access tokens and rotating 30-day refresh tokens, all stored as hashes. The studio must be reachable over HTTPS at the address in `BETTER_AUTH_URL` for cloud apps to connect.
 

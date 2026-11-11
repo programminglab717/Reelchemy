@@ -121,6 +121,7 @@ import {
 import { StudioAiCredentialStore } from "./studio-ai-credentials";
 import { McpTokenStore } from "./mcp-tokens";
 import { McpOAuthStore } from "./mcp-oauth";
+import { McpLinkStore } from "./mcp-links";
 import { StudioAiEntitlementStore } from "./studio-ai-access";
 import {
   migrateAccountErasures,
@@ -230,6 +231,7 @@ export const providerUsage = new ProviderUsageStore(db);
 export const studioAiCredentials = new StudioAiCredentialStore(db);
 export const mcpTokens = new McpTokenStore(db);
 export const mcpOAuth = new McpOAuthStore(db);
+export const mcpLinks = new McpLinkStore(db);
 export const studioAiEntitlements = new StudioAiEntitlementStore(db);
 export const studioAiUsage = (workspaceId: string, access: ProviderAccess) =>
   providerUsageSummary(db, workspaceId).sources[access];

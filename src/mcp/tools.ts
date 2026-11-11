@@ -4,13 +4,14 @@ import sharp from "sharp";
 import { z } from "zod";
 import { internalRequest, type Access } from "@/lib/access";
 import { assetDir } from "@/lib/assets";
-import { takeRequestLimit } from "@/lib/db";
+import { mcpLinks, takeRequestLimit } from "@/lib/db";
 import { revisionId } from "@/lib/editor";
 import { limitsPolicy, RequestRateError } from "@/lib/limits-policy";
 import {
   MAX_CODE_SCENE_FRAMES,
   motionCodeSchema,
   type Project,
+  type RenderJob,
   type Scene,
   type Timeline,
 } from "@/lib/schema";
@@ -29,6 +30,8 @@ import * as projectRoute from "@/app/api/projects/[id]/route";
 import * as directRoute from "@/app/api/projects/[id]/direct/route";
 import * as renderRoute from "@/app/api/projects/[id]/render/route";
 import * as jobRoute from "@/app/api/jobs/[id]/route";
+import * as nameRoute from "@/app/api/projects/[id]/name/route";
+import { addProjectImage, MediaRefused } from "./media";
 
 // Tools an assistant uses to make videos in the studio. Each one goes
 // through the studio's own API handlers for the token's studio (ownership,
@@ -232,6 +235,29 @@ async function preview(
   };
 }
 
+// A link that downloads one finished export without a sign-in, for an hour.
+function downloadLink(ctx: McpContext, jobId: string) {
+  const link = mcpLinks.issue({
+    kind: "download",
+    workspaceId: ctx.access.workspace.id,
+    userId: ctx.access.user.id,
+    target: jobId,
+  });
+  return {
+    downloadUrl: `${ctx.origin}/api/mcp/files/${link.token}`,
+    downloadExpiresInSeconds: link.expiresInSeconds,
+  };
+}
+const downloadable = (job: RenderJob) =>
+  job.status === "completed" && !job.files && !job.retired;
+const imageSource = z
+  .string()
+  .trim()
+  .min(3)
+  .max(500)
+  .describe(
+    'Where the image comes from and the right to use it, e.g. "Our company logo" or "Screenshot of our own app".',
+  );
 const formatSchema = z.enum(["landscape", "portrait", "square"]);
 const codeFields = {
   html: z.string().max(200000).describe("Scene HTML, placed inside #stage."),
@@ -601,7 +627,7 @@ export const tools = [
     name: "export_video",
     title: "Export the video",
     description:
-      "Starts rendering the project's current version to an MP4. Rendering takes minutes; check export_status. The owner downloads the file from the studio.",
+      "Starts rendering the project's current version to an MP4. Rendering takes minutes; check export_status, which gives a download link when the file is ready.",
     input: z.object({ project_id: z.string().uuid() }),
     run: async ({ project_id }, ctx) => {
       const project = await getProject(ctx, project_id);
@@ -640,11 +666,198 @@ export const tools = [
         progress: job.progress,
         queueAhead: job.queueAhead,
         error: job.error ?? undefined,
-        note:
-          job.status === "completed"
-            ? "The MP4 is ready: download it from the project's Export history in the studio."
-            : undefined,
+        ...(downloadable(job)
+          ? {
+              ...downloadLink(ctx, job.id),
+              note: "The MP4 is ready. downloadUrl works without a sign-in until it expires: fetch it to a file (curl -L -o film.mp4 <downloadUrl>) or give it to the owner. It is also in the project's Export history in the studio.",
+            }
+          : {}),
       };
+      return { content: [text(result)], structuredContent: result };
+    },
+  }),
+  tool({
+    name: "list_exports",
+    title: "List a project's exports",
+    description:
+      "The project's recent exports, newest first, with their status. Use get_download_link for a finished one.",
+    input: z.object({ project_id: z.string().uuid() }),
+    readOnly: true,
+    run: async ({ project_id }, ctx) => {
+      const jobs = (await call(
+        ctx,
+        renderRoute.GET as Route,
+        "GET",
+        `/api/projects/${project_id}/render`,
+        { params: { id: project_id } },
+      )) as RenderJob[];
+      const result = {
+        exports: jobs.map((job) => ({
+          jobId: job.id,
+          status: job.status,
+          createdAt: job.createdAt,
+          downloadable: downloadable(job),
+        })),
+      };
+      return { content: [text(result)], structuredContent: result };
+    },
+  }),
+  tool({
+    name: "get_download_link",
+    title: "Get a download link for an export",
+    description:
+      "A link that downloads a finished export's MP4 without a sign-in, valid for one hour. Fetch it to a file or give it to the owner.",
+    input: z.object({ job_id: z.string().uuid() }),
+    readOnly: true,
+    run: async ({ job_id }, ctx) => {
+      const job = (await call(
+        ctx,
+        jobRoute.GET as Route,
+        "GET",
+        `/api/jobs/${job_id}`,
+        { params: { id: job_id } },
+      )) as RenderJob;
+      if (!downloadable(job))
+        throw new ToolError(
+          job.status === "completed"
+            ? "This export's file is no longer stored. Export the project again."
+            : `This export is ${job.status}; a link exists once it is completed.`,
+        );
+      const result = { jobId: job.id, ...downloadLink(ctx, job.id) };
+      return { content: [text(result)], structuredContent: result };
+    },
+  }),
+  tool({
+    name: "upload_image",
+    title: "Add an image to a project",
+    description:
+      "Adds a small image (a logo, product shot or screenshot; PNG, JPEG or WebP, up to about 1 MB) to a project from base64 data. Scenes then use it by the returned ID (see the motion guide, project images). For a file on disk or a larger image use create_upload_link.",
+    input: z.object({
+      project_id: z.string().uuid(),
+      name: z.string().trim().min(1).max(100).describe("A file name."),
+      source: imageSource,
+      data_base64: z.string().min(16).max(1_400_000),
+    }),
+    run: async ({ project_id, name, source, data_base64 }, ctx) => {
+      if (!/^[A-Za-z0-9+/_-]+={0,2}$/.test(data_base64))
+        throw new ToolError("data_base64 is not base64.");
+      try {
+        const result = await addProjectImage(
+          ctx.access,
+          ctx.origin,
+          project_id,
+          {
+            name,
+            license: source,
+            bytes: Buffer.from(data_base64, "base64"),
+          },
+        );
+        return { content: [text(result)], structuredContent: result };
+      } catch (error) {
+        if (error instanceof MediaRefused) throw new ToolError(error.message);
+        throw error;
+      }
+    },
+  }),
+  tool({
+    name: "create_upload_link",
+    title: "Get a link to upload an image",
+    description:
+      "A one-time link that adds one image file (PNG, JPEG or WebP, up to 25 MB) to a project: send the file as the body of a PUT request, e.g. curl -T logo.png <uploadUrl>. The response gives the image's ID for use in scenes. Use this when you can run commands; otherwise send the owner to studioUrl to add images there.",
+    input: z.object({
+      project_id: z.string().uuid(),
+      name: z.string().trim().min(1).max(100).describe("A file name."),
+      source: imageSource,
+    }),
+    run: async ({ project_id, name, source }, ctx) => {
+      const project = await getProject(ctx, project_id);
+      const link = mcpLinks.issue({
+        kind: "upload",
+        workspaceId: ctx.access.workspace.id,
+        userId: ctx.access.user.id,
+        target: project.id,
+        meta: { name, license: source },
+      });
+      const uploadUrl = `${ctx.origin}/api/mcp/files/${link.token}`;
+      const result = {
+        uploadUrl,
+        method: "PUT",
+        expiresInSeconds: link.expiresInSeconds,
+        maxBytes: 25 * 1024 * 1024,
+        example: `curl -T "${name.replace(/["\\$`]/g, "_")}" "${uploadUrl}"`,
+        studioUrl: `${ctx.origin}/?project=${project.id}&open=media`,
+      };
+      return { content: [text(result)], structuredContent: result };
+    },
+  }),
+  tool({
+    name: "set_captions",
+    title: "Set the film's captions",
+    description:
+      "Replaces the film's captions (subtitles burned into the export and offered as a caption file). Each has a start and end in seconds from the film's start and up to 80 characters; they must not overlap. An empty list removes all captions.",
+    input: z.object({
+      project_id: z.string().uuid(),
+      captions: z
+        .array(
+          z.object({
+            start: z.number().min(0),
+            end: z.number().min(0),
+            text: z.string().trim().min(1).max(80),
+          }),
+        )
+        .max(400),
+    }),
+    run: async ({ project_id, captions }, ctx) => {
+      const project = await getProject(ctx, project_id);
+      if (!project.timeline) throw new ToolError("This project has no film.");
+      const frames = project.timeline.scenes.reduce(
+        (n, s) => n + s.durationFrames,
+        0,
+      );
+      const cues = [...captions]
+        .sort((a, b) => a.start - b.start)
+        .map((caption, index) => ({
+          id: `caption-${index + 1}`,
+          startFrame: Math.round(caption.start * 30),
+          endFrame: Math.min(frames, Math.round(caption.end * 30)),
+          text: caption.text,
+        }));
+      for (const [index, cue] of cues.entries()) {
+        if (cue.endFrame <= cue.startFrame)
+          throw new ToolError(
+            `Caption ${index + 1} ("${cue.text}") must end after it starts and start before the film ends (${(frames / 30).toFixed(1)} s).`,
+          );
+        if (index && cue.startFrame < cues[index - 1].endFrame)
+          throw new ToolError(
+            `Caption ${index + 1} ("${cue.text}") starts before the one before it ends.`,
+          );
+      }
+      const saved = await saveTimeline(ctx, project, {
+        ...project.timeline,
+        captions: cues,
+      });
+      const result = { ...summary(saved, ctx), captions: cues.length };
+      return { content: [text(result)], structuredContent: result };
+    },
+  }),
+  tool({
+    name: "rename_project",
+    title: "Rename a project",
+    description: "Gives a project a new name.",
+    input: z.object({
+      project_id: z.string().uuid(),
+      name: z.string().trim().min(1).max(100),
+    }),
+    run: async ({ project_id, name }, ctx) => {
+      const project = await getProject(ctx, project_id);
+      const renamed = (await call(
+        ctx,
+        nameRoute.PATCH as Route,
+        "PATCH",
+        `/api/projects/${project_id}/name`,
+        { params: { id: project_id }, body: { name, baseName: project.name } },
+      )) as Project;
+      const result = summary(renamed, ctx);
       return { content: [text(result)], structuredContent: result };
     },
   }),

@@ -51,7 +51,6 @@ The owner's goal: the AI should produce sophisticated, motion-graphics explainer
   - the review sees six small stills per scene, so a collision between sampled times can pass (one did: a callout over a checklist at 6 s of a 15 s scene);
   - no run has used a real provider with the owner's key: billing, rate limits and each provider's real response shape are covered by mocked tests only;
   - the workspace is a reorganised single page, not an editor layout: the scene strip and the timeline repeat each other, and the editing tabs start below the fold on a laptop;
-  - MCP cannot upload images or return a download link for a finished export;
   - the two 0.74 reference scenes passed preflight but were not exported through the renderer.
 - Open ideas: transparent/alpha clip exports (ProRes 4444 or WebM), a whole-film critique pass, sound design (music bed and synced effects), richer cross-scene transitions, and more reference scenes for other genres.
 

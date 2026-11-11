@@ -1,10 +1,12 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 import Database from "better-sqlite3";
+import sharp from "sharp";
+import { startMediaWorker } from "./helpers/media-worker";
 
 const root = await mkdtemp(path.join(tmpdir(), "reelchemy-mcp-"));
 process.env.REELCHEMY_DATA_DIR = path.join(root, "data");
@@ -17,6 +19,7 @@ const { getAuth } = await import("../src/lib/auth");
 const mcp = await import("../src/app/api/mcp/route");
 const tokens = await import("../src/app/api/account/mcp-tokens/route");
 const projects = await import("../src/app/api/projects/route");
+const files = await import("../src/app/api/mcp/files/[token]/route");
 after(() => rm(root, { recursive: true, force: true }));
 
 const origin = "http://127.0.0.1:3001";
@@ -307,6 +310,196 @@ test(
   },
 );
 
+test(
+  "an assistant adds images, captions and a name, and fetches a finished export by link",
+  { timeout: 180000 },
+  async () => {
+    const created = await call(token, "create_project", {
+      title: "Brand film",
+      format: "landscape",
+      seconds: 8,
+    });
+    const projectId = created.structuredContent!.projectId as string;
+    const png = await sharp({
+      create: { width: 96, height: 64, channels: 4, background: "#22d3ee" },
+    })
+      .png()
+      .toBuffer();
+    const worker = await startMediaWorker();
+    try {
+      // A small image inline.
+      const inline = await call(token, "upload_image", {
+        project_id: projectId,
+        name: "logo",
+        source: "Our own logo",
+        data_base64: png.toString("base64"),
+      });
+      assert(!inline.isError, JSON.stringify(inline.content));
+      assert.equal(inline.structuredContent!.status, "added");
+      const first = inline.structuredContent!.image as {
+        id: string;
+        name: string;
+        width: number;
+      };
+      assert.equal(first.name, "logo.png");
+      assert.equal(first.width, 96);
+      // Something that is not a picture is refused, as a tool error.
+      const text = await call(token, "upload_image", {
+        project_id: projectId,
+        name: "notes.png",
+        source: "Our own notes",
+        data_base64: Buffer.from("just some text, not an image").toString(
+          "base64",
+        ),
+      });
+      assert.equal(text.isError, true);
+      assert.match(text.content[0].text!, /PNG, JPEG or WebP/);
+      // A file from disk, through a one-time link.
+      const linked = await call(token, "create_upload_link", {
+        project_id: projectId,
+        name: "product shot.jpg",
+        source: "Photo of our own product",
+      });
+      assert(!linked.isError, JSON.stringify(linked.content));
+      const uploadUrl = linked.structuredContent!.uploadUrl as string;
+      assert.match(
+        uploadUrl,
+        /^http:\/\/127\.0\.0\.1:3001\/api\/mcp\/files\/rll_/,
+      );
+      const linkToken = uploadUrl.split("/").pop()!;
+      const jpeg = await sharp({
+        create: { width: 200, height: 100, channels: 3, background: "#f472b6" },
+      })
+        .jpeg()
+        .toBuffer();
+      const put = (body: Uint8Array) =>
+        files.PUT(
+          new Request(uploadUrl, {
+            method: "PUT",
+            body: new Blob([new Uint8Array(body)]),
+          }),
+          {
+            params: Promise.resolve({ token: linkToken }),
+          },
+        );
+      // A wrong file does not use the link up.
+      assert.equal((await put(Buffer.from("not an image"))).status, 415);
+      const sent = await put(jpeg);
+      assert.equal(sent.status, 201);
+      assert.equal(sent.headers.get("cache-control"), "no-store");
+      const second = (await sent.json()) as {
+        status: string;
+        image: { id: string; name: string; width: number };
+      };
+      assert.equal(second.image.name, "product shot.jpg");
+      assert.equal(second.image.width, 200);
+      // The link worked once; a download link is not an upload link.
+      assert.equal((await put(jpeg)).status, 404);
+      const project = await call(token, "get_project", {
+        project_id: projectId,
+      });
+      assert.deepEqual(
+        (project.structuredContent!.images as { id: string }[]).map(
+          (i) => i.id,
+        ),
+        [first.id, second.image.id],
+      );
+      // Another studio cannot make a link into this project.
+      const foreign = await call(strangerToken, "create_upload_link", {
+        project_id: projectId,
+        name: "x.png",
+        source: "Not mine",
+      });
+      assert.equal(foreign.isError, true);
+    } finally {
+      await worker.stop();
+    }
+    // Captions: sorted, placed in frames, refused when they overlap.
+    const captions = await call(token, "set_captions", {
+      project_id: projectId,
+      captions: [
+        { start: 4, end: 7.5, text: "Then it  locks." },
+        { start: 0.5, end: 3, text: "First, the handshake." },
+      ],
+    });
+    assert(!captions.isError, JSON.stringify(captions.content));
+    assert.equal(captions.structuredContent!.captions, 2);
+    const overlap = await call(token, "set_captions", {
+      project_id: projectId,
+      captions: [
+        { start: 0, end: 3, text: "One" },
+        { start: 2, end: 4, text: "Two" },
+      ],
+    });
+    assert.equal(overlap.isError, true);
+    assert.match(overlap.content[0].text!, /starts before/);
+    const renamed = await call(token, "rename_project", {
+      project_id: projectId,
+      name: "Launch film",
+    });
+    assert.equal(renamed.structuredContent!.name, "Launch film");
+    // An export that has finished comes with a link that needs no sign-in.
+    const exported = await call(token, "export_video", {
+      project_id: projectId,
+    });
+    const jobId = exported.structuredContent!.jobId as string;
+    const early = await call(token, "get_download_link", { job_id: jobId });
+    assert.equal(early.isError, true);
+    assert.match(early.content[0].text!, /queued/);
+    const studio = new Database(path.join(root, "data", "studio.sqlite"));
+    studio
+      .prepare(
+        "UPDATE jobs SET status='completed', data=json_set(data,'$.status','completed','$.progress',1) WHERE id=?",
+      )
+      .run(jobId);
+    studio.close();
+    const video = Buffer.from("not really a video, but exactly these bytes");
+    await mkdir(path.join(root, "artifacts", jobId), { recursive: true });
+    await writeFile(path.join(root, "artifacts", jobId, "video.mp4"), video);
+    const status = await call(token, "export_status", { job_id: jobId });
+    assert.equal(status.structuredContent!.status, "completed");
+    const downloadUrl = status.structuredContent!.downloadUrl as string;
+    assert.equal(status.structuredContent!.downloadExpiresInSeconds, 3600);
+    const downloadToken = downloadUrl.split("/").pop()!;
+    const get = (token: string, headers?: Record<string, string>) =>
+      files.GET(new Request(downloadUrl, { headers }), {
+        params: Promise.resolve({ token }),
+      });
+    const file = await get(downloadToken);
+    assert.equal(file.status, 200);
+    assert.equal(file.headers.get("content-type"), "video/mp4");
+    assert.equal(file.headers.get("cache-control"), "no-store");
+    assert.deepEqual(Buffer.from(await file.arrayBuffer()), video);
+    // It can be fetched again and in ranges while it lasts.
+    const part = await get(downloadToken, { range: "bytes=0-2" });
+    assert.equal(part.status, 206);
+    assert.equal(await part.text(), "not");
+    // A wrong or altered token, or an upload link, downloads nothing.
+    assert.equal((await get(`${downloadToken.slice(0, -1)}x`)).status, 404);
+    assert.equal((await get("rll_short")).status, 404);
+    const listed = await call(token, "list_exports", { project_id: projectId });
+    assert.deepEqual(listed.structuredContent!.exports, [
+      {
+        jobId,
+        status: "completed",
+        createdAt: (
+          listed.structuredContent!.exports as { createdAt: string }[]
+        )[0].createdAt,
+        downloadable: true,
+      },
+    ]);
+    // Another studio cannot get a link for this export.
+    const foreign = await call(strangerToken, "get_download_link", {
+      job_id: jobId,
+    });
+    assert.equal(foreign.isError, true);
+    // Links stop working when their time is up.
+    const store = new Database(path.join(root, "data", "studio.sqlite"));
+    store.prepare("UPDATE mcp_links SET expires_at=?").run(Date.now() - 1000);
+    store.close();
+    assert.equal((await get(downloadToken)).status, 404);
+  },
+);
 test("apps connect by OAuth: discovery, registration, PKCE consent, tokens and refresh", async () => {
   const metadata =
     await import("../src/app/.well-known/oauth-protected-resource/route");

@@ -26,7 +26,7 @@ type JsonRpcResponse =
       error: { code: number; message: string; data?: unknown };
     };
 
-const INSTRUCTIONS = `Reelchemy is a motion-graphics video studio: films are made of code scenes (HTML, CSS and GSAP JavaScript with Reelchemy's motion kit) rendered frame by frame to MP4. Start with get_motion_guide, plan the film, then create_project and write_scene for each scene; read every preview's stills and automatic checks and revise until they pass; finish with export_video.`;
+const INSTRUCTIONS = `Reelchemy is a motion-graphics video studio: films are made of code scenes (HTML, CSS and GSAP JavaScript with Reelchemy's motion kit) rendered frame by frame to MP4. Start with get_motion_guide, plan the film, then create_project and write_scene for each scene; read every preview's stills and automatic checks and revise until they pass; finish with export_video, then export_status until it gives a downloadUrl (save the MP4 with it or pass it on). To use the owner's images (logos, screenshots), add them with create_upload_link (a file you can send with a command) or upload_image (small, base64), and use the returned IDs in scenes. set_captions adds subtitles.`;
 
 const resources = [
   {

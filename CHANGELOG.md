@@ -655,3 +655,12 @@ Fixes from a review of 0.74 before its first deployment.
 - **3D guide.** How big a unit is on screen, one view per shot, fading a view, what a pin returns, and where to aim the globe.
 - **Phone layout.** Long button labels shrink with an ellipsis instead of widening the page. This was the cause of ten failed phone-width checks on the 0.74.0 commit (the "Use notes as captions for this scene" button was 21 px too wide).
 - **Tests.** A failed browser test now prints what made the page wider than the screen.
+
+## 0.75.0 — 2026-11-11
+
+Assistants can bring images in and take finished videos out, and the workspace opens as a simple view with the editor one click away.
+
+- **MCP: images.** `upload_image` adds a small image from base64. `create_upload_link` gives a one-time link (15 minutes) that an assistant with a shell sends a file to (`curl -T logo.png <link>`), up to 25 MB. Both go through the studio's normal upload checks, storage limits and processing.
+- **MCP: finished videos.** `export_status` gives a `downloadUrl` when the MP4 is ready: it works without a sign-in for one hour, with range requests. `get_download_link` makes a new link; `list_exports` lists a project's exports.
+- **MCP: captions and names.** `set_captions` replaces the film's captions from a list of timed lines. `rename_project` renames a project.
+- **Links.** Upload and download links are random tokens stored as hashes, each tied to one project or one export, limited to 60 live links per studio, and removed with the studio. An upload link works once; a file of the wrong type does not use it up.
