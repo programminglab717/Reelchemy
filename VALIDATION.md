@@ -1595,3 +1595,24 @@ The films are accurate, paced, and use the kit as intended. They are solid expla
 - A real provider with the owner's key: billing, rate limits and the provider's real responses are covered by mocked tests and the stand-in only.
 - The claude.ai and ChatGPT connector screens.
 - A deployment: nothing was installed on a server.
+
+## Overview and editor views, images and exports over MCP — 0.75 (11–12 November 2026)
+
+Goal from the owner: the editor should not be on screen until it is asked for, yet be complete once opened; and assistants must be able to bring images in and take finished videos out.
+
+**Results**
+
+- **Complete production check in CI's image, built here** on `5af0ffd` (the workspace change and the MCP links): **102/102** in 47.3 minutes. The three new tests cover the overview, the editor, the remembered choice, phone width in both views, and a link that opens a tool.
+- After that run the phone header's two buttons were given back their full labels (the 0.74.1 ellipsis rule cut them to "Acco…" and "Sign …"). Every spec file that sets a phone width was run again in the image on that commit: **63/63** in 35.1 minutes (30 files, commit `ebaeea6`).
+- **MCP tests:** 6/6. The new test adds an image inline and by one-time link (a wrong file type does not use the link up; a second use is refused), sets captions, renames, and downloads a finished export by link, whole and by range; it checks that a changed token, an expired link and another studio's token get nothing.
+- **Complete backend/native suite** on the final tree as a non-root user: **628/628** in 973 seconds (commit `ebaeea6`).
+- Hosted CI did not run (no Actions minutes this month).
+
+**Looked at, not only tested**
+
+Screenshots at 1366 × 768 and 390 × 844 of both views. The overview shows the name, the save state, Edit video, the export button, the player, the scenes and the director. The editor's first screen shows the compact heading, history and saving, the player beside the scene list and the start of the timeline; the tools follow after a scroll, with their tabs staying in reach.
+
+**Not verified**
+
+- The new MCP tools with the real claude.ai or ChatGPT apps, or with a real shell command against a deployed studio (the tests call the route handlers directly).
+- A real provider key, and a deployment, as before.
