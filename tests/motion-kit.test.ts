@@ -387,3 +387,27 @@ test(
     assert.deepEqual(result.layout, []);
   },
 );
+
+test(
+  "a light sweep crosses a card without moving it or raising an error",
+  { timeout: 120000 },
+  async () => {
+    const result = await previewMotionScene({
+      code: {
+        html: '<div class="card">Deployed</div>',
+        css: "#stage{background:#070b18;color:#e2e8f0}.card{position:absolute;left:260px;top:300px;width:620px;padding:44px;border-radius:28px;background:#111b33;font:600 56px var(--r-display)}",
+        js: `const card = document.querySelector(".card"), before = R.box(card);
+gsap.timeline().add(R.shine(card, { duration: 1 }), 0.5);
+const after = R.box(card);
+if (before.x !== after.x || before.w !== after.w) throw new Error("The card moved.");
+if (!card.querySelector(".r-shine i")) throw new Error("No sweep.");`,
+      },
+      format: "landscape",
+      durationSeconds: 2,
+      times: [0.4, 1, 1.6],
+    });
+    assert.deepEqual(result.errors, []);
+    // The band is on the card in the middle frame only.
+    assert(result.frames[1].change! > 0.3);
+  },
+);

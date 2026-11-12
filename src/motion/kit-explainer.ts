@@ -36,6 +36,7 @@ export const KIT_EXPLAINER_SOURCE = String.raw`
     ".r-cursor{position:absolute;width:44px;height:44px;z-index:200;pointer-events:none;filter:drop-shadow(0 6px 10px rgba(0,0,0,.45))}",
     ".r-ripple{position:absolute;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;border:3px solid var(--r-accent);z-index:199;pointer-events:none}",
     ".r-chart{position:absolute}.r-chart svg{position:absolute;left:0;top:0;overflow:visible}",
+    ".r-shine{position:absolute;inset:0;overflow:hidden;pointer-events:none;border-radius:inherit;z-index:3}.r-shine i{position:absolute;top:-60%;left:0;height:220%;mix-blend-mode:screen}",
     ".r-chart-label{position:absolute;font:500 22px var(--r-body);color:var(--r-muted);white-space:nowrap;transform:translateX(-50%)}",
     ".r-chart-value{position:absolute;padding:6px 14px;border-radius:10px;background:var(--r-accent);color:var(--r-bg);font:700 26px var(--r-mono);white-space:nowrap;transform:translate(-50%,-140%)}",
     ".r-stat{position:absolute;display:flex;flex-direction:column;gap:6px;padding:28px 34px;border-radius:24px;background:color-mix(in srgb,var(--r-surface) 90%,transparent);border:2px solid color-mix(in srgb,var(--r-accent) 45%,transparent);box-shadow:0 24px 70px rgba(0,0,0,.4)}",
@@ -520,6 +521,21 @@ export const KIT_EXPLAINER_SOURCE = String.raw`
     const node = resolve(target, "R.drift");
     gsap.set(node, { transformOrigin: o.origin || "50% 50%" });
     return gsap.fromTo(node, { scale: 1, x: 0, y: 0, rotation: 0 }, { scale: o.scale, x: o.x, y: o.y, rotation: o.rotate, duration: Math.max(0.5, o.duration), ease: o.ease });
+  }
+  // A band of light sweeping once across a card, button, stat or panel:
+  // tl.add(R.shine(".card"), 2)
+  function shine(target, options) {
+    const o = Object.assign({ duration: 0.9, color: "rgba(255,255,255,.4)", angle: 18, width: 0.3, ease: "power2.inOut" }, options || {});
+    const node = resolve(target, "R.shine");
+    if (getComputedStyle(node).position === "static") node.style.position = "relative";
+    const mask = document.createElement("span");
+    mask.className = "r-shine";
+    const band = document.createElement("i");
+    const w = Math.max(40, node.offsetWidth * o.width);
+    css(band, { width: w, background: "linear-gradient(90deg, transparent, " + o.color + ", transparent)", transform: "skewX(" + -o.angle + "deg)" });
+    mask.appendChild(band);
+    node.appendChild(mask);
+    return gsap.fromTo(band, { x: -w * 1.6 }, { x: node.offsetWidth + w * 0.6, duration: o.duration, ease: o.ease });
   }
   // An attention punch: scale up and settle, with an optional glow.
   function pulse(target, options) {

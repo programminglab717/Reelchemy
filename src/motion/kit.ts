@@ -1099,7 +1099,7 @@ ${KIT_EXPLAINER_SOURCE}
     connect, line, ring, flow, code, highlight, count, bars, focus, grid, glow, particles,
     asset, image, assetIds: (config.assets || []).slice(), finish,
     three,
-    shots, arrow, callout, mark, steps, window: uiWindow, cursor, chart, stat, iso, headline, swap, captions, drift, pulse,
+    shots, arrow, callout, mark, steps, window: uiWindow, cursor, chart, stat, iso, headline, swap, captions, drift, pulse, shine,
   };
   if (window.gsap) {
     gsap.registerPlugin(...${JSON.stringify(gsapPlugins)}.map((name) => window[name]).filter(Boolean));

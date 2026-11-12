@@ -174,6 +174,7 @@ Explainer building blocks (all return elements or tweens/timelines you place on 
 - tl.add(R.swap(target, ["faster", "cheaper", "safer"], {every: 1.2}), t) — words replacing each other in place.
 - tl.add(R.captions(target, [[0, "1 · Start one new pod"], [2.5, "2 · Wait until it is Ready"]]), t) — lines of text that replace each other in one place, each at its own time (seconds from t), crossfading: use it for step captions. The target is your own element: position it and give it its font size and colour. Never run several text tweens on one element at nearby times (the text garbles). To change a text at one moment use tl.set(el, {text: "Ready"}, t).
 - tl.add(R.drift(".s1", {scale: 1.05, x, y}), shotStart) — a slow continuous camera push on a shot or outer container (put R.focus moves on an inner container, drift on its parent). It adds life but is not a visual event for the pace check.
+- tl.add(R.shine(target, {duration: 0.9, color: "rgba(255,255,255,.4)"}), t) — a band of light sweeping once across a card, stat, button, window or logo plate (a premium accent for the moment something lands or is named; use it sparingly, on boxes rather than bare text).
 - tl.add(R.pulse(target, {scale: 1.1, glow: "rgba(56,189,248,.6)"}), t) — an attention punch (glow is a box shadow: use it on cards, nodes and chips, not on groups, icons or text).
 - R.el(tag, {parent, className, text, style: {left, top, …}}) with left/top is absolutely positioned.
 Every function that returns a tween or timeline is meant to be placed on your master timeline with tl.add(..., time).
@@ -338,7 +339,11 @@ export function reviewUser(input: {
     input.problems.length
       ? `Automatic checks found:\n${input.problems.map((p) => `- ${p}`).join("\n")}\n\n`
       : "Automatic checks found no errors.\n\n"
-  }Review the scene critically against the brief and the design standards${input.withImages ? " using the stills" : ""}, as the art director of a top motion studio: errors; empty, frozen or unfinished moments; a frame that is not filled; clipped or overlapping text; weak hierarchy or composition; too much text; too little motion, pace or meaning; anything that looks like a slide instead of motion design. Fix every automatic finding. If it already meets the standard, reply with exactly <approved/>. Otherwise reply with the complete corrected scene in the same <scene> format.`;
+  }Review the scene critically against the brief and the design standards${input.withImages ? " using the stills" : ""}, as the art director of a top motion studio: errors; empty, frozen or unfinished moments; a frame that is not filled; clipped or overlapping text; weak hierarchy or composition; too much text; too little motion, pace or meaning; anything that looks like a slide instead of motion design. Fix every automatic finding.${
+    input.withImages
+      ? " Then judge each still on its own, and revise if any of these is true: about a third or more of the frame is empty once the shot is under way (enlarge the main visual, or add a supporting element that carries meaning: a stat, a callout, a second view); a label or sub-label is hard to read at this size (raise it; nothing under 26px); something is cut off by the frame or by another element; the still could be a slide, with nothing that implies motion or depth (add a camera move, a travelling packet, a drawn arrow, a light sweep); two stills in a row look the same. A still taken during a shot change may be mid-transition; that is not a fault."
+      : ""
+  } If it already meets the standard, reply with exactly <approved/>. Otherwise reply with the complete corrected scene in the same <scene> format.`;
 }
 
 // ---------------------------------------------------------------- parsing
