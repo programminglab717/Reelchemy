@@ -1657,8 +1657,8 @@ Goal: put the editor's tools beside the film instead of under the timeline, and 
 
 **Results**
 
-- **Complete production check in CI's image, built here** (default 1280 px window): run pending when this was written.
-- **Complete backend/native suite** as a non-root user: run pending when this was written.
+- **Complete production check in CI's image, built here** (default 1280 px window), on `40143fe`: **103/103** in 46.5 minutes.
+- **Complete backend/native suite** as a non-root user, on `40143fe`: **632/632** in 967 seconds.
 
 **Not verified**
 
