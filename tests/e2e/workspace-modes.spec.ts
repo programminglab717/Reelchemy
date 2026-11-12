@@ -142,3 +142,81 @@ test("a link can open a project straight at one of the editor's tools", async ({
   ).toHaveAttribute("aria-selected", "true");
   await expect(page).toHaveURL(/\/$/);
 });
+test("on a wide screen the editor's tools are an inspector beside the film", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120000);
+  const created = await request.post("/api/projects", {
+    data: {
+      prompt: "Inspector layout",
+      duration: 10,
+      format: "landscape",
+      blank: true,
+    },
+  });
+  expect(created.ok()).toBeTruthy();
+  const { id } = await created.json();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`/?project=${id}&open=scene`);
+  const tabs = page.getByRole("tablist", { name: "Editing tools" });
+  await expect(tabs).toBeVisible();
+  const side = page.locator(".workspace-side");
+  const box = async (selector: string) =>
+    (await page.locator(selector).boundingBox())!;
+  // The tools stand to the right of the player and the timeline, on the
+  // first screen, and the sidebar has made room for them.
+  const timeline = await box(".workspace-timeline");
+  const inspector = await box(".workspace-side");
+  expect(inspector.x).toBeGreaterThanOrEqual(timeline.x + timeline.width);
+  expect(inspector.y).toBeLessThan(400);
+  expect(timeline.y).toBeLessThan(900);
+  await expect(page.locator(".sidebar")).toBeHidden();
+  const shots = process.env.UI_SHOTS;
+  for (const name of [
+    "Director",
+    "Scene & layers",
+    "Design",
+    "Media & voice",
+    "Sound & captions",
+    "Export",
+    "Project",
+  ]) {
+    await tabs.getByRole("tab", { name, exact: true }).click();
+    await expect(tabs.getByRole("tab", { name, exact: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    // Nothing in a tool is wider than the inspector or the page.
+    expect(
+      await side.evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
+      `${name} fits the inspector`,
+    ).toBe(true);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    if (shots)
+      await page.screenshot({
+        path: `${shots}/inspector-${name.replace(/\W+/g, "-").toLowerCase()}.png`,
+      });
+  }
+  // The film stays in view while a long tool scrolls.
+  await tabs.getByRole("tab", { name: "Scene & layers", exact: true }).click();
+  await side.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+  await expect(page.locator(".preview-panel")).toBeInViewport();
+  // An edit made in the inspector reaches the film.
+  await page.getByLabel("Scene title", { exact: true }).fill("Inspector edit");
+  await expect(page.locator(".scene-card").first()).toContainText(
+    "Inspector edit",
+  );
+  // On a very wide screen the sidebar stays.
+  await page.setViewportSize({ width: 1760, height: 1000 });
+  await expect(page.locator(".sidebar")).toBeVisible();
+  // Below the inspector's width the tools go back under the timeline.
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const stacked = await box(".workspace-side");
+  const below = await box(".workspace-timeline");
+  expect(stacked.y).toBeGreaterThan(below.y + below.height - 1);
+});

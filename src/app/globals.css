@@ -1076,6 +1076,140 @@ main {
     font-size: 8px;
   }
 }
+/* The same rules when the panel sits in a narrow column (the editor's
+   inspector, the overview's side column) rather than on a narrow screen. */
+@container inspector (max-width: 700px) {
+  .sidebar {
+    width: 65px;
+    padding: 22px 12px;
+  }
+  .sidebar .wordmark {
+    font-size: 0;
+    gap: 0;
+  }
+  .brand-icon {
+    font-size: 31px;
+    flex-shrink: 0;
+  }
+  .beta,
+  .new-project span,
+  .new-project kbd,
+  .nav-label,
+  .nav-item span,
+  .recent-label,
+  .project-list,
+  .sidebar-bottom {
+    display: none;
+  }
+  .new-project {
+    padding: 10px;
+    justify-content: center;
+    font-size: 20px;
+    margin-top: 26px;
+  }
+  .nav-item {
+    padding: 12px;
+    justify-content: center;
+  }
+  main {
+    margin-left: 65px;
+  }
+  .topbar {
+    height: 65px;
+    padding: 0 20px;
+  }
+  .private {
+    display: none;
+  }
+  .home {
+    padding: 36px 21px;
+  }
+  .intro-label {
+    font-size: 7px;
+    letter-spacing: 1px;
+  }
+  .home h1 {
+    font-size: 36px;
+    letter-spacing: -1.6px;
+  }
+  .intro {
+    font-size: 12px;
+  }
+  .prompt-card {
+    padding: 18px 16px;
+  }
+  .prompt-card textarea {
+    height: 125px;
+    font-size: 13px;
+  }
+  .composer-footer {
+    flex-wrap: wrap;
+  }
+  .options {
+    gap: 6px;
+  }
+  .composer-footer .primary {
+    width: 100%;
+    margin-top: 8px;
+  }
+  .idea-grid {
+    grid-template-columns: 1fr;
+  }
+  .idea-card {
+    display: flex;
+  }
+  .idea-art {
+    width: 110px;
+    height: 105px;
+    flex-shrink: 0;
+  }
+  .idea-content {
+    flex: 1;
+    padding: 20px;
+  }
+  .section-heading {
+    margin-top: 30px;
+  }
+  .main-footer {
+    margin-left: 21px;
+    margin-right: 21px;
+  }
+  .project-workspace {
+    padding: 25px 18px;
+  }
+  .project-heading h1 {
+    font-size: 21px;
+  }
+  .project-heading {
+    align-items: start;
+  }
+  .storyboard {
+    grid-template-columns: 1fr;
+  }
+  .scene-card > div {
+    height: 120px;
+  }
+  .scene-editor {
+    padding: 15px;
+  }
+  .export-panel {
+    flex-direction: column;
+    align-items: start;
+  }
+  .completed-export {
+    flex-direction: column;
+    align-items: start;
+  }
+  .completed-export img {
+    width: 100%;
+  }
+  .error-banner {
+    margin: 18px;
+  }
+  .composer-note {
+    font-size: 8px;
+  }
+}
 .layer-editor {
   margin-top: 24px;
   background: white;
@@ -1490,6 +1624,16 @@ main.account-page {
     max-width: 100%;
   }
 }
+/* The same rules when the panel sits in a narrow column (the editor's
+   inspector, the overview's side column) rather than on a narrow screen. */
+@container inspector (max-width: 700px) {
+  .canvas-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .canvas-stack {
+    max-width: 100%;
+  }
+}
 
 .keyframe-controls {
   padding: 12px 8px;
@@ -1676,6 +1820,39 @@ main.account-page {
     white-space: nowrap;
   }
 }
+/* The same rules when the panel sits in a narrow column (the editor's
+   inspector, the overview's side column) rather than on a narrow screen. */
+@container inspector (max-width: 700px) {
+  .sidebar .project-search {
+    display: none;
+  }
+  .mobile-project-library {
+    display: block;
+    padding: 20px 0;
+  }
+  .mobile-project-library input {
+    width: 100%;
+    margin: 8px 0;
+  }
+  .mobile-project-library ul {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+  }
+  .mobile-project-library li,
+  .mobile-project-library li button {
+    width: 100%;
+    overflow-wrap: anywhere;
+  }
+  .mobile-sign-out {
+    display: block;
+    order: 2;
+    padding: 6px;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+}
 .typography-controls {
   padding: 12px 0;
 }
@@ -1791,6 +1968,14 @@ main.account-page {
   overflow-wrap: anywhere;
 }
 @media (max-width: 640px) {
+  .workspace-exports li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+/* The same rules when the panel sits in a narrow column (the editor's
+   inspector, the overview's side column) rather than on a narrow screen. */
+@container inspector (max-width: 700px) {
   .workspace-exports li {
     align-items: stretch;
     flex-direction: column;
@@ -1985,6 +2170,25 @@ main.account-page {
     text-overflow: ellipsis;
   }
 }
+/* The same rules when the panel sits in a narrow column (the editor's
+   inspector, the overview's side column) rather than on a narrow screen. */
+@container inspector (max-width: 700px) {
+  .mobile-account-identity {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 20px;
+    font-size: 11px;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .mobile-account-identity strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
 
 .version-history-restore {
   min-width: 0;
@@ -2096,6 +2300,23 @@ main.account-page {
   flex-shrink: 0;
 }
 @media (max-width: 760px) {
+  .version-history-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+    padding: 14px;
+  }
+  .version-history-entries {
+    max-height: 200px;
+  }
+  .version-history-header,
+  .version-history-footer {
+    flex-wrap: wrap;
+    padding: 14px;
+  }
+}
+/* The same rules when the panel sits in a narrow column (the editor's
+   inspector, the overview's side column) rather than on a narrow screen. */
+@container inspector (max-width: 700px) {
   .version-history-body {
     grid-template-columns: minmax(0, 1fr);
     gap: 18px;
@@ -2373,6 +2594,13 @@ main.account-page {
     grid-template-columns: 1fr;
   }
 }
+/* The same rules when the panel sits in a narrow column (the editor's
+   inspector, the overview's side column) rather than on a narrow screen. */
+@container inspector (max-width: 700px) {
+  .starter-grid {
+    grid-template-columns: 1fr;
+  }
+}
 
 .editor-shortcuts {
   position: sticky;
@@ -2429,6 +2657,21 @@ main.account-page {
     min-height: 44px;
   }
 }
+/* The same rules when the panel sits in a narrow column (the editor's
+   inspector, the overview's side column) rather than on a narrow screen. */
+@container inspector (max-width: 700px) {
+  .mobile-tool-picker {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+  }
+  .mobile-tool-picker select {
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+  }
+}
 /* Account-wide storage and records follow the creative work. */
 .studio-records {
   margin: 48px clamp(16px, 4vw, 48px) 0;
@@ -2447,6 +2690,38 @@ main.account-page {
   letter-spacing: 0.02em;
 }
 @media (max-width: 720px) {
+  .mobile-project-library .library-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .mobile-project-library h2 {
+    margin: 0;
+    font-size: 20px;
+  }
+  .mobile-project-library label {
+    display: grid;
+    gap: 6px;
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .mobile-project-library input {
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: #fff;
+    color: var(--ink);
+    font-size: 16px;
+  }
+  .mobile-project-library p {
+    color: var(--muted);
+  }
+}
+/* The same rules when the panel sits in a narrow column (the editor's
+   inspector, the overview's side column) rather than on a narrow screen. */
+@container inspector (max-width: 700px) {
   .mobile-project-library .library-heading {
     display: flex;
     align-items: center;
@@ -3108,6 +3383,19 @@ body {
     flex-basis: 170px;
   }
 }
+/* The same rules when the panel sits in a narrow column (the editor's
+   inspector, the overview's side column) rather than on a narrow screen. */
+@container inspector (max-width: 700px) {
+  .editor-shortcuts {
+    border-bottom: 0;
+  }
+  .editor-actions {
+    position: static;
+  }
+  .storyboard .scene-card {
+    flex-basis: 170px;
+  }
+}
 /* The selected scene's details, as a form. */
 #studio-tool-scene {
   display: grid;
@@ -3147,6 +3435,19 @@ body {
   justify-self: end;
 }
 @media (max-width: 800px) {
+  #studio-tool-scene {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  #studio-tool-scene > label:nth-of-type(2) {
+    grid-column: 1 / -1;
+  }
+  #studio-tool-scene > button:last-child {
+    grid-column: 2;
+  }
+}
+/* The same rules when the panel sits in a narrow column (the editor's
+   inspector, the overview's side column) rather than on a narrow screen. */
+@container inspector (max-width: 700px) {
   #studio-tool-scene {
     grid-template-columns: minmax(0, 1fr) auto;
   }
@@ -3312,6 +3613,13 @@ body {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+/* The same rules when the panel sits in a narrow column (the editor's
+   inspector, the overview's side column) rather than on a narrow screen. */
+@container inspector (max-width: 700px) {
+  .workspace-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 /* The editor is compact above the timeline: a one-line project heading and a
    player sized to the screen, so the timeline starts on the first screen. */
 .project-workspace.editing .project-heading {
@@ -3350,4 +3658,53 @@ body {
   flex: none;
   max-width: none;
   overflow: visible;
+}
+/* The side column is a container: its panels lay themselves out by its
+   width (see the @container inspector blocks above). */
+.workspace-side {
+  container: inspector / inline-size;
+}
+/* The inspector. On a wide enough screen the editor has two columns: the
+   player, scenes and timeline on the left; the tools on the right, scrolling
+   on their own so the film stays in view. */
+@media (min-width: 1360px) {
+  .workspace-body.editing {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(400px, 31vw, 520px);
+    gap: 22px;
+    align-items: start;
+  }
+  .workspace-body.editing .workspace-side {
+    position: sticky;
+    top: 78px;
+    max-height: calc(100vh - 94px);
+    overflow: hidden auto;
+    padding: 0 6px 24px 0;
+    scrollbar-width: thin;
+  }
+  .workspace-body.editing .workspace-side > div:first-child {
+    top: 0;
+  }
+  .workspace-body.editing .workspace-side .editor-tool-links {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+  .workspace-body.editing .workspace-side .editor-tool-links button {
+    min-height: 38px;
+    padding: 8px 11px;
+    font-size: 13px;
+  }
+}
+/* Between a laptop and a wide desktop the editor takes the sidebar's room;
+   Done editing or ← Studio brings the sidebar back. */
+@media (min-width: 1360px) and (max-width: 1699px) {
+  .shell:has(.workspace-body.editing) .sidebar {
+    display: none;
+  }
+  .shell:has(.workspace-body.editing) main {
+    margin-left: 0;
+  }
+}
+.workspace-side .editor-shortcuts {
+  margin-top: 0;
 }
