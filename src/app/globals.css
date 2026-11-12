@@ -3677,7 +3677,10 @@ body {
   .workspace-body.editing .workspace-side {
     position: sticky;
     top: 78px;
-    max-height: calc(100vh - 94px);
+    /* As tall as the room under the header and the editor bar, so all of it
+       is on screen before the page scrolls, and it then stays under the bar
+       (the film's column beside it is taller). */
+    max-height: max(380px, calc(100vh - 304px));
     overflow: hidden auto;
     padding: 0 6px 24px 0;
     scrollbar-width: thin;

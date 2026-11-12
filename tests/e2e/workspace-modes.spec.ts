@@ -177,6 +177,15 @@ test("on a wide screen the editor's tools are an inspector beside the film", asy
   await expect(
     page.getByRole("button", { name: "Sign out" }).first(),
   ).toBeVisible();
+  // All of the inspector is on screen before the page scrolls, and when the
+  // page does scroll the inspector stays below the editor bar.
+  expect(inspector.y + inspector.height).toBeLessThanOrEqual(900);
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  const bar = await box(".editor-actions");
+  expect((await box(".workspace-side")).y).toBeGreaterThanOrEqual(
+    bar.y + bar.height - 1,
+  );
+  await page.evaluate(() => window.scrollTo(0, 0));
   const shots = process.env.UI_SHOTS;
   for (const name of [
     "Director",
