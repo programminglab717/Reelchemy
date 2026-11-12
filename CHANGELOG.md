@@ -686,3 +686,14 @@ Sharper automatic checks and review, a light sweep, and faster 3D frames.
 - **Guide.** Window body sizes, where a callout is attached and how to float it above a window, how long a drift lasts, the steps list's anchor, parking and hiding the cursor, and the highlighter's colour.
 - **Stand-in tool.** `scripts/director-standin.ts` answers its response headers at once and keeps the connection alive, so an answer that takes more than five minutes no longer fails the run.
 - **Faster 3D.** A 3D view whose shot is hidden or faded out is no longer rendered: frames with a hidden view render 20–25% faster in the measured scene (60 full-size frames).
+
+## 0.77.0 — 2026-11-12
+
+An inspector layout for the editor, and camera flight and depth of field in 3D.
+
+- **Inspector.** From 1360 px wide, the editor has two columns: the player, scenes and timeline on the left; the tool tabs and the open tool on the right, scrolling on their own so the film stays in view. Below that width the tools stay under the timeline.
+- **Panels fit their column.** The side column is a CSS container, and the tool panels' narrow (phone) rules also apply when a panel sits in a narrow column. The overview's side column benefits too.
+- **Room for the editor.** Between 1360 and 1700 px the sidebar folds to its icon rail while the editor is open, and the account name, account settings and sign-out move to the header, as on a phone. Done editing or ← Studio unfolds it.
+- **Camera flight.** `view.fly([{camera, target, fov}, …], {duration})` moves the 3D camera through poses in one smooth curve.
+- **Depth of field.** `R.three({dof: {focus, aperture}})` blurs what is nearer or farther than the focus, and `view.focusOn(object)` pulls the focus to another object and follows it. It costs about 70% more render time on software rendering (60 full-size frames: 115 s against 66 s), so it is off unless asked for.
+- **Tests.** `E2E_VIEWPORT=1760x1000` runs the browser suite at another window size, to exercise the inspector.

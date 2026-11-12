@@ -23,7 +23,7 @@ export const hero3dScene: MotionCode = {
   js: `
 R.theme({ background: "#03050b", accents: ["#7dd3fc", "#c4b5fd"] });
 R.finish({ grain: 0.04, vignette: 0.45 });
-const view = R.three({ camera: [5.5, 1.4, 12], target: [1.4, 0.2, 0], bloom: { strength: 0.5 }, fog: { color: "#03050b", near: 12, far: 30 } });
+const view = R.three({ camera: [7.4, 2.6, 15.5], target: [1.4, 0.2, 0], bloom: { strength: 0.5 }, fog: { color: "#03050b", near: 12, far: 30 } });
 view.particles({ count: 600, spread: [30, 14, 24], color: "#93c5fd", size: 0.035, opacity: 0.6 });
 view.floor({ y: -2.2, color: "#04070f", grid: "#0f1a33" });
 
@@ -41,7 +41,8 @@ const follow = () => pins.forEach(([sel, p]) => { const at = view.screen(p); gsa
 gsap.ticker.add(follow);
 
 const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
-tl.fromTo(view.camera.position, { x: 7, z: 15, y: 2.4 }, { x: 5.5, z: 12, y: 1.4, duration: 9.5, ease: "power2.out" }, 0)
+// The camera travels in one curve: down and in, then settling beside the product.
+tl.add(view.fly([{ camera: [6.6, 1.2, 13] }, { camera: [5.5, 1.4, 12] }], { duration: 9.5, ease: "power2.out" }), 0)
   .from(product.position, { y: -5, duration: 1.6, ease: "expo.out" }, 0.1)
   .from(product.rotation, { y: -1.2, duration: 2.4, ease: "power3.out" }, 0.1)
   .to(product.rotation, { y: 0.35, duration: 7, ease: "sine.inOut" }, 2.5)
