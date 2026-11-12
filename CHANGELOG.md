@@ -669,3 +669,17 @@ Assistants can bring images in and take finished videos out, and the workspace o
 - **MCP: finished videos.** `export_status` gives a `downloadUrl` when the MP4 is ready: it works without a sign-in for one hour, with range requests. `get_download_link` makes a new link; `list_exports` lists a project's exports.
 - **MCP: captions and names.** `set_captions` replaces the film's captions from a list of timed lines. `rename_project` renames a project.
 - **Links.** Upload and download links are random tokens stored as hashes, each tied to one project or one export, limited to 60 live links per studio, and removed with the studio. An upload link works once; a file of the wrong type does not use it up.
+
+## 0.76.0 — 2026-11-12
+
+Sharper automatic checks and review, a light sweep, and faster 3D frames.
+
+- **Text cut through by a panel is caught.** A callout laid over a checklist passed review in a live run: the layout check only compared text boxes with each other, at the six still times. It now:
+  - samples every second as well as at the stills;
+  - reports text that is partly hidden behind another panel (fully hidden text is fine, and so is text behind a dimmed backdrop, as under a dialog);
+  - does not compare the two shots that are on screen during a shot change;
+  - treats content inside any moved camera (a zoomed diagram, a shot sliding out) as framed on purpose.
+- **Stricter review.** With stills, the director now judges each one against concrete faults: a third of the frame empty, a label too small to read, something cut off, a still that could be a slide, two stills alike.
+- **Light sweep.** `R.shine(target)` sends a band of light once across a card, stat, button or window.
+- **Tutorial reference.** Its dialog now dims the page behind it, as real interfaces do.
+- **Faster 3D.** A 3D view whose shot is hidden or faded out is no longer rendered: frames with a hidden view render 20–25% faster in the measured scene (60 full-size frames).
