@@ -29,6 +29,7 @@ export const deployWalkthroughScene: MotionCode = {
 .card b{font:600 28px var(--r-display);color:var(--r-text)}
 .card span{font:500 22px var(--r-mono);color:var(--r-muted)}
 .new{position:absolute;right:44px;top:30px;display:flex;align-items:center;gap:12px;padding:16px 28px;border-radius:14px;background:var(--r-accent);color:#04111d;font:700 26px var(--r-body)}
+.scrim{position:absolute;inset:0;background:rgba(3,7,18,.6)}
 .form{position:absolute;left:300px;top:170px;width:560px;padding:30px;border-radius:20px;background:#111b33;border:1.5px solid rgba(56,189,248,.4);box-shadow:0 30px 80px rgba(0,0,0,.5)}
 .form label{display:block;font:500 22px var(--r-body);color:var(--r-muted);margin-bottom:10px}
 .form .field{height:60px;border-radius:12px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.12);padding:0 18px;display:flex;align-items:center;font:500 26px var(--r-mono);color:var(--r-text);margin-bottom:24px}
@@ -47,7 +48,7 @@ const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
 const app = R.window({ parent: ".s1", kind: "app", title: "Cloud dashboard", x: 720, y: 640, w: 1200, h: 720 });
 app.body.innerHTML = '<div class="side"><div class="item on">' + R.icon("layout-grid", { size: 26 }) + 'Projects</div><div class="item">' + R.icon("globe", { size: 26 }) + 'Domains</div><div class="item">' + R.icon("chart-line", { size: 26 }) + 'Analytics</div><div class="item">' + R.icon("settings", { size: 26 }) + 'Settings</div></div>' +
   '<div class="main"><h3>Projects</h3><div class="new">' + R.icon("rocket", { size: 26, color: "#04111d" }) + 'New project</div><div class="cards"><div class="card"><b>marketing-site</b><span>Ready · 2 d ago</span></div><div class="card"><b>docs</b><span>Ready · 5 h ago</span></div><div class="card"><b>api-gateway</b><span>Ready · 1 w ago</span></div><div class="card"><b>status-page</b><span>Ready · 3 w ago</span></div></div></div>' +
-  '<div class="form"><label>Repository</label><div class="field repo"></div><label>Branch</label><div class="field branch">main</div><div class="go">Deploy</div></div>';
+  '<div class="scrim"></div><div class="form"><label>Repository</label><div class="field repo"></div><label>Branch</label><div class="field branch">main</div><div class="go">Deploy</div></div>';
 const steps = R.steps({ parent: ".s1", x: 1400, y: 330, items: [{ title: "New project", sub: "from the dashboard" }, { title: "Pick a repo", sub: "GitHub · main" }, { title: "Deploy", sub: "builds in the cloud" }] });
 const cursor = R.cursor({ parent: ".s1", x: 1250, y: 980 });
 const tipNew = R.callout(".s1 .new", { title: "Step 1", text: "Start a new project", side: "left", distance: 50 });
@@ -55,13 +56,14 @@ tl.from(".s1 .eyebrow", { opacity: 0, x: -30, duration: 0.5 }, 0.1)
   .add(R.headline(".s1 .title", { by: "words", style: "rise" }), 0.15)
   .add(app.open(), 0.4)
   .from(".s1 .card", { opacity: 0, y: 30, duration: 0.5, stagger: 0.08 }, 0.9)
-  .set(".s1 .form", { autoAlpha: 0 }, 0)
+  .set(".s1 .form, .s1 .scrim", { autoAlpha: 0 }, 0)
   .add(steps.reveal(), 1.0)
   .add(steps.activate(0), 1.6)
   .add(tipNew.show(), 1.7)
   .add(cursor.moveTo(".s1 .new", { duration: 1 }), 1.9)
   .add(cursor.click(), 2.95)
   .add(tipNew.hide(), 3.1)
+  .to(".s1 .scrim", { autoAlpha: 1, duration: 0.4 }, 3.1)
   .fromTo(".s1 .form", { autoAlpha: 0, y: 30, scale: 0.96 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.5 }, 3.15)
   .add(steps.activate(1), 3.3)
   .to(".s1 .repo", { duration: 0.9, text: { value: "acme/storefront" }, ease: "none" }, 3.5)

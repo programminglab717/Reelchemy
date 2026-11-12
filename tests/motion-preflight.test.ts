@@ -73,3 +73,37 @@ test(
     assert(result.frames.slice(1).every((f) => f.detail > 5));
   },
 );
+
+test(
+  "text cut through by another panel is reported; hidden or veiled text is not",
+  { timeout: 120000 },
+  async () => {
+    const result = await previewMotionScene({
+      code: {
+        html: `<div class="row" id="cut">Signed by a trusted authority</div><div class="card" id="over">Callout</div>
+<div class="row" id="gone">Fully covered line</div><div class="card" id="lid">Lid</div>
+<div class="row" id="page">A line on the page behind</div><div id="veil"></div><div class="card" id="dialog">Dialog</div>
+<div class="shot r-shot" id="s1"><div class="row" id="old">Outgoing shot text</div></div>
+<div class="shot r-shot" id="s2"><div class="card" id="new">New</div></div>`,
+        css: `#stage{background:#0b1020;color:#fff}
+.row{position:absolute;left:200px;font-size:36px;white-space:nowrap}
+.card{position:absolute;background:#1e293b;font-size:30px;padding:20px}
+#cut{top:200px}#over{left:130px;top:180px;width:260px;height:60px}
+#gone{top:400px}#lid{left:150px;top:380px;width:900px;height:70px}
+#page{top:600px}#veil{position:absolute;left:0;top:540px;width:1920px;height:200px;background:rgba(0,0,0,.5)}#dialog{left:130px;top:580px;width:260px;height:60px}
+.shot{position:absolute;left:0;top:780px;width:1920px;height:200px}#old{top:70px}#new{left:130px;top:50px;width:260px;height:60px}`,
+        js: "1;",
+      },
+      format: "landscape",
+      durationSeconds: 2,
+      times: [1],
+      auditAt: [1],
+    });
+    const layout = result.layout.join("\n");
+    assert.match(layout, /#cut .* is partly hidden behind #over/);
+    assert.doesNotMatch(layout, /#gone/);
+    assert.doesNotMatch(layout, /#page/);
+    // Two shots on screen during a change are not compared.
+    assert.doesNotMatch(layout, /#old/);
+  },
+);

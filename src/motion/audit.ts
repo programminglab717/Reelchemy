@@ -38,10 +38,11 @@ export const LAYOUT_AUDIT_SOURCE = String.raw`(() => {
   // Content inside a camera container (R.focus) that is zoomed or moved is
   // cropped on purpose; edge checks skip it.
   const framed = (el) => {
-    const camera = el.closest("[data-r-camera]");
-    if (!camera) return false;
-    const t = getComputedStyle(camera).transform;
-    return !!t && t !== "none" && t !== "matrix(1, 0, 0, 1, 0, 0)";
+    for (let camera = el.closest("[data-r-camera]"); camera; camera = camera.parentElement && camera.parentElement.closest("[data-r-camera]")) {
+      const t = getComputedStyle(camera).transform;
+      if (t && t !== "none" && t !== "matrix(1, 0, 0, 1, 0, 0)") return true;
+    }
+    return false;
   };
   const margin = 24;
   const reported = [];
@@ -62,10 +63,14 @@ export const LAYOUT_AUDIT_SOURCE = String.raw`(() => {
         notes.push("Text " + label(el) + " sits inside the edge safe margin (keep text 64px from the edges).");
   }
   // One text lies under an opaque panel holding the other (a modal over
-  // cards, a callout card over a diagram): hidden, not a clash.
+  // cards, a callout card over a diagram): not a text-on-text clash.
   const opaque = (el) => {
     const c = getComputedStyle(el).backgroundColor.match(/[\d.]+/g);
     return !!c && (c.length < 4 || Number(c[3]) > 0.85);
+  };
+  const tinted = (el) => {
+    const c = getComputedStyle(el).backgroundColor.match(/[\d.]+/g);
+    return !!c && (c.length < 4 || Number(c[3]) > 0.05);
   };
   const covered = (a, b, p, q) => {
     const x = (Math.max(p.x, q.x) + Math.min(p.x + p.w, q.x + q.w)) / 2;
@@ -79,6 +84,9 @@ export const LAYOUT_AUDIT_SOURCE = String.raw`(() => {
       if (opaque(node)) return true;
     return false;
   };
+  // During a shot change two shots are on screen at once; their texts are
+  // not compared with each other.
+  const shot = (el) => el.closest(".r-shot");
   // Overlapping text boxes (not nested).
   for (let i = 0; i < texts.length; i++)
     for (let j = i + 1; j < texts.length; j++) {
@@ -87,9 +95,41 @@ export const LAYOUT_AUDIT_SOURCE = String.raw`(() => {
       const p = local(a), q = local(b);
       const ix = Math.max(0, Math.min(p.x + p.w, q.x + q.w) - Math.max(p.x, q.x));
       const iy = Math.max(0, Math.min(p.y + p.h, q.y + q.h) - Math.max(p.y, q.y));
-      if (ix * iy > 0.25 * Math.min(p.w * p.h, q.w * q.h) && !covered(a, b, p, q))
+      if (shot(a) !== shot(b) && shot(a) && shot(b)) continue;
+      if (ix * iy <= 0.25 * Math.min(p.w * p.h, q.w * q.h)) continue;
+      // Under a panel the pair is not a text-on-text clash; text the panel
+      // cuts through is reported by the next check.
+      if (!covered(a, b, p, q))
         notes.push("Text " + label(a) + " overlaps text " + label(b) + ".");
     }
+  // Text cut through by a panel that is not its own (a callout card laid
+  // over a list): part of it shows on top and part is hidden. Sampled at
+  // three points along its middle. Text that is fully hidden, or that lies
+  // behind a veil (a dialog's dimmed backdrop), is not a problem.
+  for (const el of texts) {
+    const r = local(el);
+    if (r.w < 40) continue;
+    let hidden = 0, own = 0, by = null;
+    for (const f of [0.12, 0.5, 0.88]) {
+      const x = r.x + r.w * f, y = r.y + r.h / 2;
+      if (x < 0 || y < 0 || x > W || y > H) continue;
+      const top = document.elementFromPoint(box.left + x * scale, box.top + y * scale);
+      if (!top) continue;
+      if (top === el || el.contains(top) || top.contains(el)) { own++; continue; }
+      if (top.closest("svg") || (shot(top) !== shot(el) && shot(top) && shot(el))) continue;
+      // What lies over the text here: an opaque panel hides it, a tinted
+      // layer veils it, and an empty container leaves it showing.
+      let state = "clear";
+      for (let node = top; node && node !== stage && !node.contains(el); node = node.parentElement) {
+        if (opaque(node)) { state = "hidden"; by = node; break; }
+        if (tinted(node)) state = "veiled";
+      }
+      if (state === "hidden") hidden++;
+      else if (state === "clear") own++;
+    }
+    if (hidden && own)
+      notes.push("Text " + label(el) + " is partly hidden behind " + label(by) + ". Move one of them, or hide the text before the panel arrives.");
+  }
   // One note per kind of problem and element type, with a count.
   const groups = new Map();
   for (const note of notes) {
@@ -133,10 +173,11 @@ export function contentBoundsSource(options: { coverage?: boolean } = {}) {
     return false;
   };
   const framed = (el) => {
-    const camera = el.closest("[data-r-camera]");
-    if (!camera) return false;
-    const t = getComputedStyle(camera).transform;
-    return !!t && t !== "none" && t !== "matrix(1, 0, 0, 1, 0, 0)";
+    for (let camera = el.closest("[data-r-camera]"); camera; camera = camera.parentElement && camera.parentElement.closest("[data-r-camera]")) {
+      const t = getComputedStyle(camera).transform;
+      if (t && t !== "none" && t !== "matrix(1, 0, 0, 1, 0, 0)") return true;
+    }
+    return false;
   };
   const candidates = [...stage.querySelectorAll("*")].filter((el) => {
     if (el.closest(".r-layer") && !el.closest(".r-stroke")) return false;

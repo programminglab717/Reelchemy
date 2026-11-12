@@ -18,6 +18,7 @@ import {
 import { motionStages, type MotionCode } from "@/motion/document";
 import { contactSheet, previewMotionScene } from "@/motion/preflight";
 import {
+  auditTimes,
   coverageTimes,
   motionProbeTimes,
   reviewTimes,
@@ -190,7 +191,7 @@ async function preview(
       times,
       probeTimes: motionProbeTimes(seconds),
       coverageAt: coverageTimes(seconds),
-      auditAt: times.slice(1),
+      auditAt: auditTimes(seconds, times),
       width: format === "portrait" ? 360 : 640,
       assets,
       timeoutMs: 120000,

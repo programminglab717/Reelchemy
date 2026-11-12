@@ -718,7 +718,10 @@ export const KIT_SOURCE = String.raw`(() => {
       composer.addPass(new T.UnrealBloomPass(new T.Vector2(w, h), b.strength === undefined ? 0.6 : b.strength, b.radius === undefined ? 0.5 : b.radius, b.threshold === undefined ? 0.85 : b.threshold));
       composer.addPass(new T.OutputPass());
     }
-    const draw = () => { camera.lookAt(target); if (composer) composer.render(); else renderer.render(scene, camera); };
+    // A view that is not on screen (its shot is hidden, or it was faded out)
+    // is not rendered: 3D is the slow part of a frame.
+    const shown = () => !canvas.checkVisibility || canvas.checkVisibility({ opacityProperty: true, visibilityProperty: true, checkOpacity: true, checkVisibilityCSS: true });
+    const draw = () => { if (!shown()) return; camera.lookAt(target); if (composer) composer.render(); else renderer.render(scene, camera); };
     (window.__reelchemyDraw = window.__reelchemyDraw || []).push(draw);
     const color = (c) => new T.Color(c && c.startsWith && c.startsWith("var(") ? getComputedStyle(frame).getPropertyValue(c.slice(4, -1)).trim() || "#ffffff" : c || "#ffffff");
     const material = (m) => {

@@ -7,8 +7,10 @@ import { hero3dScene } from "../src/motion/examples/hero-3d";
 import { cdnGlobeScene } from "../src/motion/examples/cdn-globe";
 import { deployWalkthroughScene } from "../src/motion/examples/deploy-walkthrough";
 import {
+  auditTimes,
   coverageTimes,
   motionProbeTimes,
+  reviewTimes,
   sceneProblems,
 } from "../src/director/director";
 import sharp from "sharp";
@@ -326,9 +328,8 @@ for (const [name, code, seconds] of [
     `${name} passes the director's own checks: no errors, frozen stretches, empty frames or layout notes`,
     { timeout: 240000 },
     async () => {
-      const times = [0.15, 0.4, 0.65, 0.9].map(
-        (f) => Math.round(seconds * f * 30) / 30,
-      );
+      // The same moments the director looks at.
+      const times = reviewTimes(seconds);
       const result = await previewMotionScene({
         code,
         format: "landscape",
@@ -336,7 +337,7 @@ for (const [name, code, seconds] of [
         times,
         probeTimes: motionProbeTimes(seconds),
         coverageAt: coverageTimes(seconds),
-        auditAt: times,
+        auditAt: auditTimes(seconds, times),
         timeoutMs: 200000,
       });
       assert.deepEqual(

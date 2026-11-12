@@ -118,6 +118,13 @@ export function motionProbeTimes(seconds: number) {
     (_, i) => Math.round(i * 15) / 30,
   ).filter((t) => t <= seconds);
 }
+// Moments at which the layout is audited: the review stills after the first,
+// and every whole second, so a collision between two stills is still seen.
+export function auditTimes(seconds: number, stills: number[]) {
+  const times = new Set(stills.slice(1));
+  for (let t = 1; t <= seconds - 0.5; t++) times.add(t);
+  return [...times].sort((a, b) => a - b);
+}
 export function coverageTimes(seconds: number) {
   const times: number[] = [];
   for (let t = Math.max(1, seconds * 0.3); t <= seconds - 0.5; t += 1)
@@ -339,7 +346,7 @@ async function writeScene(
       times,
       probeTimes: motionProbeTimes(scene.seconds),
       coverageAt: coverageTimes(scene.seconds),
-      auditAt: times.slice(1),
+      auditAt: auditTimes(scene.seconds, times),
       // The finished composition, before any closing exit.
       boundsAt: Math.max(0, scene.seconds - 0.5),
       assets: Object.fromEntries(
