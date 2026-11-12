@@ -1638,3 +1638,28 @@ Screenshots at 1366 × 768 and 390 × 844 of both views. The overview shows the 
 **Not verified**
 
 - As before: a real provider key, the real claude.ai and ChatGPT connector screens, a deployment.
+
+## Editor inspector, camera flight and depth of field — 0.77 (12 November 2026)
+
+Goal: put the editor's tools beside the film instead of under the timeline, and give 3D shots camera travel and a lens.
+
+**How the inspector was checked**
+
+- A new browser test at 1440 × 900 opens every tool in the inspector and checks that nothing is wider than the inspector or the page, that the whole inspector is on screen before the page scrolls, that it stays below the editor bar when the page does scroll, that the film stays in view while a long tool scrolls, that an edit made there reaches the film, that the sidebar is a rail at 1440 px and full at 1760 px, and that at 1280 px the tools are back under the timeline.
+- **The whole browser suite with the inspector active** (production mode, 1760 × 1000, Debian Chromium 156): **102 passed, 1 failed**. The failure was real: the inspector was taller than the room under the header, so its top slid under the sticky editor bar once the page scrolled and a canvas drag missed its layer. After sizing the inspector to the room available, that test and the canvas test pass at the same size.
+- At 1440 × 900 two existing tests cannot run by design: they search projects in the sidebar while a project is open, and at that width the editor has folded the sidebar to its rail. The first attempt hid the sidebar altogether, which removed the signed-in account and sign-out from the screen; the rail with the account controls in the header replaced it.
+
+**3D**
+
+- Camera flight and focus are covered by a kit test (the camera, its target and its lens reach the last pose; a view with depth of field is opaque).
+- Depth of field on a three-card scene: 60 full-size frames took 114.9 s against 66.4 s without it. Frames were inspected: the focused card is sharp, nearer and farther ones blur, and the focus moves between cards.
+- On the single-product 3D reference depth of field changed little for that cost, so the reference only gained the camera flight.
+
+**Results**
+
+- **Complete production check in CI's image, built here** (default 1280 px window): run pending when this was written.
+- **Complete backend/native suite** as a non-root user: run pending when this was written.
+
+**Not verified**
+
+- The inspector on a real laptop screen by a person; a real provider key; the real claude.ai and ChatGPT connector screens; a deployment.
