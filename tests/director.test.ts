@@ -90,6 +90,18 @@ test("scene replies are parsed from tagged parts, even with commentary", () => {
   assert.throws(() => parseScene("<scene><html>x</html></scene>"));
 });
 
+test("a plan with one very long scene is sent back to be split", () => {
+  assert.throws(
+    () => parsePlan(JSON.stringify({ ...plan, scenes: [plan.scenes[0]] }), 30),
+    /scene 1 is 30 seconds long: plan scenes of 8 to 20 seconds each, so split it into 2 scenes/,
+  );
+  // Up to 22 seconds a single scene stands.
+  assert.equal(
+    parsePlan(JSON.stringify({ ...plan, scenes: [plan.scenes[0]] }), 22).scenes
+      .length,
+    1,
+  );
+});
 test("an over-long plan is cut to size rather than refused", () => {
   const long = parsePlan(
     JSON.stringify({

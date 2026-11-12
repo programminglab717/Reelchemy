@@ -105,11 +105,16 @@ const server = https.createServer(
       console.log(
         `request ${name}: ${body.messages.length} messages, ${images} images`,
       );
+      // Answer the headers at once and send a space now and then (JSON
+      // allows leading whitespace): the HTTP client gives up on a response
+      // that stays silent for five minutes, and an answer can take longer.
+      response.writeHead(200, { "content-type": "application/json" });
+      const alive = setInterval(() => response.write(" "), 30000);
       while (!existsSync(path.join(dir, "done")))
         await new Promise((resolve) => setTimeout(resolve, 500));
+      clearInterval(alive);
       const reply = readFileSync(path.join(dir, "response.txt"), "utf8");
       console.log(`response ${name}: ${reply.length} characters`);
-      response.writeHead(200, { "content-type": "application/json" });
       response.end(
         JSON.stringify({
           id: `msg_${name}`,

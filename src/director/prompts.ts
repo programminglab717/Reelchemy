@@ -385,6 +385,13 @@ export function parsePlan(text: string, duration: number): FilmPlan {
     Math.round(duration * 30) - frames.reduce((a, b) => a + b, 0);
   if (frames.some((f) => f < 90 || f > 1800))
     throw new Error("The plan's scene lengths do not fit the film duration.");
+  // One long scene is slow to write and to revise, and one failure loses
+  // the whole film: longer films are several scenes.
+  const long = frames.findIndex((f) => f > 22 * 30);
+  if (long >= 0)
+    throw new Error(
+      `scene ${long + 1} is ${Math.round(frames[long] / 30)} seconds long: plan scenes of 8 to 20 seconds each, so split it into ${Math.ceil(frames[long] / 30 / 15)} scenes (each with its own shots)`,
+    );
   return {
     ...plan,
     scenes: plan.scenes.map((s, i) => ({ ...s, seconds: frames[i] / 30 })),
