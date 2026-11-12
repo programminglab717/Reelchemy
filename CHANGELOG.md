@@ -682,4 +682,7 @@ Sharper automatic checks and review, a light sweep, and faster 3D frames.
 - **Stricter review.** With stills, the director now judges each one against concrete faults: a third of the frame empty, a label too small to read, something cut off, a still that could be a slide, two stills alike.
 - **Light sweep.** `R.shine(target)` sends a band of light once across a card, stat, button or window.
 - **Tutorial reference.** Its dialog now dims the page behind it, as real interfaces do.
+- **Planning.** No scene is longer than 20 seconds: a plan with a longer one is sent back with the number of scenes to split it into (a model planned one 24-second scene in a live run).
+- **Guide.** Window body sizes, where a callout is attached and how to float it above a window, how long a drift lasts, the steps list's anchor, parking and hiding the cursor, and the highlighter's colour.
+- **Stand-in tool.** `scripts/director-standin.ts` answers its response headers at once and keeps the connection alive, so an answer that takes more than five minutes no longer fails the run.
 - **Faster 3D.** A 3D view whose shot is hidden or faded out is no longer rendered: frames with a hidden view render 20–25% faster in the measured scene (60 full-size frames).

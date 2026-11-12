@@ -1616,3 +1616,25 @@ Screenshots at 1366 × 768 and 390 × 844 of both views. The overview shows the 
 
 - The new MCP tools with the real claude.ai or ChatGPT apps, or with a real shell command against a deployed studio (the tests call the route handlers directly).
 - A real provider key, and a deployment, as before.
+
+## Sharper checks and review, faster 3D, MCP over real HTTP — 0.76 (12 November 2026)
+
+**What was measured**
+
+- **The collision that passed review is now caught.** The scene from the earlier live run in which a callout covered part of a checklist heading reports "Text .ckh ("BROWSER CHECKS") is partly hidden behind .r-callout" at 3.0 s. A scene from an earlier guide trial reports two more real collisions. The five reference scenes and the other live-run scenes report nothing (after the tutorial reference's dialog was given a dimmed backdrop, which the first version of the check rightly objected to).
+- **Hidden 3D views:** 60 full-size frames of the 20-second teaser (two 3D views, one per shot): 115.3 s before and 86.2 s after where neither view is on screen; 141.2 s before and 116.5 s after where one is.
+- **MCP over real HTTP.** A throwaway studio (`next dev`, the media worker and the render worker, a synthetic account, an assistant token) was driven with `curl`:
+  - `create_upload_link`, then `curl -T` with a text file: 415, link still usable; with a PNG: 201 and the image's ID; the same link again: 404;
+  - `write_scene` using that image, `set_captions`, `export_video`, `export_status` until completed (a real render);
+  - `curl -L -o film.mp4 <downloadUrl>`: 200, `video/mp4`, a 5.000-second 1280×720 H.264 file whose frame shows the uploaded image and the caption; a range request: 206; an altered token: 404; an upload to a download link: 404.
+- **A fifth live director run** (stand-in provider, 24-second two-factor-authentication tutorial): the first plan (one 24-second scene) was sent back and returned as two 12-second scenes; both scenes used both revisions under the stricter review; 8 model calls, 690 seconds. The checks reported a title over chart labels and a chip row outside the stage, both fixed by the model. A fourth run before it failed because the stand-in tool's connection timed out after five minutes of silence (the tool's fault, since fixed).
+
+**Results**
+
+- **Complete backend/native suite** as a non-root user on the final tree: **631/631** in 1,008 seconds.
+- **Complete production check in CI's image, built here:** **102/102** in 48.1 minutes on `b205dca`; later commits change documentation only.
+- The tutorial film was exported through the real pipeline at 1080p: two 12-second scenes in 294 and 220 seconds (H.264, 1920×1080), frames inspected.
+
+**Not verified**
+
+- As before: a real provider key, the real claude.ai and ChatGPT connector screens, a deployment.
