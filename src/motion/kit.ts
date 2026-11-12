@@ -708,20 +708,40 @@ export const KIT_SOURCE = String.raw`(() => {
     rim.position.set(-6, 3, -6);
     scene.add(rim);
     scene.add(new T.AmbientLight(0xffffff, 0.2));
-    let composer = null;
-    if (o.bloom) {
-      const b = o.bloom === true ? {} : o.bloom;
+    let composer = null, bokeh = null;
+    // Where the lens is focused: a distance, or a point or object it follows.
+    const focus = { from: 0, to: null, mix: 1 };
+    const distanceTo = (t) => typeof t === "number" ? t : camera.position.distanceTo(Array.isArray(t) ? new T.Vector3(t[0], t[1], t[2]) : t.isVector3 ? t : t.getWorldPosition(new T.Vector3()));
+    if (o.bloom || o.dof) {
+      const b = o.bloom === true || !o.bloom ? {} : o.bloom;
       composer = new T.EffectComposer(renderer);
       composer.setPixelRatio(ratio);
       composer.setSize(w, h);
       composer.addPass(new T.RenderPass(scene, camera));
-      composer.addPass(new T.UnrealBloomPass(new T.Vector2(w, h), b.strength === undefined ? 0.6 : b.strength, b.radius === undefined ? 0.5 : b.radius, b.threshold === undefined ? 0.85 : b.threshold));
+      if (o.dof) {
+        // Depth of field: what is nearer or farther than the focus blurs.
+        const d = o.dof === true ? {} : o.dof;
+        focus.to = d.focus === undefined ? target : d.focus;
+        bokeh = new T.BokehPass(scene, camera, { focus: distanceTo(focus.to), aperture: (d.aperture === undefined ? 1 : d.aperture) * 0.003, maxblur: d.blur === undefined ? 0.012 : d.blur });
+        // The pass has no transparency: the view takes the stage's colour.
+        if (!scene.background) {
+          const c = getComputedStyle(stage).backgroundColor.match(/[\d.]+/g);
+          scene.background = c && (c.length < 4 || Number(c[3]) > 0) ? new T.Color().setRGB(Number(c[0]) / 255, Number(c[1]) / 255, Number(c[2]) / 255, T.SRGBColorSpace) : new T.Color("#000000");
+        }
+        composer.addPass(bokeh);
+      }
+      if (o.bloom) composer.addPass(new T.UnrealBloomPass(new T.Vector2(w, h), b.strength === undefined ? 0.6 : b.strength, b.radius === undefined ? 0.5 : b.radius, b.threshold === undefined ? 0.85 : b.threshold));
       composer.addPass(new T.OutputPass());
     }
     // A view that is not on screen (its shot is hidden, or it was faded out)
     // is not rendered: 3D is the slow part of a frame.
     const shown = () => !canvas.checkVisibility || canvas.checkVisibility({ opacityProperty: true, visibilityProperty: true, checkOpacity: true, checkVisibilityCSS: true });
-    const draw = () => { if (!shown()) return; camera.lookAt(target); if (composer) composer.render(); else renderer.render(scene, camera); };
+    const draw = () => {
+      if (!shown()) return;
+      camera.lookAt(target);
+      if (bokeh) bokeh.uniforms.focus.value = focus.from + (distanceTo(focus.to) - focus.from) * focus.mix;
+      if (composer) composer.render(); else renderer.render(scene, camera);
+    };
     (window.__reelchemyDraw = window.__reelchemyDraw || []).push(draw);
     const color = (c) => new T.Color(c && c.startsWith && c.startsWith("var(") ? getComputedStyle(frame).getPropertyValue(c.slice(4, -1)).trim() || "#ffffff" : c || "#ffffff");
     const material = (m) => {
@@ -999,6 +1019,35 @@ export const KIT_SOURCE = String.raw`(() => {
         g.position.y = b.y;
         scene.add(g);
         return g;
+      },
+      // Flies the camera through poses, in a smooth curve from where it is:
+      // tl.add(view.fly([{ camera: [0, 3, 14], target: [0, 0, 0] }, { camera: [4, 1, 5], target: [1, 0.5, 0] }], { duration: 5 }), 0)
+      fly(stops, q) {
+        const b = Object.assign({ duration: 4, ease: "power2.inOut" }, q || {});
+        const list = [{ camera: camera.position.toArray(), target: target.toArray(), fov: camera.fov }].concat(stops || []);
+        const vec = (a) => new T.Vector3(a[0], a[1], a[2]);
+        let last = list[0];
+        const poses = list.map((s) => (last = { camera: s.camera || last.camera, target: s.target || last.target, fov: s.fov === undefined ? last.fov : s.fov }));
+        const path = new T.CatmullRomCurve3(poses.map((p) => vec(p.camera)), false, "centripetal");
+        const aim = new T.CatmullRomCurve3(poses.map((p) => vec(p.target)), false, "centripetal");
+        const proxy = { p: 0 };
+        return gsap.to(proxy, { p: 1, duration: b.duration, ease: b.ease, onUpdate: () => {
+          camera.position.copy(path.getPoint(proxy.p));
+          target.copy(aim.getPoint(proxy.p));
+          const at = proxy.p * (poses.length - 1), i = Math.min(poses.length - 2, Math.floor(at));
+          const fov = poses[i].fov + (poses[i + 1].fov - poses[i].fov) * (at - i);
+          if (Math.abs(fov - camera.fov) > 1e-4) { camera.fov = fov; camera.updateProjectionMatrix(); }
+        } });
+      },
+      // With dof on, moves the focus to a distance, a point or an object
+      // (which it then follows): tl.add(view.focusOn(card, { duration: 1.2 }), 3)
+      focusOn(t, q) {
+        const b = Object.assign({ duration: 1, ease: "power2.inOut" }, q || {});
+        return gsap.to(focus, { mix: 1, duration: b.duration, ease: b.ease, onStart: () => {
+          focus.from = focus.from + (distanceTo(focus.to) - focus.from) * focus.mix;
+          focus.to = t;
+          focus.mix = 0;
+        } });
       },
       // Tween that circles the camera around the target: tl.add(view.orbit({ from: -30, to: 30, duration: 6 }), 0)
       orbit(q) {

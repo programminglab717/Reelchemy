@@ -165,13 +165,18 @@ test("on a wide screen the editor's tools are an inspector beside the film", asy
   const box = async (selector: string) =>
     (await page.locator(selector).boundingBox())!;
   // The tools stand to the right of the player and the timeline, on the
-  // first screen, and the sidebar has made room for them.
+  // first screen.
   const timeline = await box(".workspace-timeline");
   const inspector = await box(".workspace-side");
   expect(inspector.x).toBeGreaterThanOrEqual(timeline.x + timeline.width);
   expect(inspector.y).toBeLessThan(400);
   expect(timeline.y).toBeLessThan(900);
-  await expect(page.locator(".sidebar")).toBeHidden();
+  // The sidebar has folded to its icon rail, and the account controls are
+  // in the header.
+  expect((await box(".sidebar")).width).toBeLessThan(80);
+  await expect(
+    page.getByRole("button", { name: "Sign out" }).first(),
+  ).toBeVisible();
   const shots = process.env.UI_SHOTS;
   for (const name of [
     "Director",
@@ -213,7 +218,7 @@ test("on a wide screen the editor's tools are an inspector beside the film", asy
   );
   // On a very wide screen the sidebar stays.
   await page.setViewportSize({ width: 1760, height: 1000 });
-  await expect(page.locator(".sidebar")).toBeVisible();
+  expect((await box(".sidebar")).width).toBeGreaterThan(200);
   // Below the inspector's width the tools go back under the timeline.
   await page.setViewportSize({ width: 1280, height: 720 });
   const stacked = await box(".workspace-side");

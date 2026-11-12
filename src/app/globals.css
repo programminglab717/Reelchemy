@@ -3695,14 +3695,63 @@ body {
     font-size: 13px;
   }
 }
-/* Between a laptop and a wide desktop the editor takes the sidebar's room;
-   Done editing or ← Studio brings the sidebar back. */
+/* Between a laptop and a wide desktop the editor needs the sidebar's room:
+   the sidebar folds to its icon rail (as on a phone), and the account name,
+   account settings and sign-out move to the header. Done editing or
+   ← Studio unfolds it. */
 @media (min-width: 1360px) and (max-width: 1699px) {
   .shell:has(.workspace-body.editing) .sidebar {
+    width: 65px;
+    padding: 22px 12px;
+  }
+  .shell:has(.workspace-body.editing) .sidebar .wordmark {
+    font-size: 0;
+    gap: 0;
+  }
+  .shell:has(.workspace-body.editing) .brand-icon {
+    font-size: 31px;
+    flex-shrink: 0;
+  }
+  .shell:has(.workspace-body.editing) .sidebar .beta,
+  .shell:has(.workspace-body.editing) .new-project span,
+  .shell:has(.workspace-body.editing) .new-project kbd,
+  .shell:has(.workspace-body.editing) .nav-label,
+  .shell:has(.workspace-body.editing) .nav-item span,
+  .shell:has(.workspace-body.editing) .recent-label,
+  .shell:has(.workspace-body.editing) .project-list,
+  .shell:has(.workspace-body.editing) .sidebar .project-search,
+  .shell:has(.workspace-body.editing) .sidebar-bottom {
     display: none;
   }
+  .shell:has(.workspace-body.editing) .new-project {
+    padding: 10px;
+    justify-content: center;
+    font-size: 20px;
+    margin-top: 26px;
+  }
+  .shell:has(.workspace-body.editing) .nav-item {
+    padding: 12px;
+    justify-content: center;
+  }
   .shell:has(.workspace-body.editing) main {
-    margin-left: 0;
+    margin-left: 65px;
+  }
+  .shell:has(.workspace-body.editing) .topbar .mobile-sign-out {
+    display: block;
+    order: 2;
+    padding: 7px 12px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .shell:has(.workspace-body.editing) .mobile-account-identity {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 36px;
+    font-size: 12px;
+    border-bottom: 1px solid var(--line);
+    color: var(--ink);
+    white-space: nowrap;
   }
 }
 .workspace-side .editor-shortcuts {

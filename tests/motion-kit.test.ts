@@ -411,3 +411,35 @@ if (!card.querySelector(".r-shine i")) throw new Error("No sweep.");`,
     assert(result.frames[1].change! > 0.3);
   },
 );
+
+test(
+  "the 3D camera flies through poses and the lens focus follows an object",
+  { timeout: 180000 },
+  async () => {
+    const result = await previewMotionScene({
+      code: {
+        libraries: ["three"],
+        html: "",
+        css: "#stage{background:#050816}",
+        js: `const view = R.three({ camera: [0, 2, 12], target: [0, 0, 0], dof: { aperture: 1 } });
+const near = view.box({ w: 2, h: 1.4, d: 0.3, color: "#38bdf8", position: [-3, 0.5, 3] });
+const far = view.box({ w: 2, h: 1.4, d: 0.3, color: "#34d399", position: [3, 0.5, -4] });
+const tl = gsap.timeline();
+tl.add(view.fly([{ camera: [-4, 1.5, 8] }, { camera: [5, 1.5, 2], target: [3, 0.5, -4], fov: 30 }], { duration: 2, ease: "none" }), 0)
+  .add(view.focusOn(far, { duration: 0.5 }), 1)
+  .call(() => {
+    const p = view.camera.position;
+    if (Math.abs(p.x - 5) > 0.01 || Math.abs(p.z - 2) > 0.01) throw new Error("The camera did not arrive: " + p.toArray());
+    if (Math.abs(view.target.x - 3) > 0.01) throw new Error("The target did not arrive.");
+    if (Math.abs(view.camera.fov - 30) > 0.01) throw new Error("The lens did not change.");
+    if (!view.scene.background) throw new Error("A view with depth of field is opaque.");
+  }, null, 2.05);`,
+      },
+      format: "landscape",
+      durationSeconds: 3,
+      times: [0.1, 1, 2.5],
+    });
+    assert.deepEqual(result.errors, []);
+    assert(result.frames[1].change! > 1 && result.frames[2].change! > 1);
+  },
+);
