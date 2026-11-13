@@ -464,15 +464,21 @@ view.label("FAR AWAY", { size: 200, padding: 40, background: "#047857", position
 );
 
 test(
-  "a product shot tilts an element in perspective with a shadow and a reflection",
+  "a product shot tilts an element in perspective with a shadow and a reflection, and a cursor inside it stays on target",
   { timeout: 120000 },
   async () => {
     const result = await previewMotionScene({
       code: {
-        html: '<div class="app">Dashboard</div>',
-        css: "#stage{background:#070b18;color:#e2e8f0}.app{position:absolute;left:460px;top:200px;width:1000px;height:640px;border-radius:28px;background:#111b33;font:600 64px var(--r-display);display:grid;place-items:center}",
+        html: '<div class="app">Dashboard<b class="buy">Upgrade</b></div>',
+        css: "#stage{background:#070b18;color:#e2e8f0}.app{position:absolute;left:460px;top:200px;width:1000px;height:640px;border-radius:28px;background:#111b33;font:600 64px var(--r-display);display:grid;place-items:center}.buy{position:absolute;right:60px;bottom:60px;padding:18px 30px;border-radius:14px;background:#2563eb;font:600 34px var(--r-body)}",
         js: `const app = document.querySelector(".app"), before = R.box(app);
-gsap.timeline().add(R.present(app, { duration: 2 }), 0);
+// A cursor inside the presented element tilts with it and stays on target.
+const cursor = R.cursor({ parent: app, x: 200, y: 200 });
+gsap.timeline().add(R.present(app, { duration: 2 }), 0).add(cursor.moveTo(".buy", { duration: 1 }), 0.5);
+gsap.timeline().call(() => {
+  const c = cursor.element.getBoundingClientRect(), b = document.querySelector(".buy").getBoundingClientRect();
+  if (c.left < b.left || c.left > b.right || c.top < b.top || c.top > b.bottom) throw new Error("The cursor missed the tilted button.");
+}, null, 2.2);
 if (!document.querySelector(".r-present-shadow")) throw new Error("No shadow.");
 if (!app.querySelector(".r-present-sheen")) throw new Error("No reflection.");
 gsap.timeline().call(() => {
