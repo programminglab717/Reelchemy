@@ -1686,3 +1686,8 @@ Goal: the two weak spots left after 0.77 — tool panels that reused phone layou
 **Results**
 
 - **Complete backend/native suite** as a non-root user, on `623f454`: **634/634** in 977 seconds.
+- **Complete production check in CI's image, built here** (default 1280 px window), on `6fc6b9d` (the same code as `623f454`): **103/103** in 47.8 minutes.
+
+**Not verified**
+
+- The new panels on a real laptop screen by a person; a director run with a real provider key; a run that uses the product shot or depth of field unprompted; the real claude.ai and ChatGPT connector screens; a deployment.
