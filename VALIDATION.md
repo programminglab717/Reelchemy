@@ -1663,3 +1663,26 @@ Goal: put the editor's tools beside the film instead of under the timeline, and 
 **Not verified**
 
 - The inspector on a real laptop screen by a person; a real provider key; the real claude.ai and ChatGPT connector screens; a deployment.
+
+## Inspector-ready tool panels, a cheaper lens and restraint — 0.78 (13 November 2026)
+
+Goal: the two weak spots left after 0.77 — tool panels that reused phone layouts in the inspector, and films that were solid explainers rather than high-end.
+
+**Tool panels**
+
+- Every tool was photographed whole in the inspector at 1440 and 1760 px and on a 390 px phone, before and after. Before: file pickers cut to "No …osen" (media, caption import, draft recovery), checkboxes drawn as 150 px blocks above their words, a version picker squeezed beside its heading, layer actions without borders, eight add-layer buttons in a loose cloud and the tabs in two ragged rows. After: fields on a grid of at least two columns, checkboxes beside their words, file pickers in full, wrapped button labels, chip tabs.
+- The editor's browser specs in development mode (workspace modes, canvas, captions, scene ripple, typography, rotation, interface, layer duplication, draft recovery, brand font, editor): **21/21**.
+
+**Depth of field**
+
+- 60 full-size frames of the three-card 3D scene, two runs each: **old lens 124.4–126.9 s, new lens 77.9–86.8 s, no lens 61.7–71.3 s**. The added cost falls from about 85% to about 23%.
+- Stills of the same moments from the old and new lens look alike. A kit test checks that a label at the focus is unchanged between aperture 2 and aperture 0 while a far label blurs. A first version blurred slightly defocused text into the half-size copy too early; the mix now starts at about one pixel of blur.
+
+**Art direction**
+
+- `R.present` has a kit test (it settles at the target angle, the element keeps its layout position, a shadow and a reflection are added, and a cursor inside it lands on a tilted button).
+- Stand-in run 6, the same 2FA tutorial brief as run 5: 7 model calls, 501 s, both scenes approved with no remaining automatic findings. The closing shot is one figure and one line (run 5: a figure, a bar chart, a shield, a call to action and a row of step chips, with a hand-drawn ellipse). No hand-drawn marks. The step list still stays for the whole tutorial scene, and the model did not use the product shot because its cursor sat outside the window; the guide now says where to put it. The film was exported at 1080p (24 s, H.264).
+
+**Results**
+
+- **Complete backend/native suite** as a non-root user, on `623f454`: **634/634** in 977 seconds.
