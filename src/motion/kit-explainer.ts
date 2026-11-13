@@ -36,6 +36,7 @@ export const KIT_EXPLAINER_SOURCE = String.raw`
     ".r-cursor{position:absolute;width:44px;height:44px;z-index:200;pointer-events:none;filter:drop-shadow(0 6px 10px rgba(0,0,0,.45))}",
     ".r-ripple{position:absolute;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;border:3px solid var(--r-accent);z-index:199;pointer-events:none}",
     ".r-chart{position:absolute}.r-chart svg{position:absolute;left:0;top:0;overflow:visible}",
+    ".r-present-shadow{position:absolute;pointer-events:none;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.6),transparent);filter:blur(16px)}.r-present-sheen{position:absolute;inset:0;pointer-events:none;border-radius:inherit;z-index:3;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.13) 48%,rgba(255,255,255,.04) 56%,transparent 64%);background-size:260% 100%;mix-blend-mode:screen}",
     ".r-shine{position:absolute;inset:0;overflow:hidden;pointer-events:none;border-radius:inherit;z-index:3}.r-shine i{position:absolute;top:-60%;left:0;height:220%;mix-blend-mode:screen}",
     ".r-chart-label{position:absolute;font:500 22px var(--r-body);color:var(--r-muted);white-space:nowrap;transform:translateX(-50%)}",
     ".r-chart-value{position:absolute;padding:6px 14px;border-radius:10px;background:var(--r-accent);color:var(--r-bg);font:700 26px var(--r-mono);white-space:nowrap;transform:translate(-50%,-140%)}",
@@ -536,6 +537,38 @@ export const KIT_EXPLAINER_SOURCE = String.raw`
     mask.appendChild(band);
     node.appendChild(mask);
     return gsap.fromTo(band, { x: -w * 1.6 }, { x: node.offsetWidth + w * 0.6, duration: o.duration, ease: o.ease });
+  }
+  // A product shot: a window, phone, card or logo plate shown in perspective,
+  // as if filmed, with a soft contact shadow below it and a reflection that
+  // moves across it while the camera eases round and in. The element keeps
+  // its place in the layout; only its transform changes.
+  // tl.add(R.present(w.element, { from: { rx: 16, ry: -24 }, to: { rx: 5, ry: -8 }, duration: 6 }), 0)
+  function present(target, options) {
+    const o = Object.assign({ push: 1.06, duration: Math.max(1, config.duration), ease: "power2.inOut", perspective: 1800, shadow: true, sheen: true }, options || {});
+    const from = Object.assign({ rx: 16, ry: -24, rz: 2 }, o.from || {});
+    const to = Object.assign({ rx: 5, ry: -8, rz: 0 }, o.to || {});
+    const node = resolve(target, "R.present");
+    const tl = gsap.timeline();
+    gsap.set(node, { transformPerspective: o.perspective, transformOrigin: "50% 50%" });
+    // The push is a move toward the lens (z), so the element's own scale
+    // stays free for its entrance (a window's open()).
+    tl.fromTo(node, { rotationX: from.rx, rotationY: from.ry, rotation: from.rz, z: 0 }, { rotationX: to.rx, rotationY: to.ry, rotation: to.rz, z: o.perspective * (1 - 1 / o.push), duration: o.duration, ease: o.ease }, 0);
+    if (o.shadow && node.parentElement) {
+      const w = node.offsetWidth, h = node.offsetHeight;
+      const shadow = document.createElement("div");
+      shadow.className = "r-present-shadow";
+      css(shadow, { left: node.offsetLeft + w * 0.1, top: node.offsetTop + h * 0.9, width: w * 0.8, height: Math.max(30, h * 0.16) });
+      node.parentElement.insertBefore(shadow, node);
+      tl.fromTo(shadow, { scaleX: 0.86, opacity: 0.55 }, { scaleX: 1.02, opacity: 0.8, duration: o.duration, ease: o.ease }, 0);
+    }
+    if (o.sheen) {
+      if (getComputedStyle(node).position === "static") node.style.position = "relative";
+      const sheen = document.createElement("span");
+      sheen.className = "r-present-sheen";
+      node.appendChild(sheen);
+      tl.fromTo(sheen, { backgroundPosition: "110% 0%" }, { backgroundPosition: "-10% 0%", duration: o.duration, ease: "none" }, 0);
+    }
+    return tl;
   }
   // An attention punch: scale up and settle, with an optional glow.
   function pulse(target, options) {

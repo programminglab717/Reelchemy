@@ -665,6 +665,94 @@ export const KIT_SOURCE = String.raw`(() => {
 
 
   // ------------------------------------------------------------ 3D (three.js)
+  // A depth-of-field pass for R.three. Each pixel's colour and how far it
+  // lies from the focus (its blur radius, signed: nearer is negative) go into
+  // a half-size picture; a gather blur works there (a sample spreads over a
+  // pixel when its own blur reaches it, and a farther sample never spreads
+  // over a nearer, sharper one); the result is mixed back over the sharp
+  // picture by how blurred each pixel is (from about one pixel of blur, so
+  // slightly defocused text stays crisp). In-focus pixels stay full
+  // resolution, and the cost is a fraction of a full-size blur.
+  function lensPass(T, camera, aperture, maxblur) {
+    const vert = "varying vec2 vUv;\nvoid main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }";
+    const u = {
+      tColor: { value: null }, tDepth: { value: null }, tHalf: { value: null }, tBlur: { value: null },
+      focus: { value: 1 }, aperture: { value: aperture }, maxblur: { value: maxblur },
+      near: { value: camera.near }, far: { value: camera.far },
+      width: { value: 1 }, px: { value: new T.Vector2(1, 1) },
+    };
+    const shader = (lines) => new T.ShaderMaterial({ uniforms: u, vertexShader: vert, fragmentShader: lines.join("\n"), depthTest: false, depthWrite: false });
+    const prep = shader([
+      "#include <packing>",
+      "uniform sampler2D tColor;", "uniform sampler2D tDepth;",
+      "uniform float focus;", "uniform float aperture;", "uniform float maxblur;", "uniform float near;", "uniform float far;", "uniform float width;",
+      "varying vec2 vUv;",
+      "void main() {",
+      "  float z = -perspectiveDepthToViewZ(texture2D(tDepth, vUv).x, near, far);",
+      "  float r = clamp((z - focus) * aperture, -maxblur, maxblur) * 0.4 * width;",
+      "  gl_FragColor = vec4(texture2D(tColor, vUv).rgb, r);",
+      "}",
+    ]);
+    const gather = shader([
+      "uniform sampler2D tHalf;", "uniform float maxblur;", "uniform float width;", "uniform vec2 px;",
+      "varying vec2 vUv;",
+      "void main() {",
+      "  vec4 c = texture2D(tHalf, vUv);",
+      "  float size = abs(c.a);",
+      "  float reach = size;",
+      "  float most = maxblur * 0.4 * width;",
+      "  vec3 col = c.rgb;",
+      "  float tot = 1.0;",
+      "  for (int i = 1; i < 24; i++) {",
+      "    float rad = most * sqrt(float(i) / 23.0);",
+      "    float ang = float(i) * 2.39996323;",
+      "    vec4 s = texture2D(tHalf, vUv + vec2(cos(ang), sin(ang)) * rad * px);",
+      "    float ss = abs(s.a);",
+      "    if (s.a > c.a) ss = min(ss, size * 2.0);",
+      "    float m = smoothstep(rad - 0.5, rad + 0.5, ss);",
+      "    col += mix(col / tot, s.rgb, m);",
+      "    tot += 1.0;",
+      "    if (s.a < c.a) reach = max(reach, m * ss);",
+      "  }",
+      "  gl_FragColor = vec4(col / tot, reach);",
+      "}",
+    ]);
+    const mixer = shader([
+      "uniform sampler2D tColor;", "uniform sampler2D tBlur;",
+      "varying vec2 vUv;",
+      "void main() {",
+      "  vec4 b = texture2D(tBlur, vUv);",
+      "  vec3 sharp = texture2D(tColor, vUv).rgb;",
+      "  gl_FragColor = vec4(mix(sharp, b.rgb, smoothstep(0.5, 1.5, b.a)), 1.0);",
+      "}",
+    ]);
+    const half = () => new T.WebGLRenderTarget(1, 1, { type: T.HalfFloatType, depthBuffer: false });
+    const a = half(), bl = half();
+    const quad = new T.Mesh(new T.PlaneGeometry(2, 2), prep);
+    quad.frustumCulled = false;
+    const flat = new T.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const draw = (renderer, material, into) => { quad.material = material; renderer.setRenderTarget(into); renderer.render(quad, flat); };
+    return {
+      uniforms: u, enabled: true, needsSwap: true, clear: false, renderToScreen: false,
+      setSize(W, H) {
+        const hw = Math.max(1, Math.round(W / 2)), hh = Math.max(1, Math.round(H / 2));
+        a.setSize(hw, hh);
+        bl.setSize(hw, hh);
+        u.width.value = hw;
+        u.px.value.set(1 / hw, 1 / hh);
+      },
+      render(renderer, write, read) {
+        u.tColor.value = read.texture;
+        u.tDepth.value = read.depthTexture;
+        draw(renderer, prep, a);
+        u.tHalf.value = a.texture;
+        draw(renderer, gather, bl);
+        u.tBlur.value = bl.texture;
+        draw(renderer, mixer, this.renderToScreen ? null : write);
+      },
+      dispose() { a.dispose(); bl.dispose(); prep.dispose(); gather.dispose(); mixer.dispose(); quad.geometry.dispose(); },
+    };
+  }
   // A lit 3D scene drawn into a canvas on the stage, once per frame. Needs
   // <libraries>three</libraries>. Animate meshes, lights and the camera with
   // GSAP like any object: gsap.to(mesh.rotation, { y: Math.PI, duration: 3 }).
@@ -714,7 +802,10 @@ export const KIT_SOURCE = String.raw`(() => {
     const distanceTo = (t) => typeof t === "number" ? t : camera.position.distanceTo(Array.isArray(t) ? new T.Vector3(t[0], t[1], t[2]) : t.isVector3 ? t : t.getWorldPosition(new T.Vector3()));
     if (o.bloom || o.dof) {
       const b = o.bloom === true || !o.bloom ? {} : o.bloom;
-      composer = new T.EffectComposer(renderer);
+      // With depth of field the view is drawn into a target that keeps its
+      // depth, so the lens needs no second drawing of the scene.
+      const W = Math.max(1, Math.round(w * ratio)), H = Math.max(1, Math.round(h * ratio));
+      composer = new T.EffectComposer(renderer, o.dof ? new T.WebGLRenderTarget(W, H, { type: T.HalfFloatType, depthTexture: new T.DepthTexture(W, H) }) : undefined);
       composer.setPixelRatio(ratio);
       composer.setSize(w, h);
       composer.addPass(new T.RenderPass(scene, camera));
@@ -722,8 +813,9 @@ export const KIT_SOURCE = String.raw`(() => {
         // Depth of field: what is nearer or farther than the focus blurs.
         const d = o.dof === true ? {} : o.dof;
         focus.to = d.focus === undefined ? target : d.focus;
-        bokeh = new T.BokehPass(scene, camera, { focus: distanceTo(focus.to), aperture: (d.aperture === undefined ? 1 : d.aperture) * 0.003, maxblur: d.blur === undefined ? 0.012 : d.blur });
-        // The pass has no transparency: the view takes the stage's colour.
+        bokeh = lensPass(T, camera, (d.aperture === undefined ? 1 : d.aperture) * 0.003, d.blur === undefined ? 0.012 : d.blur);
+        bokeh.uniforms.focus.value = distanceTo(focus.to);
+        // The lens has no transparency: the view takes the stage's colour.
         if (!scene.background) {
           const c = getComputedStyle(stage).backgroundColor.match(/[\d.]+/g);
           scene.background = c && (c.length < 4 || Number(c[3]) > 0) ? new T.Color().setRGB(Number(c[0]) / 255, Number(c[1]) / 255, Number(c[2]) / 255, T.SRGBColorSpace) : new T.Color("#000000");
@@ -1148,7 +1240,7 @@ ${KIT_EXPLAINER_SOURCE}
     connect, line, ring, flow, code, highlight, count, bars, focus, grid, glow, particles,
     asset, image, assetIds: (config.assets || []).slice(), finish,
     three,
-    shots, arrow, callout, mark, steps, window: uiWindow, cursor, chart, stat, iso, headline, swap, captions, drift, pulse, shine,
+    shots, arrow, callout, mark, steps, window: uiWindow, cursor, chart, stat, iso, headline, swap, captions, drift, pulse, shine, present,
   };
   if (window.gsap) {
     gsap.registerPlugin(...${JSON.stringify(gsapPlugins)}.map((name) => window[name]).filter(Boolean));

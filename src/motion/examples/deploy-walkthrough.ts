@@ -2,8 +2,9 @@ import type { MotionCode } from "../document";
 
 // Reference example (12 s, landscape, two shots): a software tutorial.
 // Shot 1: an app window where a cursor creates a project, with callouts and
-// a step list that advances with each click. Shot 2 (wipe): a terminal that
-// types the deploy command, a progress bar, output lines and the live URL.
+// a step list that advances with each click. Shot 2 (wipe): a terminal,
+// seen in perspective as a product shot, that types the deploy command, a
+// progress bar, output lines and the live URL.
 export const deployWalkthroughScene: MotionCode = {
   html: `
 <section class="shot s1">
@@ -67,7 +68,7 @@ tl.from(".s1 .eyebrow", { opacity: 0, x: -30, duration: 0.5 }, 0.1)
   .fromTo(".s1 .form", { autoAlpha: 0, y: 30, scale: 0.96 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.5 }, 3.15)
   .add(steps.activate(1), 3.3)
   .to(".s1 .repo", { duration: 0.9, text: { value: "acme/storefront" }, ease: "none" }, 3.5)
-  .add(R.mark(".s1 .repo", { style: "box", color: "#a78bfa" }).draw({ duration: 0.5 }), 4.5)
+  .add(R.shine(".s1 .repo", { duration: 0.8 }), 4.5)
   .add(cursor.moveTo(".s1 .go", { duration: 0.8 }), 4.6)
   .add(cursor.click({ color: "#34d399" }), 5.5)
   .add(steps.activate(2), 5.6)
@@ -83,11 +84,12 @@ const live = R.stat({ parent: ".s2", x: 1690, y: 560, value: 38, suffix: " s", l
 tl.from(".s2 .eyebrow", { opacity: 0, x: -30, duration: 0.5 }, 6.8)
   .add(R.headline(".s2 .title", { by: "chars", style: "rise" }), 6.8)
   .add(term.open(), 6.9)
+  .add(R.present(term.element, { from: { rx: 10, ry: -16 }, to: { rx: 3, ry: -5 }, duration: 5.2 }), 6.8)
   .add(cmd.type({ duration: 1.1 }), 7.4)
   .from(".s2 .bar i", { scaleX: 0, duration: 2.4, ease: "power1.inOut" }, 8.6)
   .from(lines, { opacity: 0, x: -20, duration: 0.4, stagger: 0.6 }, 8.8)
   .add(live.show({ duration: 1.2 }), 10.4)
-  .add(R.mark(lines[3], { style: "underline", color: "#7dd3fc" }).draw({ duration: 0.5 }), 11.1)
+  .to(lines[3], { color: "#e0f2fe", textShadow: "0 0 24px rgba(125,211,252,.8)", duration: 0.5 }, 11.1)
   .add(R.drift(".s2", { scale: 1.03 }), 6.6);
 
 tl.add(R.shots([".s1", ".s2"], { at: [0, 6.6], transition: "wipe" }), 0);`,

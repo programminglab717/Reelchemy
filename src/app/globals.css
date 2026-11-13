@@ -3760,3 +3760,146 @@ body {
 .workspace-side .editor-shortcuts {
   margin-top: 0;
 }
+/* Tool panels in a narrow column (the editor's inspector, and a phone).
+   Fields share a grid and fill their cells, a checkbox sits beside its
+   words, and a file picker shows its button and the chosen file in full. */
+/* At every width: a checkbox is a box beside its words, not a wide block. */
+.scene-editor label:has(> input[type="checkbox"]),
+.layer-editor label:has(> input[type="checkbox"]) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.scene-editor input[type="checkbox"],
+.layer-editor input[type="checkbox"] {
+  display: inline-block;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+}
+/* The layer list's compact buttons; the selected layer's actions below it
+   are ordinary buttons. */
+.canvas-stack .canvas-inspector .subtle {
+  padding: 7px 11px;
+  border: 1px solid #dde3d5;
+  border-radius: 8px;
+  font-size: 12px;
+}
+.workspace-side input[type="file"] {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  padding: 6px;
+  border: 1px dashed #cfd8c4;
+  border-radius: 8px;
+  background: #fafbf8;
+  color: var(--muted);
+  font-size: 12px;
+}
+.workspace-side input[type="file"]::file-selector-button {
+  min-height: 30px;
+  margin-right: 10px;
+  padding: 4px 12px;
+  border: 1px solid #dde3d5;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+@container inspector (max-width: 700px) {
+  .layer-toolbar,
+  .layer-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(140px, calc(50% - 6px)), 1fr));
+    gap: 12px;
+    align-items: end;
+  }
+  .layer-toolbar > *,
+  .layer-fields > * {
+    min-width: 0;
+  }
+  .layer-fields > label:has(input[type="file"]),
+  .layer-fields > label:has(input[type="range"]),
+  .layer-fields > label:has(textarea),
+  .layer-fields > label:has(> input[type="checkbox"]),
+  .layer-toolbar > label:has(> input[type="checkbox"]) {
+    grid-column: 1 / -1;
+  }
+  /* Short style switches (italic, underline, bold) share a row. */
+  .typography-controls > label:has(> input[type="checkbox"]),
+  .caption-tools .layer-fields > label:has(> input[type="checkbox"]) {
+    grid-column: auto;
+    align-self: center;
+  }
+  .layer-editor .layer-fields input:not([type="checkbox"]):not([type="color"]),
+  .layer-editor .layer-fields select,
+  .layer-toolbar input:not([type="checkbox"]),
+  .layer-toolbar select,
+  .layer-editor .layer-fields textarea {
+    width: 100%;
+    max-width: none;
+  }
+  .layer-toolbar > .subtle,
+  .layer-fields > .subtle {
+    width: 100%;
+    white-space: normal;
+    line-height: 1.3;
+  }
+  .workspace-media form .layer-fields > label {
+    grid-column: 1 / -1;
+  }
+  .workspace-media form .layer-fields input {
+    width: 100%;
+    max-width: none;
+  }
+  /* A tool's heading, notes and full-width controls each take a line. */
+  .scene-editor > h2,
+  .scene-editor > small,
+  .scene-editor > select,
+  .scene-editor > label:has(input[type="file"]) {
+    flex-basis: 100%;
+  }
+  .scene-editor > select {
+    min-width: 0;
+    width: 100%;
+  }
+  .scene-editor > label:has(input[type="file"]) {
+    display: grid;
+    gap: 6px;
+  }
+}
+/* The inspector's tabs are one compact set of chips. */
+@media (min-width: 1360px) {
+  .workspace-body.editing .workspace-side .editor-shortcuts {
+    padding: 0 0 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .workspace-body.editing .workspace-side .editor-tool-links {
+    gap: 6px;
+  }
+  .workspace-body.editing .workspace-side .editor-tool-links button {
+    min-height: 34px;
+    padding: 6px 12px;
+    border: 1px solid #dde3d5;
+    border-radius: 999px;
+    background: #fff;
+    font-size: 13px;
+  }
+  .workspace-body.editing .workspace-side .editor-tool-links button.active {
+    border-color: var(--dark);
+    background: var(--dark);
+    color: #fff;
+    font-weight: 500;
+  }
+}
+.version-history-restore {
+  padding: 9px 10px;
+  border: 1px solid #dde3d5;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 13px;
+}

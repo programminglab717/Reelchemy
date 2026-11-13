@@ -413,6 +413,84 @@ if (!card.querySelector(".r-shine i")) throw new Error("No sweep.");`,
 );
 
 test(
+  "depth of field blurs what is far from the focus and leaves the focused object sharp",
+  { timeout: 240000 },
+  async () => {
+    const scene = (dof: boolean) => ({
+      libraries: ["three" as const],
+      html: "",
+      css: "#stage{background:#050816}",
+      js: `const view = R.three({ camera: [-2.6, 0.4, 11], target: [-2.6, 0.4, 3], background: "#050816", dof: { aperture: ${dof ? 2 : 0} } });
+view.label("SHARP", { size: 90, padding: 30, background: "#1d4ed8", position: [-2.6, 0.4, 3] });
+view.label("FAR AWAY", { size: 200, padding: 40, background: "#047857", position: [6.4, 0.6, -10] });`,
+    });
+    const render = (dof: boolean) =>
+      previewMotionScene({
+        code: scene(dof),
+        format: "landscape",
+        durationSeconds: 1,
+        times: [0.5],
+        width: 960,
+      });
+    const [lens, plain] = await Promise.all([render(true), render(false)]);
+    assert.deepEqual(lens.errors, []);
+    assert.deepEqual(plain.errors, []);
+    // Mean difference between the lens at aperture 2 and at aperture 0 (the
+    // same drawing path, nothing blurred), per half of the frame.
+    const pixels = async (png: Buffer) =>
+      sharp(png).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+    const a = await pixels(lens.frames[0].png),
+      b = await pixels(plain.frames[0].png);
+    const { width, height } = a.info;
+    const half = (right: boolean) => {
+      let sum = 0,
+        n = 0;
+      for (let y = 0; y < height; y++)
+        for (let x = right ? width / 2 : 0; x < (right ? width : width / 2); x++)
+          for (let c = 0; c < 3; c++) {
+            const i = (y * width + x) * 3 + c;
+            sum += Math.abs(a.data[i] - b.data[i]);
+            n++;
+          }
+      return sum / n;
+    };
+    const focused = half(false),
+      distant = half(true);
+    // The focused label faces the camera at the focus distance (left half,
+    // and the left of the right half); the far label is in the right half.
+    assert(distant > 0.5, `the far label is blurred (${distant})`);
+    assert(focused < distant / 4, `the focused label stays sharp (${focused} vs ${distant})`);
+  },
+);
+
+test(
+  "a product shot tilts an element in perspective with a shadow and a reflection",
+  { timeout: 120000 },
+  async () => {
+    const result = await previewMotionScene({
+      code: {
+        html: '<div class="app">Dashboard</div>',
+        css: "#stage{background:#070b18;color:#e2e8f0}.app{position:absolute;left:460px;top:200px;width:1000px;height:640px;border-radius:28px;background:#111b33;font:600 64px var(--r-display);display:grid;place-items:center}",
+        js: `const app = document.querySelector(".app"), before = R.box(app);
+gsap.timeline().add(R.present(app, { duration: 2 }), 0);
+if (!document.querySelector(".r-present-shadow")) throw new Error("No shadow.");
+if (!app.querySelector(".r-present-sheen")) throw new Error("No reflection.");
+gsap.timeline().call(() => {
+  if (Math.abs(gsap.getProperty(app, "rotationY") - -8) > 0.5) throw new Error("The shot did not settle: " + gsap.getProperty(app, "rotationY"));
+  if (app.offsetLeft !== 460) throw new Error("The element moved in the layout.");
+}, null, 2.1);`,
+      },
+      format: "landscape",
+      durationSeconds: 3,
+      times: [0.2, 1, 2.5],
+    });
+    assert.deepEqual(result.errors, []);
+    assert.deepEqual(result.layout, []);
+    assert(result.frames[1].change! > 0.3);
+  },
+);
+
+test(
   "the 3D camera flies through poses and the lens focus follows an object",
   { timeout: 180000 },
   async () => {

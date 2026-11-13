@@ -23,8 +23,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
-import { BokehPass } from "three/addons/postprocessing/BokehPass.js";
-window.THREE = Object.assign({}, core, { RoundedBoxGeometry, SVGLoader, RoomEnvironment, EffectComposer, RenderPass, UnrealBloomPass, OutputPass, BokehPass });
+window.THREE = Object.assign({}, core, { RoundedBoxGeometry, SVGLoader, RoomEnvironment, EffectComposer, RenderPass, UnrealBloomPass, OutputPass });
 `;
 
 export function buildThreeBundle(root = process.cwd()) {
