@@ -697,3 +697,13 @@ An inspector layout for the editor, and camera flight and depth of field in 3D.
 - **Camera flight.** `view.fly([{camera, target, fov}, …], {duration})` moves the 3D camera through poses in one smooth curve.
 - **Depth of field.** `R.three({dof: {focus, aperture}})` blurs what is nearer or farther than the focus, and `view.focusOn(object)` pulls the focus to another object and follows it. It costs about 70% more render time on software rendering (60 full-size frames: 115 s against 66 s), so it is off unless asked for.
 - **Tests.** `E2E_VIEWPORT=1760x1000` runs the browser suite at another window size, to exercise the inspector.
+
+## 0.78.0 — 2026-11-13
+
+Tool panels made for the inspector, a cheaper lens, and art direction for a more high-end look.
+
+- **Tool panels in a narrow column.** In the inspector (and on a phone) each tool lays its fields out on a grid of at least two columns that fill their cells, instead of the phone's ragged rows. A checkbox sits beside its words rather than above them, file pickers show their button and the chosen file's name in full (they were cut to "No …osen"), the version picker takes a line of its own, and long button labels wrap instead of being cut. The inspector's tabs are one compact set of chips.
+- **The Design tool's layer actions are buttons again.** Duplicate layer, Bring forward, Send backward and the centring buttons had lost their borders at every size (a rule meant for the layer list's compact buttons reached them).
+- **Cheaper depth of field.** The lens now reuses the depth the view already drew, blurs a half-size copy (a gather blur in which a farther sample never spreads over a nearer, sharper one) and mixes it back by how blurred each pixel is. It looks the same and adds about a quarter to a 3D shot's render time instead of about 85% (60 full-size frames: 78–87 s against 124–127 s, and 62–71 s without it). The old bokeh pass is no longer in the bundled three.js.
+- **Product shots.** `R.present(element, {from, to, push, duration})` shows a window, phone, card or logo plate in perspective, as if filmed, easing round and in, with a soft contact shadow and a moving reflection. The tutorial reference scene uses it for its terminal.
+- **Restraint.** The director's guide now asks for one focal point per shot, at most three groups competing for attention, nothing kept on screen after its moment, scale rather than more things to fill a frame, and hand-drawn marks only in a hand-made style; the review judges each still for being busy. The tutorial reference scene replaces its hand-drawn marks with a shine and a glow.
